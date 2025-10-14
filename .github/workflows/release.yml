@@ -7,7 +7,8 @@ on:
 permissions: {}
 
 jobs:
-  example:
+  release:
+    name: Release
     uses: equinor/ops-actions/.github/workflows/release-please.yml@v9.26.1
     with:
       release_type: python
