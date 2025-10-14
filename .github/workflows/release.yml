@@ -16,3 +16,12 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
+
+  publish:
+    name: Publish
+    needs: release
+    if: needs.release.outputs.release_created
+    uses: ./.github/workflows/publish.yml
+    permissions:
+      contents: read
+      id-token: write
