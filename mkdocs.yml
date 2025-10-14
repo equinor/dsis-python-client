@@ -1,0 +1,7 @@
+site_name: DSIS Python Client
+site_url: https://equinor.github.io/dsis-python-client/
+theme:
+  name: material
+
+nav:
+  - Home: index.md
