@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/equinor/dsis-python-client/compare/v0.1.1...v0.1.2) (2025-10-14)
+
+
+### Continuous Integration
+
+* publish to PyPI on workflow call ([945cce6](https://github.com/equinor/dsis-python-client/commit/945cce6ec6b5587b095a28f605395a86d3657dd9))
+
 ## [0.1.1](https://github.com/equinor/dsis-python-client/compare/v0.1.0...v0.1.1) (2025-10-14)
 
 
