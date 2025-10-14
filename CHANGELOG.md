@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/equinor/dsis-python-client/compare/v0.1.0...v0.1.1) (2025-10-14)
+
+
+### Miscellaneous Chores
+
+* trigger release ([3544d96](https://github.com/equinor/dsis-python-client/commit/3544d96cb3e0c43506e52c1a3df184f41128f481))
+
 ## 0.1.0 (2025-10-14)
 
 
