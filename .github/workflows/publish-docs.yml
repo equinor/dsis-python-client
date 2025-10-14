@@ -1,12 +1,10 @@
 name: Publish Docs
 
 on:
-  # Ensure successful build before merging PR to main
   pull_request:
     branches: [main]
     paths: [docs/**, mkdocs.yml]
 
-  # Build and publish docs on merge to main
   push:
     branches: [main]
     paths: [docs/**, mkdocs.yml]
