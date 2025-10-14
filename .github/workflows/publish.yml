@@ -4,8 +4,8 @@ on:
   pull_request:
     branches: [main]
 
-  release:
-    types: [published]
+  push:
+    tags: [v*]
 
 permissions: {}
 
