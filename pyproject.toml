@@ -1,0 +1,15 @@
+[project]
+name = "dsis-client"
+version = "0.1.0"
+description = "A Python client for communicating with DSIS"
+readme = "README.md"
+authors = []
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+dsis-client = "dsis_client:main"
+
+[build-system]
+requires = ["uv_build>=0.8.23,<0.9.0"]
+build-backend = "uv_build"
