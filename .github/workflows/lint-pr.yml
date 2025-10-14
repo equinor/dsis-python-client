@@ -1,0 +1,20 @@
+name: Lint Pull Request
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - edited
+
+permissions: {}
+
+jobs:
+  lint-pr:
+    name: Lint PR Title
+    uses: equinor/ops-actions/.github/workflows/commitlint.yml@v9.26.1
+    with:
+      message: ${{ github.event.pull_request.title }}
+    permissions:
+      contents: read
