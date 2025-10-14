@@ -2,6 +2,12 @@
 
 A Python client for communicating with DSIS.
 
+## Installation
+
+```console
+pip install dsis-client
+```
+
 ## Contributing
 
 See [contributing guidelines](CONTRIBUTING.md).
