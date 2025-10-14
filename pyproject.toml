@@ -6,6 +6,8 @@ readme = "README.md"
 authors = []
 requires-python = ">=3.12"
 dependencies = []
+license = "MIT"
+license-files = ["LICENSE"]
 
 [project.scripts]
 dsis-client = "dsis_client:main"
