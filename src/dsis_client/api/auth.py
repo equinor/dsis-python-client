@@ -76,7 +76,7 @@ class DSISAuth:
             'Content-Type': 'application/x-www-form-urlencoded',
             'Authorization': f'Bearer {aad_token}',
             'dsis-site': self.config.environment.value,
-            'Ocp-Apim-Subscription-Key': self.config.subscription_key
+            'Ocp-Apim-Subscription-Key': self.config.subscription_key_dsauth
         }
         
         response = self._session.post(
@@ -109,7 +109,7 @@ class DSISAuth:
         
         return {
             'Authorization': f'Bearer {self._aad_token}',
-            'Ocp-Apim-Subscription-Key': self.config.subscription_key,
+            'Ocp-Apim-Subscription-Key': self.config.subscription_key_dsdata,
             'dsis-site': self.config.environment.value,
             'dsis-token': self._dsis_token
         }

@@ -30,7 +30,8 @@ DSIS_CLIENT_SECRET=<secret>
 DSIS_ACCESS_APP_ID=<access-app-id>
 DSIS_USERNAME=<dsis-user>
 DSIS_PASSWORD=<dsis-password>
-DSIS_SUBSCRIPTION_KEY=<subscription-key>
+DSIS_SUBSCRIPTION_KEY_DSAUTH=<subscription-key-for-dsauth>
+DSIS_SUBSCRIPTION_KEY_DSDATA=<subscription-key-for-dsdata>
 ```
 
 Load via your platform (shell export, CI variables, secret manager). Avoid committing real values.
@@ -42,7 +43,7 @@ import os
 required = [
     "DSIS_TENANT_ID", "DSIS_CLIENT_ID", "DSIS_CLIENT_SECRET",
     "DSIS_ACCESS_APP_ID", "DSIS_USERNAME", "DSIS_PASSWORD",
-    "DSIS_SUBSCRIPTION_KEY"
+    "DSIS_SUBSCRIPTION_KEY_DSAUTH", "DSIS_SUBSCRIPTION_KEY_DSDATA"
 ]
 missing = [v for v in required if not os.getenv(v)]
 if missing:
@@ -63,7 +64,8 @@ config = DSISConfig(
     access_app_id=os.getenv("DSIS_ACCESS_APP_ID"),
     dsis_username=os.getenv("DSIS_USERNAME"),
     dsis_password=os.getenv("DSIS_PASSWORD"),
-    subscription_key=os.getenv("DSIS_SUBSCRIPTION_KEY")
+    subscription_key_dsauth=os.getenv("DSIS_SUBSCRIPTION_KEY_DSAUTH"),
+    subscription_key_dsdata=os.getenv("DSIS_SUBSCRIPTION_KEY_DSDATA")
 )
 
 client = DSISClient(config)

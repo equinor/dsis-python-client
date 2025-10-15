@@ -32,8 +32,11 @@ class DSISConfig:
     dsis_username: str
     dsis_password: str
     
-    # Subscription key
-    subscription_key: str
+    # Subscription keys (APIM products)
+    # - subscription_key_dsauth: used when calling the dsauth token endpoint
+    # - subscription_key_dsdata: used when calling dsdata endpoints
+    subscription_key_dsauth: str
+    subscription_key_dsdata: str
     
     # Base URLs for each environment
     _base_urls = {

@@ -28,7 +28,8 @@ Configuration fields (all required):
 | access_app_id | Access application id (internal) |
 | dsis_username | DSIS account user name |
 | dsis_password | DSIS account password |
-| subscription_key | APIM subscription key |
+| subscription_key_dsauth | APIM subscription key for dsauth (token exchange) |
+| subscription_key_dsdata | APIM subscription key for dsdata (data calls) |
 
 Derived properties:
 
@@ -76,7 +77,7 @@ Obtains Azure AD token then DSIS token; exposed only via `DSISClient`.
 
 ### Environment
 
-Enum: `DEV`, `QA`, `PROD`. This is important as 'dsis-site' variable in the header of the token endpoint is dependent on it. It also defines what base_url we are using. 
+Enum: `DEV`, `QA`, `PROD`. This is important as 'dsis-site' variable in the header of the token endpoint is dependent on it. It also defines what base_url we are using.
 
 ## Minimal Usage
 
@@ -92,7 +93,8 @@ cfg = DSISConfig(
     access_app_id=os.getenv("DSIS_ACCESS_APP_ID"),
     dsis_username=os.getenv("DSIS_USERNAME"),
     dsis_password=os.getenv("DSIS_PASSWORD"),
-    subscription_key=os.getenv("DSIS_SUBSCRIPTION_KEY")
+    subscription_key_dsauth=os.getenv("DSIS_SUBSCRIPTION_KEY_DSAUTH"),
+    subscription_key_dsdata=os.getenv("DSIS_SUBSCRIPTION_KEY_DSDATA")
 )
 client = DSISClient(cfg)
 data = client.get_odata("OW5000", "<record-id>")
