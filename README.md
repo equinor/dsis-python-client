@@ -1,5 +1,9 @@
 # DSIS Python Client
 
+![PyPI - Version](https://img.shields.io/pypi/v/dsis-client)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/dsis-client)
+![PyPI - License](https://img.shields.io/pypi/l/dsis-client)
+
 A Python client for communicating with DSIS.
 
 ## Installation
