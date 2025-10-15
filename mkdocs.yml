@@ -7,7 +7,8 @@ theme:
 
 markdown_extensions:
   # Enable the Snippets extension to add the ability to embed content from
-  # external files (e.g., CHANGELOG.md at the repository root).
+  # external files.
+  # Ref: https://squidfunk.github.io/mkdocs-material/setup/extensions/python-markdown-extensions/#snippets
   - pymdownx.snippets
 
 nav:
