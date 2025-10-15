@@ -13,4 +13,4 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Changelog: changelog.md
+  - Changelog: changelog/index.md
