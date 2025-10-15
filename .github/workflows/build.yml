@@ -12,3 +12,5 @@ jobs:
     uses: equinor/ops-actions/.github/workflows/python-package.yml@d0fd1c8a8a662b59bba59be3b777cee307bea04a # TODO: pin to version tag
     permissions:
       contents: read
+    with:
+      upload_artifact: false
