@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.4](https://github.com/equinor/dsis-python-client/compare/v0.1.3...v0.1.4) (2025-10-15)
+
+
+### Documentation
+
+* add absolute links for contributing guidelines and license ([d1b11ad](https://github.com/equinor/dsis-python-client/commit/d1b11adfbe850264346cbe6591d1157c8496e2ca))
+
+
+### Continuous Integration
+
+* build using reusable workflow ([56b2dfb](https://github.com/equinor/dsis-python-client/commit/56b2dfbe6b35513e66beef0a0fc6990a12251f93))
+
 ## [0.1.3](https://github.com/equinor/dsis-python-client/compare/v0.1.2...v0.1.3) (2025-10-15)
 
 

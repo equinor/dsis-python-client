@@ -1,6 +1,6 @@
 [project]
 name = "dsis-client"
-version = "0.1.3"
+version = "0.1.4"
 description = "A Python client for communicating with DSIS"
 readme = "README.md"
 authors = []
