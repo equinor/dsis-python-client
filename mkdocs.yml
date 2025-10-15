@@ -5,3 +5,7 @@ theme:
 
 nav:
   - Home: index.md
+  - Guides:
+    - Getting Started: guides/getting-started.md
+  - API:
+    - Summary: api/index.md
