@@ -4,47 +4,11 @@ on:
   pull_request:
     branches: [main]
 
-  workflow_call:
-    inputs:
-      upload_artifact:
-        description: Should the build artifact be uploaded?
-        type: boolean
-        required: false
-        default: false
-
-    outputs:
-      artifact_name:
-        description: The name of the build artifact.
-        value: python-package-dist
-
 permissions: {}
 
 jobs:
-  python-build:
-    name: Python Build
-    runs-on: ubuntu-latest
+  build:
+    name: Build
+    uses: equinor/ops-actions/.github/workflows/python-package.yml@v9.27.0
     permissions:
-      contents: read # Required to checkout the repository.
-    steps:
-      - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
-        with:
-          persist-credentials: false
-
-      - name: Setup Python
-        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
-        with:
-          python-version-file: .python-version
-
-      - name: Install dependencies
-        run: python -m pip install --upgrade pip build
-
-      - name: Generate distributions
-        run: python -m build
-
-      - name: Upload artifact
-        if: inputs.upload_artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: python-package-dist
-          path: dist
+      contents: read
