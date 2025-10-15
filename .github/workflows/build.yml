@@ -1,10 +1,21 @@
-name: Build & Publish
+name: Build
 
 on:
   pull_request:
     branches: [main]
 
-  workflow_call: {}
+  workflow_call:
+    inputs:
+      upload_artifact:
+        description: Should the build artifact be uploaded?
+        type: boolean
+        required: false
+        default: false
+
+    outputs:
+      artifact_name:
+        description: The name of the build artifact.
+        value: python-package-dist
 
 permissions: {}
 
@@ -32,30 +43,8 @@ jobs:
         run: python -m build
 
       - name: Upload artifact
-        id: upload-artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: inputs.upload_artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: python-package-dist
           path: dist
-
-    outputs:
-      artifact-uploaded: ${{ steps.upload-artifact.outcome == 'success' }}
-
-  pypi-publish:
-    name: PyPI Publish
-    needs: python-build
-    if: needs.python-build.outputs.artifact-uploaded == 'true'
-    runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write # Required for PyPI Trusted Publishing.
-    steps:
-      - name: Download artifact
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
-        with:
-          name: python-package-dist
-          path: dist
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e
