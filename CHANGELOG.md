@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.5](https://github.com/equinor/dsis-python-client/compare/v0.1.4...v0.1.5) (2025-10-17)
+
+
+### Documentation
+
+* add changelog tab ([#14](https://github.com/equinor/dsis-python-client/issues/14)) ([0c23e6d](https://github.com/equinor/dsis-python-client/commit/0c23e6d3cb3d10f2ef928775b4879215690c661e))
+* add home page ([#17](https://github.com/equinor/dsis-python-client/issues/17)) ([1638ce6](https://github.com/equinor/dsis-python-client/commit/1638ce6d4792a59c5f317d9a231c3a7bd2b9aad8))
+
 ## [0.1.4](https://github.com/equinor/dsis-python-client/compare/v0.1.3...v0.1.4) (2025-10-15)
 
 
