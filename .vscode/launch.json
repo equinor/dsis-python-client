@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch docs",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "mkdocs",
+      "args": ["serve"],
+      "serverReadyAction": {
+        "pattern": "Serving on http://(\\S+)",
+        "uriFormat": "http://%s",
+        "action": "openExternally"
+      }
+    }
+  ]
+}
