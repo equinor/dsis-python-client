@@ -2,9 +2,9 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Launch docs",
       "type": "debugpy",
       "request": "launch",
+      "name": "Launch docs",
       "module": "mkdocs",
       "args": ["serve"],
       "serverReadyAction": {
