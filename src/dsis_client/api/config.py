@@ -2,10 +2,13 @@
 Configuration module for DSIS API client.
 
 Handles environment-specific settings and endpoints for the DSIS APIM system.
+Provides configuration validation and endpoint management for different environments.
 """
 
 from enum import Enum
 from dataclasses import dataclass
+from typing import List
+from .exceptions import DSISConfigurationError
 
 
 class Environment(Enum):
@@ -18,7 +21,20 @@ class Environment(Enum):
 
 @dataclass
 class DSISConfig:
-    """Configuration for DSIS API client."""
+    """Configuration for DSIS API client.
+
+    Attributes:
+        environment: Target environment (DEV, QA, or PROD)
+        tenant_id: Azure AD tenant ID
+        client_id: Azure AD client/application ID
+        client_secret: Azure AD client secret
+        access_app_id: Azure AD access application ID for token resource
+        dsis_username: DSIS username for authentication
+        dsis_password: DSIS password for authentication
+        subscription_key_dsauth: APIM subscription key for dsauth endpoint
+        subscription_key_dsdata: APIM subscription key for dsdata endpoint
+        dsis_site: DSIS site header (default: "qa")
+    """
 
     # Environment settings
     environment: Environment
@@ -27,17 +43,46 @@ class DSISConfig:
     tenant_id: str
     client_id: str
     client_secret: str
-    access_app_id: str  # Access application ID for the target environment
+    access_app_id: str
 
     # DSIS credentials
     dsis_username: str
     dsis_password: str
 
     # Subscription keys (APIM products)
-    # - subscription_key_dsauth: used when calling the dsauth token endpoint
-    # - subscription_key_dsdata: used when calling dsdata endpoints
     subscription_key_dsauth: str
     subscription_key_dsdata: str
+
+    # DSIS site header (typically "qa" for DEV endpoint)
+    dsis_site: str = "qa"
+
+    def __post_init__(self) -> None:
+        """Validate configuration after initialization."""
+        self._validate_config()
+
+    def _validate_config(self) -> None:
+        """Validate that all required configuration values are present and valid."""
+        required_fields = {
+            "tenant_id": self.tenant_id,
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "access_app_id": self.access_app_id,
+            "dsis_username": self.dsis_username,
+            "dsis_password": self.dsis_password,
+            "subscription_key_dsauth": self.subscription_key_dsauth,
+            "subscription_key_dsdata": self.subscription_key_dsdata,
+        }
+
+        for field_name, field_value in required_fields.items():
+            if not field_value or not isinstance(field_value, str):
+                raise DSISConfigurationError(
+                    f"Configuration error: '{field_name}' must be a non-empty string"
+                )
+
+        if not isinstance(self.environment, Environment):
+            raise DSISConfigurationError(
+                "Configuration error: 'environment' must be an Environment enum value"
+            )
 
     # Base URLs for each environment
     _base_urls = {
@@ -67,6 +112,10 @@ class DSISConfig:
         return f"https://login.microsoftonline.com/{self.tenant_id}"
 
     @property
-    def scope(self) -> list:
-        """Get the OAuth2 scope for the access application."""
+    def scope(self) -> List[str]:
+        """Get the OAuth2 scope for the access application.
+
+        Returns:
+            List containing the OAuth2 scope for token acquisition
+        """
         return [f"{self.access_app_id}/.default"]

@@ -10,19 +10,21 @@ The module includes:
 - API client for making authenticated requests
 - Environment configuration for dev, qa, and prod
 - Subscription key management
+- Custom exceptions for error handling
 
 Usage:
     from dsis_client import DSISClient, DSISConfig, Environment
 
     config = DSISConfig(
-        environment=Environment.PROD,
+        environment=Environment.DEV,
         tenant_id="your-tenant-id",
         client_id="your-client-id",
         client_secret="your-client-secret",
         access_app_id="your-access-app-id",
         dsis_username="your-dsis-username",
         dsis_password="your-dsis-password",
-        subscription_key="your-subscription-key"
+        subscription_key_dsauth="your-dsauth-key",
+        subscription_key_dsdata="your-dsdata-key"
     )
 
     client = DSISClient(config)
@@ -32,5 +34,20 @@ Usage:
 from .client import DSISClient
 from .auth import DSISAuth
 from .config import DSISConfig, Environment
+from .exceptions import (
+    DSISException,
+    DSISAuthenticationError,
+    DSISAPIError,
+    DSISConfigurationError,
+)
 
-__all__ = ["DSISClient", "DSISAuth", "DSISConfig", "Environment"]
+__all__ = [
+    "DSISClient",
+    "DSISAuth",
+    "DSISConfig",
+    "Environment",
+    "DSISException",
+    "DSISAuthenticationError",
+    "DSISAPIError",
+    "DSISConfigurationError",
+]
