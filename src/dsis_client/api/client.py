@@ -4,8 +4,9 @@ Provides the DSISClient class for making authenticated requests to the DSIS API.
 Handles request construction, authentication header management, and response parsing.
 """
 
+import json
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Type, TypeVar, Union
 from urllib.parse import urljoin
 
 import requests
@@ -15,6 +16,18 @@ from .config import DSISConfig
 from .exceptions import DSISAPIError
 
 logger = logging.getLogger(__name__)
+
+# Type variable for model classes
+T = TypeVar('T')
+
+# Try to import dsis_schemas utilities
+try:
+    from dsis_model_sdk import models
+    from dsis_model_sdk import deserialize_from_json
+    HAS_DSIS_SCHEMAS = True
+except ImportError:
+    HAS_DSIS_SCHEMAS = False
+    logger.debug("dsis_schemas package not available")
 
 
 class DSISClient:
@@ -44,79 +57,280 @@ class DSISClient:
 
     def get(
         self,
-        *path_segments: Union[str, int],
+        district_id: Optional[Union[str, int]] = None,
+        field: Optional[str] = None,
+        data_table: Optional[str] = None,
         format_type: str = "json",
         select: Optional[str] = None,
-        params: Optional[Dict[str, Any]] = None,
+        expand: Optional[str] = None,
+        filter: Optional[str] = None,
+        validate_model: bool = True,
         **extra_query: Any,
     ) -> Dict[str, Any]:
-        """Make a GET request to the DSIS API using configured model.
+        """Make a GET request to the DSIS OData API.
 
-        Constructs an endpoint URL from path segments and makes an authenticated
-        GET request to the DSIS API with optional query parameters.
-        Always uses the configured model_name and model_version.
+        Constructs the OData endpoint URL following the pattern:
+        /<model_name>/<version>[/<district_id>][/<field>][/<data_table>]
+
+        All path segments are optional and can be omitted.
+        The data_table parameter refers to specific data models from dsis-schemas
+        (e.g., "Basin", "Well", "Wellbore", "WellLog", etc.).
 
         Args:
-            *path_segments: Additional path segments after model_name/model_version
+            district_id: Optional district ID for the query
+            field: Optional field name for the query
+            data_table: Optional data table/model name (e.g., "Basin", "Well", "Wellbore").
+                       If None, uses configured model_name
             format_type: Response format (default: "json")
-            select: OData $select parameter for field selection
-            params: Dictionary of additional query parameters
-            **extra_query: Additional query parameters as keyword arguments
+            select: OData $select parameter for field selection (comma-separated)
+            expand: OData $expand parameter for related data (comma-separated)
+            filter: OData $filter parameter for filtering (OData filter expression)
+            validate_model: If True, validates that data_table is a known model (default: True)
+            **extra_query: Additional OData query parameters
 
         Returns:
             Dictionary containing the parsed API response
 
         Raises:
             DSISAPIError: If the API request fails
+            ValueError: If validate_model=True and data_table is not a known model
 
         Example:
-            >>> client.get(format_type="json")  # Gets all records
-            >>> client.get("5000107")  # Gets specific record
-            >>> client.get(select="field1,field2")  # With field selection
+            >>> client.get()  # Just model and version
+            >>> client.get("123", "wells", data_table="Basin")
+            >>> client.get("123", "wells", data_table="Well", select="name,depth")
+            >>> client.get("123", "wells", data_table="Well", filter="depth gt 1000")
         """
-        # Always prepend configured model_name and model_version
-        all_segments = (self.config.model_name, self.config.model_version) + path_segments
-        endpoint = "/".join(str(s).strip("/") for s in all_segments if s)
+        # Determine the data_table to use
+        if data_table is not None:
+            table_to_use = data_table
+        elif district_id is not None or field is not None:
+            table_to_use = self.config.model_name
+            logger.debug(f"Using configured model as data_table: {self.config.model_name}")
+        else:
+            table_to_use = None
+
+        # Validate data_table if provided and validation is enabled
+        if validate_model and table_to_use is not None and HAS_DSIS_SCHEMAS:
+            if not self._is_valid_model(table_to_use):
+                raise ValueError(
+                    f"Unknown model: '{table_to_use}'. Use get_model_by_name() to discover available models."
+                )
+
+        # Build endpoint path segments
+        segments = [self.config.model_name, self.config.model_version]
+        if district_id is not None:
+            segments.append(str(district_id))
+        if field is not None:
+            segments.append(field)
+        if table_to_use is not None:
+            segments.append(table_to_use)
+
+        endpoint = "/".join(segments)
+
+        # Build query parameters
         query: Dict[str, Any] = {"$format": format_type}
         if select:
             query["$select"] = select
-        if params:
-            query.update(params)
+        if expand:
+            query["$expand"] = expand
+        if filter:
+            query["$filter"] = filter
         if extra_query:
             query.update(extra_query)
+
         return self._request(endpoint, query)
 
     def get_odata(
         self,
-        record_id: Optional[Union[str, int]] = None,
+        district_id: Optional[Union[str, int]] = None,
+        field: Optional[str] = None,
+        data_table: Optional[str] = None,
         format_type: str = "json",
-        **query: Any,
+        select: Optional[str] = None,
+        expand: Optional[str] = None,
+        filter: Optional[str] = None,
+        validate_model: bool = True,
+        **extra_query: Any,
     ) -> Dict[str, Any]:
         """Get OData from the configured model.
 
-        Convenience method for retrieving OData, optionally filtered by record ID.
+        Convenience method for retrieving OData. Delegates to get() method.
         Always uses the configured model_name and model_version.
+        The data_table parameter refers to specific data models from dsis-schemas
+        (e.g., "Basin", "Well", "Wellbore", "WellLog", etc.).
 
         Args:
-            record_id: Optional record ID to retrieve a specific record
+            district_id: Optional district ID for the query
+            field: Optional field name for the query
+            data_table: Optional data table/model name (e.g., "Basin", "Well", "Wellbore").
+                       If None, uses configured model_name
             format_type: Response format (default: "json")
-            **query: Additional OData query parameters
+            select: OData $select parameter for field selection (comma-separated)
+            expand: OData $expand parameter for related data (comma-separated)
+            filter: OData $filter parameter for filtering (OData filter expression)
+            validate_model: If True, validates that data_table is a known model (default: True)
+            **extra_query: Additional OData query parameters
 
         Returns:
             Dictionary containing the parsed OData response
 
         Raises:
             DSISAPIError: If the API request fails
+            ValueError: If validate_model=True and data_table is not a known model
 
         Example:
-            >>> client.get_odata()  # Gets all records
-            >>> client.get_odata("5000107")  # Gets specific record
-            >>> client.get_odata(select="field1,field2")  # With field selection
+            >>> client.get_odata()  # Just model and version
+            >>> client.get_odata("123", "wells", data_table="Basin")
+            >>> client.get_odata("123", "wells", data_table="Well", select="name,depth")
+            >>> client.get_odata("123", "wells", data_table="Well", filter="depth gt 1000")
         """
-        segments = (record_id,) if record_id is not None else tuple()
-        return self.get(*segments, format_type=format_type, **query)
+        return self.get(
+            district_id=district_id,
+            field=field,
+            data_table=data_table,
+            format_type=format_type,
+            select=select,
+            expand=expand,
+            filter=filter,
+            validate_model=validate_model,
+            **extra_query,
+        )
 
 
+
+    def _is_valid_model(self, model_name: str, domain: str = "common") -> bool:
+        """Check if a model name is valid in dsis_schemas.
+
+        Args:
+            model_name: Name of the model to check
+            domain: Domain to search in - "common" or "native" (default: "common")
+
+        Returns:
+            True if the model exists, False otherwise
+        """
+        if not HAS_DSIS_SCHEMAS:
+            logger.debug("dsis_schemas not available, skipping model validation")
+            return True
+
+        try:
+            model = self.get_model_by_name(model_name, domain)
+            return model is not None
+        except Exception as e:
+            logger.debug(f"Error validating model {model_name}: {e}")
+            return False
+
+    def get_model_by_name(self, model_name: str, domain: str = "common") -> Optional[Type]:
+        """Get a dsis_schemas model class by name.
+
+        Requires dsis_schemas package to be installed.
+
+        Args:
+            model_name: Name of the model (e.g., "Well", "Basin", "Wellbore")
+            domain: Domain to search in - "common" or "native" (default: "common")
+
+        Returns:
+            The model class if found, None otherwise
+
+        Raises:
+            ImportError: If dsis_schemas package is not installed
+
+        Example:
+            >>> Well = client.get_model_by_name("Well")
+            >>> Basin = client.get_model_by_name("Basin", domain="common")
+        """
+        if not HAS_DSIS_SCHEMAS:
+            raise ImportError(
+                "dsis_schemas package is required. Install it with: pip install dsis-schemas"
+            )
+
+        logger.debug(f"Getting model: {model_name} from {domain} domain")
+        try:
+            if domain == "common":
+                model_module = models.common
+            elif domain == "native":
+                model_module = models.native
+            else:
+                raise ValueError(f"Unknown domain: {domain}")
+
+            return getattr(model_module, model_name, None)
+        except Exception as e:
+            logger.error(f"Failed to get model {model_name}: {e}")
+            return None
+
+    def get_model_fields(self, model_name: str, domain: str = "common") -> Optional[Dict[str, Any]]:
+        """Get field information for a dsis_schemas model.
+
+        Requires dsis_schemas package to be installed.
+
+        Args:
+            model_name: Name of the model (e.g., "Well", "Basin", "Wellbore")
+            domain: Domain to search in - "common" or "native" (default: "common")
+
+        Returns:
+            Dictionary of field names and their information
+
+        Raises:
+            ImportError: If dsis_schemas package is not installed
+
+        Example:
+            >>> fields = client.get_model_fields("Well")
+            >>> print(fields.keys())
+        """
+        if not HAS_DSIS_SCHEMAS:
+            raise ImportError(
+                "dsis_schemas package is required. Install it with: pip install dsis-schemas"
+            )
+
+        logger.debug(f"Getting fields for model: {model_name} from {domain} domain")
+        try:
+            model_class = self.get_model_by_name(model_name, domain)
+            if model_class is None:
+                return None
+            return dict(model_class.model_fields)
+        except Exception as e:
+            logger.error(f"Failed to get fields for {model_name}: {e}")
+            return None
+
+    def deserialize_response(self, response: Dict[str, Any], model_name: str, domain: str = "common") -> Optional[Any]:
+        """Deserialize API response to a dsis_schemas model instance.
+
+        Requires dsis_schemas package to be installed.
+
+        Args:
+            response: API response dictionary
+            model_name: Name of the model to deserialize to (e.g., "Well", "Basin")
+            domain: Domain to search in - "common" or "native" (default: "common")
+
+        Returns:
+            Deserialized model instance if successful, None otherwise
+
+        Raises:
+            ImportError: If dsis_schemas package is not installed
+            ValueError: If deserialization fails
+
+        Example:
+            >>> response = client.get_odata("123", "wells", data_table="Well")
+            >>> well = client.deserialize_response(response, "Well")
+            >>> print(well.well_name)
+        """
+        if not HAS_DSIS_SCHEMAS:
+            raise ImportError(
+                "dsis_schemas package is required. Install it with: pip install dsis-schemas"
+            )
+
+        try:
+            logger.debug(f"Deserializing response to {model_name} from {domain} domain")
+            model_class = self.get_model_by_name(model_name, domain)
+            if model_class is None:
+                raise ValueError(f"Model '{model_name}' not found in dsis_schemas")
+
+            # Convert response to JSON string for deserialization
+            response_json = json.dumps(response)
+            return deserialize_from_json(response_json, model_class)
+        except Exception as e:
+            logger.error(f"Failed to deserialize response to {model_name}: {e}")
+            raise ValueError(f"Deserialization failed: {e}")
 
     def refresh_authentication(self) -> None:
         """Refresh authentication tokens.

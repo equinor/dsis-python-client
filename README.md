@@ -9,7 +9,8 @@ A Python SDK for the DSIS (Drilling & Well Services Information System) API Mana
 - **Error Handling**: Custom exceptions for different error scenarios
 - **Logging Support**: Built-in logging for debugging and monitoring
 - **Type Hints**: Full type annotations for better IDE support
-- **OData Support**: Convenient methods for OData queries
+- **OData Support**: Convenient methods for OData queries with full parameter support
+- **dsis-schemas Integration**: Built-in support for model discovery, field inspection, and response deserialization
 - **Production Ready**: Comprehensive error handling and validation
 
 ## Installation
@@ -40,6 +41,8 @@ config = DSISConfig.for_native_model(
 
 # Create client and retrieve data
 client = DSISClient(config)
+
+# Get data using just model and version
 data = client.get_odata()
 print(data)
 ```
@@ -70,21 +73,114 @@ client = DSISClient(config)
 if client.test_connection():
     print("✓ Connected to DSIS API")
 
-# Get all records
+# Get data using just model and version
 data = client.get_odata()
 
-# Get specific record
-data = client.get_odata("5000107")
+# Get Basin data for a specific district and field
+data = client.get_odata(
+    district_id="123",
+    field="wells",
+    data_table="Basin"
+)
 
-# Get with field selection
-data = client.get_odata(select="field1,field2,field3")
+# Get Well data with field selection
+data = client.get_odata(
+    district_id="123",
+    field="wells",
+    data_table="Well",
+    select="name,depth,status"
+)
 
-# Get with custom query parameters
-data = client.get_odata(filter="field1 eq 'value'")
+# Get Wellbore data with filtering
+data = client.get_odata(
+    district_id="123",
+    field="wells",
+    data_table="Wellbore",
+    filter="depth gt 1000"
+)
+
+# Get WellLog data with expand (related data)
+data = client.get_odata(
+    district_id="123",
+    field="wells",
+    data_table="WellLog",
+    expand="logs,completions"
+)
 
 # Refresh tokens if needed
 client.refresh_authentication()
 ```
+
+## Working with dsis-schemas Models
+
+The client provides built-in support for the `dsis-schemas` package, which provides Pydantic models for DSIS data structures.
+
+### QueryBuilder: Build OData Queries
+
+The `QueryBuilder` provides a fluent interface for building OData queries with validation against dsis-schemas models:
+
+```python
+from dsis_client import QueryBuilder
+
+# Build a simple query
+builder = QueryBuilder()
+query = builder.data_table("Well").select("name,depth").build()
+# Returns: "Well?$format=json&$select=name,depth"
+
+# Build a complex query
+query = (QueryBuilder()
+    .data_table("Well")
+    .select("name", "depth", "status")
+    .filter("depth gt 1000")
+    .expand("wellbores")
+    .build())
+# Returns: "Well?$format=json&$select=name,depth,status&$expand=wellbores&$filter=depth gt 1000"
+
+# Use with client
+client = DSISClient(config)
+query_string = QueryBuilder().data_table("Basin").select("name,id").build()
+# Then use in: client.get_odata(district_id="123", field="wells", data_table="Basin", select="name,id")
+
+# List available models
+models = QueryBuilder.list_available_models("common")
+print(models)  # ['Well', 'Basin', 'Wellbore', ...]
+
+# Use native domain models
+native_query = QueryBuilder(domain="native").data_table("Well").build()
+```
+
+### Get Model Information
+
+```python
+# Get a model class by name
+Well = client.get_model_by_name("Well")
+Basin = client.get_model_by_name("Basin")
+
+# Get model from native domain
+WellNative = client.get_model_by_name("Well", domain="native")
+
+# Get field information for a model
+fields = client.get_model_fields("Well")
+print(fields.keys())  # All available fields
+```
+
+### Deserialize API Responses
+
+```python
+# Get data from API
+response = client.get_odata("123", "wells", data_table="Well")
+
+# Deserialize to typed model
+well = client.deserialize_response(response, "Well")
+print(well.well_name)  # Type-safe access with IDE support
+print(well.depth)      # Automatic validation
+```
+
+### Available Models
+
+Common models include: `Well`, `Wellbore`, `WellLog`, `Basin`, `Horizon`, `Fault`, `Seismic2D`, `Seismic3D`, and many more.
+
+For a complete list, see the [dsis-schemas documentation](https://github.com/equinor/dsis-schemas).
 
 ## Configuration
 
@@ -162,52 +258,265 @@ data = client.get_odata("OW5000")
 
 ## API Methods
 
-### `get(*path_segments, format_type="json", select=None, params=None, **extra_query)`
+### `get(district_id=None, field=None, data_table=None, format_type="json", select=None, expand=None, filter=None, **extra_query)`
 
-Make a GET request to the DSIS API using the configured model and version.
+Make a GET request to the DSIS OData API.
+
+Constructs the OData endpoint URL following the pattern:
+`/<model_name>/<version>[/<district_id>][/<field>][/<data_table>]`
+
+All path segments are optional and can be omitted. The `data_table` parameter refers to specific data models from dsis-schemas (e.g., "Basin", "Well", "Wellbore", "WellLog", etc.).
 
 **Parameters:**
-- `*path_segments`: Additional path segments after model_name/model_version
+- `district_id`: Optional district ID for the query
+- `field`: Optional field name for the query
+- `data_table`: Optional data table/model name (e.g., "Basin", "Well", "Wellbore"). If None, uses configured model_name
 - `format_type`: Response format (default: "json")
-- `select`: OData $select parameter for field selection
-- `params`: Dictionary of additional query parameters
-- `**extra_query`: Additional query parameters as keyword arguments
+- `select`: OData $select parameter for field selection (comma-separated field names)
+- `expand`: OData $expand parameter for related data (comma-separated related entities)
+- `filter`: OData $filter parameter for filtering (OData filter expression)
+- `**extra_query`: Additional OData query parameters
 
 **Returns:** Dictionary containing the parsed API response
 
 **Example:**
 ```python
-# Get all records
+# Get using just model and version
 data = client.get()
 
-# Get specific record
-data = client.get("5000107")
+# Get Basin data for a district and field
+data = client.get("123", "wells", data_table="Basin")
 
 # Get with field selection
-data = client.get(select="field1,field2")
+data = client.get("123", "wells", data_table="Well", select="name,depth,status")
+
+# Get with filtering
+data = client.get("123", "wells", data_table="Well", filter="depth gt 1000")
+
+# Get with expand (related data)
+data = client.get("123", "wells", data_table="Well", expand="logs,completions")
 ```
 
-### `get_odata(record_id=None, format_type="json", **query)`
+### `get_odata(district_id=None, field=None, data_table=None, format_type="json", select=None, expand=None, filter=None, **extra_query)`
 
-Convenience method for retrieving OData using the configured model and version.
+Convenience method for retrieving OData. Delegates to `get()` method.
 
 **Parameters:**
-- `record_id`: Optional record ID to retrieve a specific record
+- `district_id`: Optional district ID for the query
+- `field`: Optional field name for the query
+- `data_table`: Optional data table/model name (e.g., "Basin", "Well", "Wellbore"). If None, uses configured model_name
 - `format_type`: Response format (default: "json")
-- `**query`: Additional OData query parameters
+- `select`: OData $select parameter for field selection (comma-separated field names)
+- `expand`: OData $expand parameter for related data (comma-separated related entities)
+- `filter`: OData $filter parameter for filtering (OData filter expression)
+- `**extra_query`: Additional OData query parameters
 
 **Returns:** Dictionary containing the parsed OData response
 
 **Example:**
 ```python
-# Get all records
+# Get using just model and version
 data = client.get_odata()
 
-# Get specific record
-data = client.get_odata("5000107")
+# Get Basin data for a district and field
+data = client.get_odata("123", "wells", data_table="Basin")
 
 # Get with field selection
-data = client.get_odata(select="field1,field2")
+data = client.get_odata("123", "wells", data_table="Well", select="name,depth,status")
+
+# Get with filtering
+data = client.get_odata("123", "wells", data_table="Well", filter="depth gt 1000")
+
+# Get with expand
+data = client.get_odata("123", "wells", data_table="Well", expand="logs,completions")
+```
+
+### `get_model_by_name(model_name, domain="common")`
+
+Get a dsis-schemas model class by name.
+
+**Parameters:**
+- `model_name`: Name of the model (e.g., "Well", "Basin", "Wellbore")
+- `domain`: Domain to search in - "common" or "native" (default: "common")
+
+**Returns:** The model class if found, None otherwise
+
+**Raises:** ImportError if dsis_schemas package is not installed
+
+**Example:**
+```python
+Well = client.get_model_by_name("Well")
+WellNative = client.get_model_by_name("Well", domain="native")
+```
+
+### `get_model_fields(model_name, domain="common")`
+
+Get field information for a dsis-schemas model.
+
+**Parameters:**
+- `model_name`: Name of the model (e.g., "Well", "Basin")
+- `domain`: Domain to search in - "common" or "native" (default: "common")
+
+**Returns:** Dictionary of field names and their information
+
+**Raises:** ImportError if dsis_schemas package is not installed
+
+**Example:**
+```python
+fields = client.get_model_fields("Well")
+print(fields.keys())  # All available fields
+```
+
+### `deserialize_response(response, model_name, domain="common")`
+
+Deserialize API response to a dsis-schemas model instance.
+
+**Parameters:**
+- `response`: API response dictionary
+- `model_name`: Name of the model to deserialize to (e.g., "Well", "Basin")
+- `domain`: Domain to search in - "common" or "native" (default: "common")
+
+**Returns:** Deserialized model instance
+
+**Raises:** ImportError if dsis_schemas package is not installed, ValueError if deserialization fails
+
+**Example:**
+```python
+response = client.get_odata("123", "wells", data_table="Well")
+well = client.deserialize_response(response, "Well")
+print(well.well_name)  # Type-safe access
+```
+
+## QueryBuilder API
+
+### `QueryBuilder(domain="common")`
+
+Create a new query builder instance.
+
+**Parameters:**
+- `domain`: Domain for models - "common" or "native" (default: "common")
+
+**Example:**
+```python
+builder = QueryBuilder()
+native_builder = QueryBuilder(domain="native")
+```
+
+### `data_table(table_name, validate=True)`
+
+Set the data table (model) for the query.
+
+**Parameters:**
+- `table_name`: Data table name (e.g., "Well", "Basin", "Wellbore")
+- `validate`: If True, validates that the model exists (default: True)
+
+**Returns:** Self for chaining
+
+**Raises:** ValueError if validate=True and model is not found
+
+**Example:**
+```python
+builder.data_table("Well")
+builder.data_table("Basin", validate=False)
+```
+
+### `select(*fields)`
+
+Add fields to the $select parameter.
+
+**Parameters:**
+- `*fields`: Field names to select (can be comma-separated or individual)
+
+**Returns:** Self for chaining
+
+**Example:**
+```python
+builder.select("name", "depth", "status")
+builder.select("name,depth,status")
+```
+
+### `expand(*relations)`
+
+Add relations to the $expand parameter.
+
+**Parameters:**
+- `*relations`: Relation names to expand (can be comma-separated or individual)
+
+**Returns:** Self for chaining
+
+**Example:**
+```python
+builder.expand("wells", "horizons")
+builder.expand("wells,horizons")
+```
+
+### `filter(filter_expr)`
+
+Set the $filter parameter.
+
+**Parameters:**
+- `filter_expr`: OData filter expression (e.g., "depth gt 1000")
+
+**Returns:** Self for chaining
+
+**Example:**
+```python
+builder.filter("depth gt 1000")
+builder.filter("name eq 'Well-1'")
+```
+
+### `build()`
+
+Build the complete OData query string for the data_table.
+
+**Returns:** Query string (e.g., "Well?$format=json&$select=name,depth")
+
+**Raises:** ValueError if data_table is not set
+
+**Example:**
+```python
+query = builder.data_table("Well").select("name").build()
+# Returns: "Well?$format=json&$select=name"
+```
+
+### `build_query_string()`
+
+Build just the query parameters part (without data_table).
+
+**Returns:** Query string (e.g., "$format=json&$select=name,depth")
+
+**Example:**
+```python
+query_str = builder.select("name").filter("depth gt 1000").build_query_string()
+# Returns: "$format=json&$select=name&$filter=depth gt 1000"
+```
+
+### `list_available_models(domain="common")`
+
+List all available models in a domain.
+
+**Parameters:**
+- `domain`: Domain - "common" or "native" (default: "common")
+
+**Returns:** List of available model names
+
+**Raises:** ImportError if dsis_schemas is not installed
+
+**Example:**
+```python
+models = QueryBuilder.list_available_models("common")
+print(models)  # ['Well', 'Basin', 'Wellbore', ...]
+```
+
+### `reset()`
+
+Reset the builder to initial state.
+
+**Returns:** Self for chaining
+
+**Example:**
+```python
+builder.reset()
 ```
 
 ### `test_connection()`
