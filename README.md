@@ -25,8 +25,8 @@ pip install dsis-client
 ```python
 from dsis_client import DSISClient, DSISConfig, Environment
 
-# Configure the client
-config = DSISConfig(
+# Configure the client for native model (OW5000)
+config = DSISConfig.for_native_model(
     environment=Environment.DEV,
     tenant_id="your-tenant-id",
     client_id="your-client-id",
@@ -40,7 +40,7 @@ config = DSISConfig(
 
 # Create client and retrieve data
 client = DSISClient(config)
-data = client.get_odata("OW5000", "5000107")
+data = client.get_odata()
 print(data)
 ```
 
@@ -49,7 +49,8 @@ print(data)
 ```python
 from dsis_client import DSISClient, DSISConfig, Environment
 
-config = DSISConfig(
+# Use factory method for common model
+config = DSISConfig.for_common_model(
     environment=Environment.DEV,
     tenant_id="...",
     client_id="...",
@@ -58,7 +59,9 @@ config = DSISConfig(
     dsis_username="...",
     dsis_password="...",
     subscription_key_dsauth="...",
-    subscription_key_dsdata="..."
+    subscription_key_dsdata="...",
+    model_name="OpenWorksCommonModel",  # Optional, defaults to "OpenWorksCommonModel"
+    model_version="1000001"  # Optional, defaults to "5000107"
 )
 
 client = DSISClient(config)
@@ -67,18 +70,17 @@ client = DSISClient(config)
 if client.test_connection():
     print("✓ Connected to DSIS API")
 
-# Get specific OData record
-data = client.get_odata("OW5000", "5000107")
+# Get all records
+data = client.get_odata()
 
-# Get all records from a table
-all_data = client.get_odata("OW5000")
+# Get specific record
+data = client.get_odata("5000107")
 
-# Custom query with parameters
-data = client.get(
-    "OW5000", "5000107",
-    select="field1,field2,field3",
-    format_type="json"
-)
+# Get with field selection
+data = client.get_odata(select="field1,field2,field3")
+
+# Get with custom query parameters
+data = client.get_odata(filter="field1 eq 'value'")
 
 # Refresh tokens if needed
 client.refresh_authentication()
@@ -94,20 +96,22 @@ The client supports three environments:
 - `Environment.QA` - Quality Assurance environment
 - `Environment.PROD` - Production environment
 
-### Required Configuration Parameters
+### Configuration Parameters
 
-| Parameter | Description |
-|-----------|-------------|
-| `environment` | Target environment (DEV, QA, or PROD) |
-| `tenant_id` | Azure AD tenant ID |
-| `client_id` | Azure AD client/application ID |
-| `client_secret` | Azure AD client secret |
-| `access_app_id` | Azure AD access application ID for token resource |
-| `dsis_username` | DSIS username for authentication |
-| `dsis_password` | DSIS password for authentication |
-| `subscription_key_dsauth` | APIM subscription key for dsauth endpoint |
-| `subscription_key_dsdata` | APIM subscription key for dsdata endpoint |
-| `dsis_site` | DSIS site header (default: "qa") |
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `environment` | Yes | - | Target environment (DEV, QA, or PROD) |
+| `tenant_id` | Yes | - | Azure AD tenant ID |
+| `client_id` | Yes | - | Azure AD client/application ID |
+| `client_secret` | Yes | - | Azure AD client secret |
+| `access_app_id` | Yes | - | Azure AD access application ID for token resource |
+| `dsis_username` | Yes | - | DSIS username for authentication |
+| `dsis_password` | Yes | - | DSIS password for authentication |
+| `subscription_key_dsauth` | Yes | - | APIM subscription key for dsauth endpoint |
+| `subscription_key_dsdata` | Yes | - | APIM subscription key for dsdata endpoint |
+| `model_name` | Yes | - | DSIS model name (e.g., "OW5000" or "OpenWorksCommonModel") |
+| `model_version` | No | "5000107" | Model version |
+| `dsis_site` | No | "qa" | DSIS site header |
 
 ## Error Handling
 
@@ -160,10 +164,10 @@ data = client.get_odata("OW5000")
 
 ### `get(*path_segments, format_type="json", select=None, params=None, **extra_query)`
 
-Make a GET request to the DSIS API with path segments and optional query parameters.
+Make a GET request to the DSIS API using the configured model and version.
 
 **Parameters:**
-- `*path_segments`: Variable length path segments to construct the endpoint
+- `*path_segments`: Additional path segments after model_name/model_version
 - `format_type`: Response format (default: "json")
 - `select`: OData $select parameter for field selection
 - `params`: Dictionary of additional query parameters
@@ -173,16 +177,21 @@ Make a GET request to the DSIS API with path segments and optional query paramet
 
 **Example:**
 ```python
-data = client.get("OW5000", "5000107", format_type="json")
-data = client.get("OW5000", select="field1,field2")
+# Get all records
+data = client.get()
+
+# Get specific record
+data = client.get("5000107")
+
+# Get with field selection
+data = client.get(select="field1,field2")
 ```
 
-### `get_odata(table, record_id=None, format_type="json", **query)`
+### `get_odata(record_id=None, format_type="json", **query)`
 
-Convenience method for retrieving OData from a table.
+Convenience method for retrieving OData using the configured model and version.
 
 **Parameters:**
-- `table`: OData table name (e.g., "OW5000")
 - `record_id`: Optional record ID to retrieve a specific record
 - `format_type`: Response format (default: "json")
 - `**query`: Additional OData query parameters
@@ -191,11 +200,14 @@ Convenience method for retrieving OData from a table.
 
 **Example:**
 ```python
-# Get specific record
-data = client.get_odata("OW5000", "5000107")
-
 # Get all records
-data = client.get_odata("OW5000")
+data = client.get_odata()
+
+# Get specific record
+data = client.get_odata("5000107")
+
+# Get with field selection
+data = client.get_odata(select="field1,field2")
 ```
 
 ### `test_connection()`

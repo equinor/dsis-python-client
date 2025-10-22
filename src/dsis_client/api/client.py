@@ -50,13 +50,14 @@ class DSISClient:
         params: Optional[Dict[str, Any]] = None,
         **extra_query: Any,
     ) -> Dict[str, Any]:
-        """Make a GET request to the DSIS API.
+        """Make a GET request to the DSIS API using configured model.
 
         Constructs an endpoint URL from path segments and makes an authenticated
         GET request to the DSIS API with optional query parameters.
+        Always uses the configured model_name and model_version.
 
         Args:
-            *path_segments: Variable length path segments to construct the endpoint
+            *path_segments: Additional path segments after model_name/model_version
             format_type: Response format (default: "json")
             select: OData $select parameter for field selection
             params: Dictionary of additional query parameters
@@ -69,10 +70,13 @@ class DSISClient:
             DSISAPIError: If the API request fails
 
         Example:
-            >>> client.get("OW5000", "5000107", format_type="json")
-            >>> client.get("OW5000", select="field1,field2")
+            >>> client.get(format_type="json")  # Gets all records
+            >>> client.get("5000107")  # Gets specific record
+            >>> client.get(select="field1,field2")  # With field selection
         """
-        endpoint = "/".join(str(s).strip("/") for s in path_segments if s)
+        # Always prepend configured model_name and model_version
+        all_segments = (self.config.model_name, self.config.model_version) + path_segments
+        endpoint = "/".join(str(s).strip("/") for s in all_segments if s)
         query: Dict[str, Any] = {"$format": format_type}
         if select:
             query["$select"] = select
@@ -84,18 +88,16 @@ class DSISClient:
 
     def get_odata(
         self,
-        table: str,
         record_id: Optional[Union[str, int]] = None,
         format_type: str = "json",
         **query: Any,
     ) -> Dict[str, Any]:
-        """Get OData from a specific table.
+        """Get OData from the configured model.
 
-        Convenience method for retrieving OData from a table, optionally
-        filtered by record ID.
+        Convenience method for retrieving OData, optionally filtered by record ID.
+        Always uses the configured model_name and model_version.
 
         Args:
-            table: OData table name (e.g., "OW5000")
             record_id: Optional record ID to retrieve a specific record
             format_type: Response format (default: "json")
             **query: Additional OData query parameters
@@ -107,11 +109,14 @@ class DSISClient:
             DSISAPIError: If the API request fails
 
         Example:
-            >>> client.get_odata("OW5000", "5000107")
-            >>> client.get_odata("OW5000")
+            >>> client.get_odata()  # Gets all records
+            >>> client.get_odata("5000107")  # Gets specific record
+            >>> client.get_odata(select="field1,field2")  # With field selection
         """
-        segments = (table,) + ((record_id,) if record_id is not None else tuple())
+        segments = (record_id,) if record_id is not None else tuple()
         return self.get(*segments, format_type=format_type, **query)
+
+
 
     def refresh_authentication(self) -> None:
         """Refresh authentication tokens.
