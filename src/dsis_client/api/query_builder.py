@@ -57,6 +57,7 @@ class QueryBuilder:
         self._district_id = district_id
         self._field = field
         self._data_table: Optional[str] = None
+        self._model_class: Optional[Type] = None
         self._select: List[str] = []
         self._expand: List[str] = []
         self._filter: Optional[str] = None
@@ -107,6 +108,7 @@ class QueryBuilder:
         """Set the data table using a dsis_model_sdk model class.
 
         This is a convenience method that extracts the model name from a Pydantic model class.
+        Also stores the model class for automatic result casting.
 
         Args:
             model_class: A Pydantic model class from dsis_model_sdk (e.g., Well, Basin, Fault)
@@ -126,6 +128,7 @@ class QueryBuilder:
             # Get the model name from the class
             model_name = model_class.__name__
             logger.debug(f"Using model class: {model_name}")
+            self._model_class = model_class
             return self.data_table(model_name, validate=False)
         except AttributeError as e:
             raise ValueError(f"Invalid model class: {model_class}. Must be a Pydantic model class.") from e
@@ -312,7 +315,8 @@ class QueryBuilder:
         return DsisQuery(
             query_string=query_str,
             district_id=final_district_id,
-            field=final_field
+            field=final_field,
+            model_class=self._model_class
         )
 
     def build_query_string(self) -> str:
@@ -458,6 +462,7 @@ class QueryBuilder:
             Self for chaining
         """
         self._data_table = None
+        self._model_class = None
         self._select = []
         self._expand = []
         self._filter = None

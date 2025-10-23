@@ -697,23 +697,96 @@ The `DsisQuery` class encapsulates a complete OData query with path parameters. 
 - `district_id`: Optional district ID for the query
 - `field`: Optional field name for the query
 - `data_table`: The data table name extracted from the query string
+- `model_class`: Optional dsis_model_sdk model class for casting results
+
+### Result Casting
+
+DsisQuery supports automatic casting of API results to dsis_model_sdk model instances:
+
+```python
+from dsis_client import QueryBuilder, DsisQuery
+from dsis_model_sdk.models.common import Well, Fault
+
+# Method 1: Set model via QueryBuilder
+query = QueryBuilder(district_id="123", field="wells").model(Well).select("well_name").build()
+response = client.executeQuery(query)
+
+# Cast results to model instances
+wells = query.cast_results(response.get("value", []))
+for well in wells:
+    print(f"Well: {well.well_name}")  # Type-safe access
+
+# Method 2: Set model via DsisQuery
+query = DsisQuery("Fault?$format=json&$select=id,type", model_class=Fault)
+response = client.executeQuery(query)
+
+# Cast single result
+fault = query.cast_result(response["value"][0])
+print(type(fault))  # <class 'dsis_model_sdk.models.common.fault.Fault'>
+
+# Method 3: Set model after creation
+query = DsisQuery("Well?$format=json&$select=well_name")
+query.set_model(Well)
+wells = query.cast_results(response.get("value", []))
+```
+
+### Methods
+
+#### `set_model(model_class)`
+
+Set the model class for casting results.
+
+**Parameters:**
+- `model_class`: A dsis_model_sdk model class
+
+**Returns:** Self for chaining
+
+#### `cast_result(result)`
+
+Cast a single result item to the model class.
+
+**Parameters:**
+- `result`: A single item from the API response
+
+**Returns:** Instance of model_class
+
+**Raises:** ValueError if model_class is not set; ValidationError if result doesn't match schema
+
+#### `cast_results(results)`
+
+Cast multiple result items to the model class.
+
+**Parameters:**
+- `results`: List of items from the API response
+
+**Returns:** List of model instances
+
+**Raises:** ValueError if model_class is not set; ValidationError if any result doesn't match schema
 
 ### Example
 
 ```python
-from dsis_client import QueryBuilder, DsisQuery
+from dsis_client import QueryBuilder, DSISClient, DSISConfig
+from dsis_model_sdk.models.common import Well, Basin
 
 # Create a DsisQuery using QueryBuilder
-query = QueryBuilder(district_id="123", field="wells").data_table("Well").select("name").build()
+query = QueryBuilder(district_id="123", field="wells").model(Well).select("well_name").build()
 
 # Access properties
-print(query.query_string)  # "Well?$format=json&$select=name"
+print(query.query_string)  # "Well?$format=json&$select=well_name"
 print(query.district_id)   # "123"
 print(query.field)         # "wells"
 print(query.data_table)    # "Well"
+print(query.model_class)   # <class 'dsis_model_sdk.models.common.well.Well'>
 
 # Execute with client
+client = DSISClient(config)
 response = client.executeQuery(query)
+
+# Cast results to model instances
+wells = query.cast_results(response.get("value", []))
+for well in wells:
+    print(f"Well: {well.well_name} (UWI: {well.well_uwi})")
 ```
 
 ### `test_connection()`
