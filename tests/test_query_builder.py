@@ -50,6 +50,100 @@ class TestQueryBuilderBasic:
         assert builder._field == "test_field"
 
 
+class TestQueryBuilderModelHelpers:
+    """Test model helper methods."""
+
+    def test_model_method_with_well(self):
+        """Test model() method with Well model."""
+        from dsis_model_sdk.models.common import Well
+
+        builder = QueryBuilder()
+        result = builder.model(Well)
+        assert result is builder  # Check chaining
+        assert builder._data_table == "Well"
+
+    def test_model_method_with_basin(self):
+        """Test model() method with Basin model."""
+        from dsis_model_sdk.models.common import Basin
+
+        builder = QueryBuilder()
+        result = builder.model(Basin)
+        assert result is builder
+        assert builder._data_table == "Basin"
+
+    def test_model_method_invalid_class(self):
+        """Test model() method with invalid class."""
+        builder = QueryBuilder()
+        with pytest.raises(ValueError, match="Invalid model class"):
+            builder.model("not_a_class")
+
+    def test_select_from_model_valid_fields(self):
+        """Test select_from_model() with valid fields."""
+        from dsis_model_sdk.models.common import Well
+
+        builder = QueryBuilder()
+        result = builder.select_from_model(Well, "well_name", "well_uwi")
+        assert result is builder  # Check chaining
+        assert "well_name" in builder._select
+        assert "well_uwi" in builder._select
+
+    def test_select_from_model_invalid_fields(self):
+        """Test select_from_model() with invalid fields."""
+        from dsis_model_sdk.models.common import Well
+
+        builder = QueryBuilder()
+        with pytest.raises(ValueError, match="Invalid fields"):
+            builder.select_from_model(Well, "invalid_field_xyz")
+
+    def test_select_from_model_comma_separated(self):
+        """Test select_from_model() with comma-separated fields."""
+        from dsis_model_sdk.models.common import Well
+
+        builder = QueryBuilder()
+        builder.select_from_model(Well, "well_name,well_uwi")
+        assert "well_name" in builder._select
+        assert "well_uwi" in builder._select
+
+    def test_get_model_static_method(self):
+        """Test get_model() static method."""
+        Well = QueryBuilder.get_model("Well")
+        assert Well.__name__ == "Well"
+
+    def test_get_model_native_domain(self):
+        """Test get_model() with native domain."""
+        Well = QueryBuilder.get_model("Well", domain="native")
+        assert Well.__name__ == "Well"
+
+    def test_get_model_invalid_name(self):
+        """Test get_model() with invalid model name."""
+        with pytest.raises(ValueError, match="not found"):
+            QueryBuilder.get_model("InvalidModelXYZ123")
+
+    def test_get_model_fields_static_method(self):
+        """Test get_model_fields() static method."""
+        fields = QueryBuilder.get_model_fields("Well")
+        assert isinstance(fields, dict)
+        assert len(fields) > 0
+        assert "well_name" in fields or "native_uid" in fields
+
+    def test_full_chain_with_model(self):
+        """Test full chain using model() method."""
+        from dsis_model_sdk.models.common import Fault
+
+        query = (QueryBuilder(district_id="123", field="wells")
+            .model(Fault)
+            .select_from_model(Fault, "fault_name", "fault_type", "native_uid")
+            .filter("fault_type eq 'NORMAL'")
+            .build())
+
+        assert isinstance(query, DsisQuery)
+        assert query.district_id == "123"
+        assert query.field == "wells"
+        assert "Fault" in query.query_string
+        assert "fault_name" in unquote(query.query_string)
+        assert "fault_type" in unquote(query.query_string)
+
+
 class TestQueryBuilderDataTable:
     """Test data_table method."""
 

@@ -119,6 +119,8 @@ The client provides built-in support for the `dsis-schemas` package, which provi
 
 The `QueryBuilder` provides a fluent interface for building OData queries with validation against dsis-schemas models. It returns a `DsisQuery` object that can be directly executed with `client.executeQuery()`.
 
+#### Basic Usage
+
 ```python
 from dsis_client import QueryBuilder, DSISClient, DSISConfig
 
@@ -154,6 +156,34 @@ response1 = client.executeQuery(query1)
 # Query 2 (reset builder for new query)
 query2 = builder.reset().data_table("Basin").select("id,name").build()
 response2 = client.executeQuery(query2)
+```
+
+#### Using Model Classes
+
+For better type safety and field validation, you can pass model classes directly from `dsis_model_sdk`:
+
+```python
+from dsis_client import QueryBuilder
+from dsis_model_sdk.models.common import Well, Basin, Fault
+
+# Use model() to set data table from model class
+query = (QueryBuilder(district_id="123", field="wells")
+    .model(Well)
+    .select("well_name", "well_uwi", "alternate_well_name")
+    .filter("well_name eq 'SNORRE'")
+    .build())
+
+# Use select_from_model() for field validation
+query = (QueryBuilder(district_id="123", field="wells")
+    .model(Fault)
+    .select_from_model(Fault, "fault_name", "fault_type", "native_uid")
+    .filter("fault_type eq 'NORMAL'")
+    .build())
+
+# Get model class by name
+Well = QueryBuilder.get_model("Well")
+fields = QueryBuilder.get_model_fields("Well")
+print(fields.keys())  # dict_keys(['native_uid', 'well_uwi', 'uwi_type', ...])
 
 # List available models
 models = QueryBuilder.list_available_models("common")
@@ -161,7 +191,7 @@ print(models)  # ['Well', 'Basin', 'Wellbore', ...]
 
 # Use native domain models
 native_builder = QueryBuilder(domain="native", district_id="123", field="wells")
-native_query = native_builder.data_table("Well").build()
+native_query = native_builder.model(QueryBuilder.get_model("Well", domain="native")).build()
 ```
 
 ### Get Model Information
@@ -464,6 +494,45 @@ builder.data_table("Well")
 builder.data_table("Basin", validate=False)
 ```
 
+### `model(model_class)`
+
+Set the data table using a dsis_model_sdk model class (convenience method).
+
+**Parameters:**
+- `model_class`: A Pydantic model class from dsis_model_sdk (e.g., Well, Basin, Fault)
+
+**Returns:** Self for chaining
+
+**Raises:** ValueError if model_class is not a valid Pydantic model
+
+**Example:**
+```python
+from dsis_model_sdk.models.common import Well, Basin
+
+builder.model(Well)
+builder.model(Basin)
+```
+
+### `select_from_model(model_class, *field_names)`
+
+Select fields from a dsis_model_sdk model class with field validation.
+
+**Parameters:**
+- `model_class`: A Pydantic model class from dsis_model_sdk
+- `*field_names`: Field names to select (can be comma-separated or individual)
+
+**Returns:** Self for chaining
+
+**Raises:** ValueError if any field name is not in the model
+
+**Example:**
+```python
+from dsis_model_sdk.models.common import Well
+
+builder.select_from_model(Well, "well_name", "well_uwi", "alternate_well_name")
+builder.select_from_model(Well, "well_name,well_uwi,alternate_well_name")
+```
+
 ### `select(*fields)`
 
 Add fields to the $select parameter.
@@ -567,6 +636,42 @@ List all available models in a domain.
 ```python
 models = QueryBuilder.list_available_models("common")
 print(models)  # ['Well', 'Basin', 'Wellbore', ...]
+```
+
+### `get_model(model_name, domain="common")`
+
+Get a model class by name from dsis_model_sdk.
+
+**Parameters:**
+- `model_name`: Name of the model (e.g., "Well", "Basin", "Fault")
+- `domain`: Domain - "common" or "native" (default: "common")
+
+**Returns:** The model class if found
+
+**Raises:** ImportError if dsis_schemas is not installed; ValueError if model not found
+
+**Example:**
+```python
+Well = QueryBuilder.get_model("Well")
+Basin = QueryBuilder.get_model("Basin", domain="native")
+```
+
+### `get_model_fields(model_name, domain="common")`
+
+Get field information for a model.
+
+**Parameters:**
+- `model_name`: Name of the model (e.g., "Well", "Basin")
+- `domain`: Domain - "common" or "native" (default: "common")
+
+**Returns:** Dictionary of field names and their information
+
+**Raises:** ImportError if dsis_schemas is not installed; ValueError if model not found
+
+**Example:**
+```python
+fields = QueryBuilder.get_model_fields("Well")
+print(fields.keys())  # dict_keys(['native_uid', 'well_uwi', 'uwi_type', ...])
 ```
 
 ### `reset()`

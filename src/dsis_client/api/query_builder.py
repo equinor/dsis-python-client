@@ -4,7 +4,7 @@ Provides a fluent interface for building DSIS OData queries using dsis_schemas m
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type, Union
 from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
@@ -103,7 +103,74 @@ class QueryBuilder:
         logger.debug(f"Set data_table: {table_name}")
         return self
 
+    def model(self, model_class: Type) -> "QueryBuilder":
+        """Set the data table using a dsis_model_sdk model class.
 
+        This is a convenience method that extracts the model name from a Pydantic model class.
+
+        Args:
+            model_class: A Pydantic model class from dsis_model_sdk (e.g., Well, Basin, Fault)
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If model_class is not a valid Pydantic model
+
+        Example:
+            >>> from dsis_model_sdk.models.common import Well, Basin
+            >>> builder.model(Well).select("name,depth").build()
+            >>> builder.model(Basin).filter("depth gt 1000").build()
+        """
+        try:
+            # Get the model name from the class
+            model_name = model_class.__name__
+            logger.debug(f"Using model class: {model_name}")
+            return self.data_table(model_name, validate=False)
+        except AttributeError as e:
+            raise ValueError(f"Invalid model class: {model_class}. Must be a Pydantic model class.") from e
+
+    def select_from_model(self, model_class: Type, *field_names: str) -> "QueryBuilder":
+        """Select fields from a dsis_model_sdk model class.
+
+        This is a convenience method that validates field names against the model schema.
+
+        Args:
+            model_class: A Pydantic model class from dsis_model_sdk
+            *field_names: Field names to select (can be comma-separated or individual)
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If any field name is not in the model
+
+        Example:
+            >>> from dsis_model_sdk.models.common import Well
+            >>> builder.select_from_model(Well, "name", "depth", "status")
+            >>> builder.select_from_model(Well, "name,depth,status")
+        """
+        try:
+            # Get available fields from model
+            available_fields = set(model_class.model_fields.keys())
+
+            # Collect all requested fields
+            requested_fields = []
+            for field_spec in field_names:
+                requested_fields.extend([f.strip() for f in field_spec.split(",")])
+
+            # Validate all fields exist
+            invalid_fields = set(requested_fields) - available_fields
+            if invalid_fields:
+                raise ValueError(
+                    f"Invalid fields for {model_class.__name__}: {invalid_fields}. "
+                    f"Available fields: {sorted(available_fields)}"
+                )
+
+            logger.debug(f"Selected fields from {model_class.__name__}: {requested_fields}")
+            return self.select(*requested_fields)
+        except AttributeError as e:
+            raise ValueError(f"Invalid model class: {model_class}. Must be a Pydantic model class.") from e
 
     def select(self, *fields: str) -> "QueryBuilder":
         """Add fields to $select parameter.
@@ -316,6 +383,71 @@ class QueryBuilder:
         
         logger.debug(f"Found {len(models_list)} models in {domain} domain")
         return sorted(models_list)
+
+    @staticmethod
+    def get_model(model_name: str, domain: str = "common") -> Type:
+        """Get a model class by name from dsis_model_sdk.
+
+        Args:
+            model_name: Name of the model (e.g., "Well", "Basin", "Fault")
+            domain: Domain - "common" or "native" (default: "common")
+
+        Returns:
+            The model class if found
+
+        Raises:
+            ImportError: If dsis_schemas is not installed
+            ValueError: If domain is invalid or model not found
+
+        Example:
+            >>> Well = QueryBuilder.get_model("Well")
+            >>> Basin = QueryBuilder.get_model("Basin", domain="native")
+        """
+        if not HAS_DSIS_SCHEMAS:
+            raise ImportError(
+                "dsis_schemas package is required. Install it with: pip install dsis-schemas"
+            )
+
+        if domain not in ("common", "native"):
+            raise ValueError(f"Domain must be 'common' or 'native', got '{domain}'")
+
+        if domain == "common":
+            model_module = models.common
+        else:
+            model_module = models.native
+
+        if not hasattr(model_module, model_name):
+            available = QueryBuilder.list_available_models(domain)
+            raise ValueError(
+                f"Model '{model_name}' not found in {domain} domain. "
+                f"Available models: {available}"
+            )
+
+        model_class = getattr(model_module, model_name)
+        logger.debug(f"Retrieved model class: {model_name} from {domain} domain")
+        return model_class
+
+    @staticmethod
+    def get_model_fields(model_name: str, domain: str = "common") -> Dict[str, Any]:
+        """Get field information for a model.
+
+        Args:
+            model_name: Name of the model (e.g., "Well", "Basin")
+            domain: Domain - "common" or "native" (default: "common")
+
+        Returns:
+            Dictionary of field names and their information
+
+        Raises:
+            ImportError: If dsis_schemas is not installed
+            ValueError: If domain is invalid or model not found
+
+        Example:
+            >>> fields = QueryBuilder.get_model_fields("Well")
+            >>> print(fields.keys())
+        """
+        model_class = QueryBuilder.get_model(model_name, domain)
+        return model_class.model_fields
 
     def reset(self) -> "QueryBuilder":
         """Reset the builder to initial state.
