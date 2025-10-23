@@ -3,7 +3,7 @@
 import pytest
 from urllib.parse import unquote, parse_qs, urlparse
 
-from src.dsis_client import QueryBuilder
+from src.dsis_client import QueryBuilder, DsisQuery
 
 
 class TestQueryBuilderBasic:
@@ -28,6 +28,26 @@ class TestQueryBuilderBasic:
         """Test initialization with invalid domain."""
         with pytest.raises(ValueError):
             QueryBuilder(domain="invalid")
+
+    def test_init_with_path_parameters(self):
+        """Test initialization with path parameters."""
+        builder = QueryBuilder(
+            district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
+            field="SNORRE"
+        )
+        assert builder._district_id == "OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA"
+        assert builder._field == "SNORRE"
+
+    def test_init_with_all_parameters(self):
+        """Test initialization with all parameters."""
+        builder = QueryBuilder(
+            domain="native",
+            district_id="test_district",
+            field="test_field"
+        )
+        assert builder._domain == "native"
+        assert builder._district_id == "test_district"
+        assert builder._field == "test_field"
 
 
 class TestQueryBuilderDataTable:
@@ -166,14 +186,16 @@ class TestQueryBuilderBuild:
         """Test building basic query."""
         builder = QueryBuilder()
         query = builder.data_table("Well").build()
-        assert "Well" in query
-        assert "$format=json" in unquote(query)
+        assert isinstance(query, DsisQuery)
+        assert query.data_table == "Well"
+        assert "$format=json" in unquote(query.query_string)
 
     def test_build_with_select(self):
         """Test building query with select."""
         builder = QueryBuilder()
         query = builder.data_table("Well").select("name,depth").build()
-        decoded = unquote(query)
+        assert isinstance(query, DsisQuery)
+        decoded = unquote(query.query_string)
         assert "Well" in decoded
         assert "name" in decoded
         assert "depth" in decoded
@@ -182,7 +204,8 @@ class TestQueryBuilderBuild:
         """Test building query with filter."""
         builder = QueryBuilder()
         query = builder.data_table("Well").filter("depth gt 1000").build()
-        decoded = unquote(query)
+        assert isinstance(query, DsisQuery)
+        decoded = unquote(query.query_string)
         assert "Well" in decoded
         assert "depth" in decoded
 
@@ -190,7 +213,8 @@ class TestQueryBuilderBuild:
         """Test building query with expand."""
         builder = QueryBuilder()
         query = builder.data_table("Basin").expand("wells,horizons").build()
-        decoded = unquote(query)
+        assert isinstance(query, DsisQuery)
+        decoded = unquote(query.query_string)
         assert "Basin" in decoded
         assert "wells" in decoded
 
@@ -203,7 +227,8 @@ class TestQueryBuilderBuild:
             .filter("depth gt 1000")
             .expand("wellbores")
             .build())
-        decoded = unquote(query)
+        assert isinstance(query, DsisQuery)
+        decoded = unquote(query.query_string)
         assert "Well" in decoded
         assert "name" in decoded
         assert "depth" in decoded
@@ -219,8 +244,47 @@ class TestQueryBuilderBuild:
         """Test that format is included in query."""
         builder = QueryBuilder()
         query = builder.data_table("Well").build()
-        decoded = unquote(query)
+        assert isinstance(query, DsisQuery)
+        decoded = unquote(query.query_string)
         assert "$format=json" in decoded
+
+    def test_build_with_path_parameters_in_build(self):
+        """Test building query with path parameters passed to build()."""
+        builder = QueryBuilder()
+        query = builder.data_table("Fault").select("id,type").build(
+            district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
+            field="SNORRE"
+        )
+        assert isinstance(query, DsisQuery)
+        assert query.district_id == "OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA"
+        assert query.field == "SNORRE"
+        assert query.data_table == "Fault"
+
+    def test_build_with_path_parameters_in_constructor(self):
+        """Test building query with path parameters in constructor."""
+        builder = QueryBuilder(
+            district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
+            field="SNORRE"
+        )
+        query = builder.data_table("Fault").select("id,type").build()
+        assert isinstance(query, DsisQuery)
+        assert query.district_id == "OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA"
+        assert query.field == "SNORRE"
+        assert query.data_table == "Fault"
+
+    def test_build_path_parameters_override(self):
+        """Test that build() parameters override constructor parameters."""
+        builder = QueryBuilder(
+            district_id="constructor_district",
+            field="constructor_field"
+        )
+        query = builder.data_table("Fault").build(
+            district_id="build_district",
+            field="build_field"
+        )
+        assert isinstance(query, DsisQuery)
+        assert query.district_id == "build_district"
+        assert query.field == "build_field"
 
 
 class TestQueryBuilderQueryString:
@@ -268,16 +332,18 @@ class TestQueryBuilderReset:
     def test_reset_allows_reuse(self):
         """Test reset allows builder reuse."""
         builder = QueryBuilder()
-        
+
         # First query
         query1 = builder.data_table("Well").select("name").build()
-        assert "Well" in query1
-        
+        assert isinstance(query1, DsisQuery)
+        assert "Well" in query1.query_string
+
         # Reset and build different query
         builder.reset()
         query2 = builder.data_table("Basin").select("id").build()
-        assert "Basin" in query2
-        assert "Well" not in query2
+        assert isinstance(query2, DsisQuery)
+        assert "Basin" in query2.query_string
+        assert "Well" not in query2.query_string
 
 
 class TestQueryBuilderDomain:
@@ -315,8 +381,9 @@ class TestQueryBuilderChaining:
             .filter("depth gt 1000")
             .expand("wellbores")
             .build())
-        
-        decoded = unquote(query)
+
+        assert isinstance(query, DsisQuery)
+        decoded = unquote(query.query_string)
         assert "Well" in decoded
         assert "name" in decoded
         assert "depth" in decoded
@@ -326,11 +393,13 @@ class TestQueryBuilderChaining:
         """Test chaining with reset."""
         builder = QueryBuilder()
         query1 = builder.data_table("Well").select("name").build()
-        
+
         query2 = builder.reset().data_table("Basin").select("id").build()
-        
-        assert "Well" in query1
-        assert "Basin" in query2
+
+        assert isinstance(query1, DsisQuery)
+        assert isinstance(query2, DsisQuery)
+        assert "Well" in query1.query_string
+        assert "Basin" in query2.query_string
 
 
 class TestQueryBuilderListModels:
@@ -388,20 +457,23 @@ class TestQueryBuilderIntegration:
         """Test multiple builders don't interfere."""
         builder1 = QueryBuilder()
         builder2 = QueryBuilder()
-        
+
         query1 = builder1.data_table("Well").select("name").build()
         query2 = builder2.data_table("Basin").select("id").build()
-        
-        assert "Well" in query1
-        assert "Basin" in query2
-        assert "Well" not in query2
-        assert "Basin" not in query1
+
+        assert isinstance(query1, DsisQuery)
+        assert isinstance(query2, DsisQuery)
+        assert "Well" in query1.query_string
+        assert "Basin" in query2.query_string
+        assert "Well" not in query2.query_string
+        assert "Basin" not in query1.query_string
 
     def test_builder_with_special_characters(self):
         """Test builder with special characters in filter."""
         builder = QueryBuilder()
         query = builder.data_table("Well").filter("name eq 'Well-1'").build()
-        decoded = unquote(query)
+        assert isinstance(query, DsisQuery)
+        decoded = unquote(query.query_string)
         assert "Well" in decoded
         assert "Well-1" in decoded
 
@@ -409,20 +481,23 @@ class TestQueryBuilderIntegration:
         """Test builder with empty select doesn't add parameter."""
         builder = QueryBuilder()
         query = builder.data_table("Well").build()
-        decoded = unquote(query)
+        assert isinstance(query, DsisQuery)
+        decoded = unquote(query.query_string)
         assert "$select" not in decoded
 
     def test_builder_empty_expand(self):
         """Test builder with empty expand doesn't add parameter."""
         builder = QueryBuilder()
         query = builder.data_table("Well").build()
-        decoded = unquote(query)
+        assert isinstance(query, DsisQuery)
+        decoded = unquote(query.query_string)
         assert "$expand" not in decoded
 
     def test_builder_empty_filter(self):
         """Test builder with empty filter doesn't add parameter."""
         builder = QueryBuilder()
         query = builder.data_table("Well").build()
-        decoded = unquote(query)
+        assert isinstance(query, DsisQuery)
+        decoded = unquote(query.query_string)
         assert "$filter" not in decoded
 

@@ -25,20 +25,27 @@ class QueryBuilder:
     against dsis_schemas models. Focuses on building the data_table and query
     parameters part of the URL (after model_name/version/district_id/field).
 
-    Example:
-        >>> builder = QueryBuilder()
-        >>> query = builder.Basin.select("name,id").filter("depth gt 1000").build()
-        >>> # Returns: "Basin?$format=json&$select=name,id&$filter=depth gt 1000"
+    The build() method returns a DsisQuery object ready for execution with client.executeQuery().
 
-        >>> query = builder.Well.expand("wellbores").select("name").build()
-        >>> # Returns: "Well?$format=json&$expand=wellbores&$select=name"
+    Example:
+        >>> query = QueryBuilder().data_table("Fault").select("id,type").filter("type eq 'NORMAL'").build(
+        ...     district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
+        ...     field="SNORRE"
+        ... )
+        >>> response = client.executeQuery(query)
+
+        >>> # Or without path parameters:
+        >>> query = QueryBuilder().data_table("Well").expand("wellbores").select("name").build()
+        >>> response = client.executeQuery(query, district_id="123", field="wells")
     """
 
-    def __init__(self, domain: str = "common"):
+    def __init__(self, domain: str = "common", district_id: Optional[str] = None, field: Optional[str] = None):
         """Initialize the query builder.
 
         Args:
             domain: Domain for models - "common" or "native" (default: "common")
+            district_id: Optional district ID for the query
+            field: Optional field name for the query
 
         Raises:
             ValueError: If domain is not "common" or "native"
@@ -47,6 +54,8 @@ class QueryBuilder:
             raise ValueError(f"Domain must be 'common' or 'native', got '{domain}'")
 
         self._domain = domain
+        self._district_id = district_id
+        self._field = field
         self._data_table: Optional[str] = None
         self._select: List[str] = []
         self._expand: List[str] = []
@@ -182,25 +191,62 @@ class QueryBuilder:
         logger.debug(f"Built query params: {params}")
         return params
 
-    def build(self) -> str:
-        """Build the OData query string for the data_table.
+    def build(self, district_id=None, field=None):
+        """Build a DsisQuery ready for execution.
+
+        Creates a DsisQuery object that can be directly passed to client.executeQuery().
+        This is the recommended way to build queries for execution.
+
+        Args:
+            district_id: Optional district ID for the query (overrides constructor value)
+            field: Optional field name for the query (overrides constructor value)
 
         Returns:
-            Query string (e.g., "Well?$format=json&$select=name,depth&$filter=depth gt 1000")
+            DsisQuery instance ready for execution
+
+        Raises:
+            ValueError: If data_table is not set
+
+        Example:
+            >>> query = QueryBuilder(
+            ...     district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
+            ...     field="SNORRE"
+            ... ).data_table("Fault").select("id,type").filter("type eq 'NORMAL'").build()
+            >>> response = client.executeQuery(query)
+
+            >>> # Or override at build time:
+            >>> query = QueryBuilder().data_table("Fault").select("id,type").build(
+            ...     district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
+            ...     field="SNORRE"
+            ... )
+            >>> response = client.executeQuery(query)
         """
+        # Import here to avoid circular imports
+        from .dsis_query import DsisQuery
+
         if not self._data_table:
             raise ValueError("data_table must be set before building")
 
-        params = self.build_query_params()
+        # Use provided values or fall back to constructor values
+        final_district_id = district_id if district_id is not None else self._district_id
+        final_field = field if field is not None else self._field
 
+        # Build the query string
+        params = self.build_query_params()
         query_string = ""
         if params:
             query_string = urlencode(params)
             query_string = f"?{query_string}"
 
-        result = f"{self._data_table}{query_string}"
-        logger.debug(f"Built query: {result}")
-        return result
+        query_str = f"{self._data_table}{query_string}"
+        logger.debug(f"Built query: {query_str}")
+
+        logger.debug(f"Building DsisQuery with district_id={final_district_id}, field={final_field}")
+        return DsisQuery(
+            query_string=query_str,
+            district_id=final_district_id,
+            field=final_field
+        )
 
     def build_query_string(self) -> str:
         """Build just the query parameters part (without data_table).
@@ -274,6 +320,8 @@ class QueryBuilder:
     def reset(self) -> "QueryBuilder":
         """Reset the builder to initial state.
 
+        Note: Does not reset domain, district_id, or field set in constructor.
+
         Returns:
             Self for chaining
         """
@@ -288,7 +336,8 @@ class QueryBuilder:
     def __repr__(self) -> str:
         """String representation of the builder."""
         return (
-            f"QueryBuilder(domain={self._domain}, data_table={self._data_table}, "
+            f"QueryBuilder(domain={self._domain}, district_id={self._district_id}, "
+            f"field={self._field}, data_table={self._data_table}, "
             f"select={self._select}, expand={self._expand}, filter={self._filter})"
         )
 

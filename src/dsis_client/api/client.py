@@ -14,6 +14,7 @@ import requests
 from .auth import DSISAuth
 from .config import DSISConfig
 from .exceptions import DSISAPIError
+from .dsis_query import DsisQuery
 
 logger = logging.getLogger(__name__)
 
@@ -197,7 +198,56 @@ class DSISClient:
             **extra_query,
         )
 
+    def executeQuery(self, query: DsisQuery) -> Dict[str, Any]:
+        """Execute a DSIS query.
 
+        Executes a query that was built using QueryBuilder and wrapped in DsisQuery.
+        This provides a clean, user-friendly interface for query execution.
+
+        Args:
+            query: DsisQuery instance containing the query string and path parameters
+
+        Returns:
+            Dictionary containing the parsed API response
+
+        Raises:
+            DSISAPIError: If the API request fails
+            ValueError: If query is invalid
+
+        Example:
+            >>> # Build query with QueryBuilder
+            >>> query_builder = QueryBuilder().data_table("Fault").select("id,type").filter("type eq 'NORMAL'")
+            >>>
+            >>> # Wrap in DsisQuery with path parameters
+            >>> query = DsisQuery(
+            ...     query_string=query_builder.build(),
+            ...     district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
+            ...     field="SNORRE"
+            ... )
+            >>>
+            >>> # Execute the query
+            >>> response = client.executeQuery(query)
+        """
+        if not isinstance(query, DsisQuery):
+            raise TypeError(f"Expected DsisQuery, got {type(query)}")
+
+        logger.debug(f"Executing query: {query}")
+
+        # Build endpoint path segments
+        segments = [self.config.model_name, self.config.model_version]
+        if query.district_id is not None:
+            segments.append(str(query.district_id))
+        if query.field is not None:
+            segments.append(query.field)
+        segments.append(query.data_table)
+
+        endpoint = "/".join(segments)
+
+        # Get parsed parameters from the query
+        params = query.get_parsed_params()
+
+        logger.debug(f"Making request to endpoint: {endpoint} with params: {params}")
+        return self._request(endpoint, params)
 
     def _is_valid_model(self, model_name: str, domain: str = "common") -> bool:
         """Check if a model name is valid in dsis_schemas.

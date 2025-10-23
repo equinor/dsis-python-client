@@ -41,6 +41,7 @@ from .exceptions import (
     DSISConfigurationError,
 )
 from .query_builder import QueryBuilder
+from .dsis_query import DsisQuery
 
 __all__ = [
     "DSISClient",
@@ -52,4 +53,5 @@ __all__ = [
     "DSISAPIError",
     "DSISConfigurationError",
     "QueryBuilder",
+    "DsisQuery",
 ]

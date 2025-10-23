@@ -37,6 +37,7 @@ from .api import (
     DSISAPIError,
     DSISConfigurationError,
     QueryBuilder,
+    DsisQuery,
 )
 
 __all__ = [
@@ -49,4 +50,5 @@ __all__ = [
     "DSISAPIError",
     "DSISConfigurationError",
     "QueryBuilder",
+    "DsisQuery",
 ]

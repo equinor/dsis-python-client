@@ -117,36 +117,51 @@ The client provides built-in support for the `dsis-schemas` package, which provi
 
 ### QueryBuilder: Build OData Queries
 
-The `QueryBuilder` provides a fluent interface for building OData queries with validation against dsis-schemas models:
+The `QueryBuilder` provides a fluent interface for building OData queries with validation against dsis-schemas models. It returns a `DsisQuery` object that can be directly executed with `client.executeQuery()`.
 
 ```python
-from dsis_client import QueryBuilder
+from dsis_client import QueryBuilder, DSISClient, DSISConfig
+
+# Create a builder with path parameters
+builder = QueryBuilder(
+    district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
+    field="SNORRE"
+)
 
 # Build a simple query
-builder = QueryBuilder()
 query = builder.data_table("Well").select("name,depth").build()
-# Returns: "Well?$format=json&$select=name,depth"
+# Returns: DsisQuery object ready for execution
 
 # Build a complex query
-query = (QueryBuilder()
+query = (QueryBuilder(district_id="123", field="wells")
     .data_table("Well")
     .select("name", "depth", "status")
     .filter("depth gt 1000")
     .expand("wellbores")
     .build())
-# Returns: "Well?$format=json&$select=name,depth,status&$expand=wellbores&$filter=depth gt 1000"
 
-# Use with client
+# Execute the query with client
 client = DSISClient(config)
-query_string = QueryBuilder().data_table("Basin").select("name,id").build()
-# Then use in: client.get_odata(district_id="123", field="wells", data_table="Basin", select="name,id")
+response = client.executeQuery(query)
+
+# Reuse builder for multiple queries
+builder = QueryBuilder(district_id="123", field="wells")
+
+# Query 1
+query1 = builder.data_table("Well").select("name,depth").build()
+response1 = client.executeQuery(query1)
+
+# Query 2 (reset builder for new query)
+query2 = builder.reset().data_table("Basin").select("id,name").build()
+response2 = client.executeQuery(query2)
 
 # List available models
 models = QueryBuilder.list_available_models("common")
 print(models)  # ['Well', 'Basin', 'Wellbore', ...]
 
 # Use native domain models
-native_query = QueryBuilder(domain="native").data_table("Well").build()
+native_builder = QueryBuilder(domain="native", district_id="123", field="wells")
+native_query = native_builder.data_table("Well").build()
 ```
 
 ### Get Model Information
@@ -331,6 +346,27 @@ data = client.get_odata("123", "wells", data_table="Well", filter="depth gt 1000
 data = client.get_odata("123", "wells", data_table="Well", expand="logs,completions")
 ```
 
+### `executeQuery(query)`
+
+Execute a DsisQuery built with QueryBuilder.
+
+**Parameters:**
+- `query`: DsisQuery object (returned from QueryBuilder.build())
+
+**Returns:** Dictionary containing the parsed API response
+
+**Raises:** TypeError if query is not a DsisQuery instance
+
+**Example:**
+```python
+# Build query with QueryBuilder
+query = QueryBuilder(district_id="123", field="wells").data_table("Well").select("name,depth").build()
+
+# Execute the query
+response = client.executeQuery(query)
+print(response)
+```
+
 ### `get_model_by_name(model_name, domain="common")`
 
 Get a dsis-schemas model class by name.
@@ -389,17 +425,25 @@ print(well.well_name)  # Type-safe access
 
 ## QueryBuilder API
 
-### `QueryBuilder(domain="common")`
+### `QueryBuilder(domain="common", district_id=None, field=None)`
 
 Create a new query builder instance.
 
 **Parameters:**
 - `domain`: Domain for models - "common" or "native" (default: "common")
+- `district_id`: Optional district ID for the query (can be overridden in build())
+- `field`: Optional field name for the query (can be overridden in build())
 
 **Example:**
 ```python
+# Basic builder
 builder = QueryBuilder()
-native_builder = QueryBuilder(domain="native")
+
+# Builder with path parameters
+builder = QueryBuilder(district_id="123", field="wells")
+
+# Native domain builder
+native_builder = QueryBuilder(domain="native", district_id="123", field="wells")
 ```
 
 ### `data_table(table_name, validate=True)`
@@ -465,18 +509,35 @@ builder.filter("depth gt 1000")
 builder.filter("name eq 'Well-1'")
 ```
 
-### `build()`
+### `build(district_id=None, field=None)`
 
-Build the complete OData query string for the data_table.
+Build a DsisQuery object ready for execution with client.executeQuery().
 
-**Returns:** Query string (e.g., "Well?$format=json&$select=name,depth")
+**Parameters:**
+- `district_id`: Optional district ID (overrides constructor value if provided)
+- `field`: Optional field name (overrides constructor value if provided)
+
+**Returns:** DsisQuery object with query string and path parameters
 
 **Raises:** ValueError if data_table is not set
 
 **Example:**
 ```python
+# Using path parameters from constructor
+builder = QueryBuilder(district_id="123", field="wells")
 query = builder.data_table("Well").select("name").build()
-# Returns: "Well?$format=json&$select=name"
+# Returns: DsisQuery with district_id="123", field="wells"
+
+# Overriding path parameters at build time
+builder = QueryBuilder()
+query = builder.data_table("Well").select("name").build(
+    district_id="456",
+    field="logs"
+)
+# Returns: DsisQuery with district_id="456", field="logs"
+
+# Execute with client
+response = client.executeQuery(query)
 ```
 
 ### `build_query_string()`
@@ -510,13 +571,44 @@ print(models)  # ['Well', 'Basin', 'Wellbore', ...]
 
 ### `reset()`
 
-Reset the builder to initial state.
+Reset the builder to initial state (clears data_table, select, expand, filter, format).
+
+Note: Does not reset domain, district_id, or field set in constructor.
 
 **Returns:** Self for chaining
 
 **Example:**
 ```python
 builder.reset()
+```
+
+## DsisQuery
+
+The `DsisQuery` class encapsulates a complete OData query with path parameters. It is returned by `QueryBuilder.build()` and passed to `client.executeQuery()`.
+
+### Properties
+
+- `query_string`: The OData query string (e.g., "Well?$format=json&$select=name,depth")
+- `district_id`: Optional district ID for the query
+- `field`: Optional field name for the query
+- `data_table`: The data table name extracted from the query string
+
+### Example
+
+```python
+from dsis_client import QueryBuilder, DsisQuery
+
+# Create a DsisQuery using QueryBuilder
+query = QueryBuilder(district_id="123", field="wells").data_table("Well").select("name").build()
+
+# Access properties
+print(query.query_string)  # "Well?$format=json&$select=name"
+print(query.district_id)   # "123"
+print(query.field)         # "wells"
+print(query.data_table)    # "Well"
+
+# Execute with client
+response = client.executeQuery(query)
 ```
 
 ### `test_connection()`
