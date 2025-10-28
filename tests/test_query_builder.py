@@ -281,7 +281,7 @@ class TestQueryBuilderBuild:
         builder = QueryBuilder()
         query = builder.data_table("Well").build()
         assert isinstance(query, DsisQuery)
-        assert query.data_table == "Well"
+        assert query.schema == "Well"
         assert "$format=json" in unquote(query.query_string)
 
     def test_build_with_select(self):
@@ -352,7 +352,7 @@ class TestQueryBuilderBuild:
         assert isinstance(query, DsisQuery)
         assert query.district_id == "OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA"
         assert query.field == "SNORRE"
-        assert query.data_table == "Fault"
+        assert query.schema == "Fault"
 
     def test_build_with_path_parameters_in_constructor(self):
         """Test building query with path parameters in constructor."""
@@ -364,7 +364,7 @@ class TestQueryBuilderBuild:
         assert isinstance(query, DsisQuery)
         assert query.district_id == "OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA"
         assert query.field == "SNORRE"
-        assert query.data_table == "Fault"
+        assert query.schema == "Fault"
 
     def test_build_path_parameters_override(self):
         """Test that build() parameters override constructor parameters."""
@@ -547,39 +547,39 @@ class TestQueryBuilderRepr:
 class TestDsisQueryCasting:
     """Test DsisQuery result casting functionality."""
 
-    def test_set_model_method(self):
-        """Test set_model() method."""
+    def test_set_schema_method(self):
+        """Test set_schema() method."""
         from dsis_model_sdk.models.common import Well
 
         query = DsisQuery("Well?$format=json&$select=well_name")
-        result = query.set_model(Well)
+        result = query.set_schema(Well)
         assert result is query  # Check chaining
-        assert query.model_class == Well
+        assert query.schema_class == Well
 
     def test_cast_result_single_item(self):
         """Test casting a single result item."""
         from dsis_model_sdk.models.common import Well
 
-        query = DsisQuery("Well?$format=json&$select=well_name").set_model(Well)
+        query = DsisQuery("Well?$format=json&$select=well_name").set_schema(Well)
         item = {"well_name": "TEST_WELL", "well_uwi": "test_uwi", "native_uid": "test_uid"}
 
         result = query.cast_result(item)
         assert isinstance(result, Well)
         assert result.well_name == "TEST_WELL"
 
-    def test_cast_result_without_model(self):
-        """Test casting without setting model raises error."""
+    def test_cast_result_without_schema(self):
+        """Test casting without setting schema raises error."""
         query = DsisQuery("Well?$format=json&$select=well_name")
         item = {"well_name": "TEST_WELL"}
 
-        with pytest.raises(ValueError, match="model_class is not set"):
+        with pytest.raises(ValueError, match="schema_class is not set"):
             query.cast_result(item)
 
     def test_cast_results_multiple_items(self):
         """Test casting multiple result items."""
         from dsis_model_sdk.models.common import Well
 
-        query = DsisQuery("Well?$format=json&$select=well_name").set_model(Well)
+        query = DsisQuery("Well?$format=json&$select=well_name").set_schema(Well)
         items = [
             {"well_name": "WELL_1", "well_uwi": "uwi_1", "native_uid": "uid_1"},
             {"well_name": "WELL_2", "well_uwi": "uwi_2", "native_uid": "uid_2"},
@@ -591,42 +591,42 @@ class TestDsisQueryCasting:
         assert results[0].well_name == "WELL_1"
         assert results[1].well_name == "WELL_2"
 
-    def test_cast_results_without_model(self):
-        """Test casting multiple results without setting model raises error."""
+    def test_cast_results_without_schema(self):
+        """Test casting multiple results without setting schema raises error."""
         query = DsisQuery("Well?$format=json&$select=well_name")
         items = [{"well_name": "WELL_1"}]
 
-        with pytest.raises(ValueError, match="model_class is not set"):
+        with pytest.raises(ValueError, match="schema_class is not set"):
             query.cast_results(items)
 
-    def test_dsis_query_with_model_in_constructor(self):
-        """Test DsisQuery initialized with model_class."""
+    def test_dsis_query_with_schema_in_constructor(self):
+        """Test DsisQuery initialized with schema_class."""
         from dsis_model_sdk.models.common import Fault
 
         query = DsisQuery(
             "Fault?$format=json&$select=id,type",
-            model_class=Fault
+            schema_class=Fault
         )
-        assert query.model_class == Fault
+        assert query.schema_class == Fault
 
         item = {"id": "123", "type": "NORMAL", "fault_name": "test_fault"}
         result = query.cast_result(item)
         assert isinstance(result, Fault)
 
-    def test_query_builder_passes_model_to_dsis_query(self):
-        """Test that QueryBuilder passes model_class to DsisQuery."""
+    def test_query_builder_passes_schema_to_dsis_query(self):
+        """Test that QueryBuilder passes schema_class to DsisQuery."""
         from dsis_model_sdk.models.common import Well
 
         query = QueryBuilder().model(Well).data_table("Well").select("well_name").build()
         assert isinstance(query, DsisQuery)
-        assert query.model_class == Well
+        assert query.schema_class == Well
 
     def test_full_chain_with_model_and_casting(self):
         """Test full chain from QueryBuilder to result casting."""
         from dsis_model_sdk.models.common import Fault
 
         query = QueryBuilder().model(Fault).data_table("Fault").select("id,type").build()
-        assert query.model_class == Fault
+        assert query.schema_class == Fault
 
         # Simulate API response with required fields
         items = [

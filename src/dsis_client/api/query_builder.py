@@ -316,7 +316,7 @@ class QueryBuilder:
             query_string=query_str,
             district_id=final_district_id,
             field=final_field,
-            model_class=self._model_class
+            schema_class=self._model_class
         )
 
     def build_query_string(self) -> str:

@@ -696,8 +696,8 @@ The `DsisQuery` class encapsulates a complete OData query with path parameters. 
 - `query_string`: The OData query string (e.g., "Well?$format=json&$select=name,depth")
 - `district_id`: Optional district ID for the query
 - `field`: Optional field name for the query
-- `data_table`: The data table name extracted from the query string
-- `model_class`: Optional dsis_model_sdk model class for casting results
+- `schema`: The schema name extracted from the query string
+- `schema_class`: Optional dsis_model_sdk model class for casting results
 
 ### Result Casting
 
@@ -707,7 +707,7 @@ DsisQuery supports automatic casting of API results to dsis_model_sdk model inst
 from dsis_client import QueryBuilder, DsisQuery
 from dsis_model_sdk.models.common import Well, Fault
 
-# Method 1: Set model via QueryBuilder
+# Method 1: Set schema via QueryBuilder
 query = QueryBuilder(district_id="123", field="wells").model(Well).select("well_name").build()
 response = client.executeQuery(query)
 
@@ -716,52 +716,52 @@ wells = query.cast_results(response.get("value", []))
 for well in wells:
     print(f"Well: {well.well_name}")  # Type-safe access
 
-# Method 2: Set model via DsisQuery
-query = DsisQuery("Fault?$format=json&$select=id,type", model_class=Fault)
+# Method 2: Set schema via DsisQuery
+query = DsisQuery("Fault?$format=json&$select=id,type", schema_class=Fault)
 response = client.executeQuery(query)
 
 # Cast single result
 fault = query.cast_result(response["value"][0])
 print(type(fault))  # <class 'dsis_model_sdk.models.common.fault.Fault'>
 
-# Method 3: Set model after creation
+# Method 3: Set schema after creation
 query = DsisQuery("Well?$format=json&$select=well_name")
-query.set_model(Well)
+query.set_schema(Well)
 wells = query.cast_results(response.get("value", []))
 ```
 
 ### Methods
 
-#### `set_model(model_class)`
+#### `set_schema(schema_class)`
 
-Set the model class for casting results.
+Set the schema class for casting results.
 
 **Parameters:**
-- `model_class`: A dsis_model_sdk model class
+- `schema_class`: A dsis_model_sdk model class
 
 **Returns:** Self for chaining
 
 #### `cast_result(result)`
 
-Cast a single result item to the model class.
+Cast a single result item to the schema class.
 
 **Parameters:**
 - `result`: A single item from the API response
 
-**Returns:** Instance of model_class
+**Returns:** Instance of schema_class
 
-**Raises:** ValueError if model_class is not set; ValidationError if result doesn't match schema
+**Raises:** ValueError if schema_class is not set; ValidationError if result doesn't match schema
 
 #### `cast_results(results)`
 
-Cast multiple result items to the model class.
+Cast multiple result items to the schema class.
 
 **Parameters:**
 - `results`: List of items from the API response
 
-**Returns:** List of model instances
+**Returns:** List of schema instances
 
-**Raises:** ValueError if model_class is not set; ValidationError if any result doesn't match schema
+**Raises:** ValueError if schema_class is not set; ValidationError if any result doesn't match schema
 
 ### Example
 
@@ -776,8 +776,8 @@ query = QueryBuilder(district_id="123", field="wells").model(Well).select("well_
 print(query.query_string)  # "Well?$format=json&$select=well_name"
 print(query.district_id)   # "123"
 print(query.field)         # "wells"
-print(query.data_table)    # "Well"
-print(query.model_class)   # <class 'dsis_model_sdk.models.common.well.Well'>
+print(query.schema)        # "Well"
+print(query.schema_class)  # <class 'dsis_model_sdk.models.common.well.Well'>
 
 # Execute with client
 client = DSISClient(config)

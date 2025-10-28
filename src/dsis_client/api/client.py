@@ -239,7 +239,7 @@ class DSISClient:
             segments.append(str(query.district_id))
         if query.field is not None:
             segments.append(query.field)
-        segments.append(query.data_table)
+        segments.append(query.schema)
 
         endpoint = "/".join(segments)
 
