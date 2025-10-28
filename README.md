@@ -117,81 +117,69 @@ The client provides built-in support for the `dsis-schemas` package, which provi
 
 ### QueryBuilder: Build OData Queries
 
-The `QueryBuilder` provides a fluent interface for building OData queries with validation against dsis-schemas models. It returns a `DsisQuery` object that can be directly executed with `client.executeQuery()`.
+The `QueryBuilder` provides a fluent interface for building OData queries. QueryBuilder IS the query object - no need to call `.build()`.
 
 #### Basic Usage
 
 ```python
 from dsis_client import QueryBuilder, DSISClient, DSISConfig
 
-# Create a builder with path parameters
-builder = QueryBuilder(
+# Create a query with required path parameters
+query = QueryBuilder(
     district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
     field="SNORRE"
-)
-
-# Build a simple query
-query = builder.data_table("Well").select("name,depth").build()
-# Returns: DsisQuery object ready for execution
-
-# Build a complex query
-query = (QueryBuilder(district_id="123", field="wells")
-    .data_table("Well")
-    .select("name", "depth", "status")
-    .filter("depth gt 1000")
-    .expand("wellbores")
-    .build())
+).schema("Well").select("name,depth")
 
 # Execute the query with client
 client = DSISClient(config)
+response = client.executeQuery(query)
+
+# Build a complex query with chaining
+query = (QueryBuilder(district_id="123", field="wells")
+    .schema("Well")
+    .select("name", "depth", "status")
+    .filter("depth gt 1000")
+    .expand("wellbores"))
+
 response = client.executeQuery(query)
 
 # Reuse builder for multiple queries
 builder = QueryBuilder(district_id="123", field="wells")
 
 # Query 1
-query1 = builder.data_table("Well").select("name,depth").build()
+query1 = builder.schema("Well").select("name,depth")
 response1 = client.executeQuery(query1)
 
 # Query 2 (reset builder for new query)
-query2 = builder.reset().data_table("Basin").select("id,name").build()
+query2 = builder.reset().schema("Basin").select("id,name")
 response2 = client.executeQuery(query2)
 ```
 
-#### Using Model Classes
+#### Using Model Classes with Auto-Casting
 
-For better type safety and field validation, you can pass model classes directly from `dsis_model_sdk`:
+For type-safe result casting, use model classes from `dsis_model_sdk`:
 
 ```python
 from dsis_client import QueryBuilder
 from dsis_model_sdk.models.common import Well, Basin, Fault
 
-# Use model() to set data table from model class
+# Use schema() with model class for type-safe casting
 query = (QueryBuilder(district_id="123", field="wells")
-    .model(Well)
-    .select("well_name", "well_uwi", "alternate_well_name")
-    .filter("well_name eq 'SNORRE'")
-    .build())
+    .schema(Basin)
+    .select("basin_name", "basin_id", "native_uid"))
 
-# Use select_from_model() for field validation
-query = (QueryBuilder(district_id="123", field="wells")
-    .model(Fault)
-    .select_from_model(Fault, "fault_name", "fault_type", "native_uid")
-    .filter("fault_type eq 'NORMAL'")
-    .build())
+# Option 1: Auto-cast results with executeQuery
+basins = client.executeQuery(query, cast=True)
+for basin in basins:
+    print(f"Basin: {basin.basin_name}")  # Type-safe access with IDE autocomplete
 
-# Get model class by name
-Well = QueryBuilder.get_model("Well")
-fields = QueryBuilder.get_model_fields("Well")
-print(fields.keys())  # dict_keys(['native_uid', 'well_uwi', 'uwi_type', ...])
+# Option 2: Manual cast with client.cast_results()
+response = client.executeQuery(query)
+basins = client.cast_results(response['value'], Basin)
 
-# List available models
-models = QueryBuilder.list_available_models("common")
-print(models)  # ['Well', 'Basin', 'Wellbore', ...]
-
-# Use native domain models
-native_builder = QueryBuilder(domain="native", district_id="123", field="wells")
-native_query = native_builder.model(QueryBuilder.get_model("Well", domain="native")).build()
+# Import models directly from dsis_model_sdk
+from dsis_model_sdk.models.common import Well, Fault
+from dsis_model_sdk.models.native import Well as WellNative
 ```
 
 ### Get Model Information
@@ -376,25 +364,37 @@ data = client.get_odata("123", "wells", data_table="Well", filter="depth gt 1000
 data = client.get_odata("123", "wells", data_table="Well", expand="logs,completions")
 ```
 
-### `executeQuery(query)`
+### `executeQuery(query, cast=False)`
 
-Execute a DsisQuery built with QueryBuilder.
+Execute a QueryBuilder query.
 
 **Parameters:**
-- `query`: DsisQuery object (returned from QueryBuilder.build())
+- `query`: QueryBuilder instance
+- `cast`: If True and query has a schema class, automatically cast results to model instances (default: False)
 
-**Returns:** Dictionary containing the parsed API response
+**Returns:**
+- If `cast=False`: Dictionary containing the parsed API response
+- If `cast=True`: List of model instances (from response["value"])
 
-**Raises:** TypeError if query is not a DsisQuery instance
+**Raises:**
+- TypeError if query is not a QueryBuilder instance
+- ValueError if cast=True but query has no schema class
 
 **Example:**
 ```python
-# Build query with QueryBuilder
-query = QueryBuilder(district_id="123", field="wells").data_table("Well").select("name,depth").build()
+from dsis_model_sdk.models.common import Basin
 
-# Execute the query
+# Build query with QueryBuilder
+query = QueryBuilder(district_id="123", field="wells").schema(Basin).select("basin_name,basin_id")
+
+# Option 1: Get raw response
 response = client.executeQuery(query)
 print(response)
+
+# Option 2: Auto-cast to model instances
+basins = client.executeQuery(query, cast=True)
+for basin in basins:
+    print(basin.basin_name)
 ```
 
 ### `get_model_by_name(model_name, domain="common")`
@@ -455,82 +455,40 @@ print(well.well_name)  # Type-safe access
 
 ## QueryBuilder API
 
-### `QueryBuilder(domain="common", district_id=None, field=None)`
+### `QueryBuilder(district_id, field)`
 
-Create a new query builder instance.
+Create a new query builder instance. QueryBuilder IS the query object - no need to call `.build()`.
 
 **Parameters:**
-- `domain`: Domain for models - "common" or "native" (default: "common")
-- `district_id`: Optional district ID for the query (can be overridden in build())
-- `field`: Optional field name for the query (can be overridden in build())
+- `district_id`: District ID for the query (required)
+- `field`: Field name for the query (required)
 
 **Example:**
 ```python
-# Basic builder
-builder = QueryBuilder()
+# Create a query builder with required parameters
+query = QueryBuilder(district_id="123", field="wells")
 
-# Builder with path parameters
-builder = QueryBuilder(district_id="123", field="wells")
-
-# Native domain builder
-native_builder = QueryBuilder(domain="native", district_id="123", field="wells")
+# Chain methods to build the query
+query = QueryBuilder(district_id="123", field="wells").schema("Well").select("name,depth")
 ```
 
-### `data_table(table_name, validate=True)`
+### `schema(schema)`
 
-Set the data table (model) for the query.
+Set the schema (data table) using a name or model class.
 
 **Parameters:**
-- `table_name`: Data table name (e.g., "Well", "Basin", "Wellbore")
-- `validate`: If True, validates that the model exists (default: True)
+- `schema`: Schema name (e.g., "Well", "Basin") or dsis_model_sdk model class
 
 **Returns:** Self for chaining
 
-**Raises:** ValueError if validate=True and model is not found
-
 **Example:**
 ```python
-builder.data_table("Well")
-builder.data_table("Basin", validate=False)
-```
+# Using schema name
+query = QueryBuilder(district_id="123", field="wells").schema("Well")
 
-### `model(model_class)`
-
-Set the data table using a dsis_model_sdk model class (convenience method).
-
-**Parameters:**
-- `model_class`: A Pydantic model class from dsis_model_sdk (e.g., Well, Basin, Fault)
-
-**Returns:** Self for chaining
-
-**Raises:** ValueError if model_class is not a valid Pydantic model
-
-**Example:**
-```python
-from dsis_model_sdk.models.common import Well, Basin
-
-builder.model(Well)
-builder.model(Basin)
-```
-
-### `select_from_model(model_class, *field_names)`
-
-Select fields from a dsis_model_sdk model class with field validation.
-
-**Parameters:**
-- `model_class`: A Pydantic model class from dsis_model_sdk
-- `*field_names`: Field names to select (can be comma-separated or individual)
-
-**Returns:** Self for chaining
-
-**Raises:** ValueError if any field name is not in the model
-
-**Example:**
-```python
-from dsis_model_sdk.models.common import Well
-
-builder.select_from_model(Well, "well_name", "well_uwi", "alternate_well_name")
-builder.select_from_model(Well, "well_name,well_uwi,alternate_well_name")
+# Using model class for type-safe casting
+from dsis_model_sdk.models.common import Basin
+query = QueryBuilder(district_id="123", field="wells").schema(Basin)
 ```
 
 ### `select(*fields)`
@@ -578,215 +536,81 @@ builder.filter("depth gt 1000")
 builder.filter("name eq 'Well-1'")
 ```
 
-### `build(district_id=None, field=None)`
+### `get_query_string()`
 
-Build a DsisQuery object ready for execution with client.executeQuery().
+Get the full OData query string for this query.
 
-**Parameters:**
-- `district_id`: Optional district ID (overrides constructor value if provided)
-- `field`: Optional field name (overrides constructor value if provided)
+**Returns:** Full query string (e.g., "Well?$format=json&$select=name,depth")
 
-**Returns:** DsisQuery object with query string and path parameters
-
-**Raises:** ValueError if data_table is not set
+**Raises:** ValueError if schema is not set
 
 **Example:**
 ```python
-# Using path parameters from constructor
-builder = QueryBuilder(district_id="123", field="wells")
-query = builder.data_table("Well").select("name").build()
-# Returns: DsisQuery with district_id="123", field="wells"
-
-# Overriding path parameters at build time
-builder = QueryBuilder()
-query = builder.data_table("Well").select("name").build(
-    district_id="456",
-    field="logs"
-)
-# Returns: DsisQuery with district_id="456", field="logs"
-
-# Execute with client
-response = client.executeQuery(query)
-```
-
-### `build_query_string()`
-
-Build just the query parameters part (without data_table).
-
-**Returns:** Query string (e.g., "$format=json&$select=name,depth")
-
-**Example:**
-```python
-query_str = builder.select("name").filter("depth gt 1000").build_query_string()
-# Returns: "$format=json&$select=name&$filter=depth gt 1000"
-```
-
-### `list_available_models(domain="common")`
-
-List all available models in a domain.
-
-**Parameters:**
-- `domain`: Domain - "common" or "native" (default: "common")
-
-**Returns:** List of available model names
-
-**Raises:** ImportError if dsis_schemas is not installed
-
-**Example:**
-```python
-models = QueryBuilder.list_available_models("common")
-print(models)  # ['Well', 'Basin', 'Wellbore', ...]
-```
-
-### `get_model(model_name, domain="common")`
-
-Get a model class by name from dsis_model_sdk.
-
-**Parameters:**
-- `model_name`: Name of the model (e.g., "Well", "Basin", "Fault")
-- `domain`: Domain - "common" or "native" (default: "common")
-
-**Returns:** The model class if found
-
-**Raises:** ImportError if dsis_schemas is not installed; ValueError if model not found
-
-**Example:**
-```python
-Well = QueryBuilder.get_model("Well")
-Basin = QueryBuilder.get_model("Basin", domain="native")
-```
-
-### `get_model_fields(model_name, domain="common")`
-
-Get field information for a model.
-
-**Parameters:**
-- `model_name`: Name of the model (e.g., "Well", "Basin")
-- `domain`: Domain - "common" or "native" (default: "common")
-
-**Returns:** Dictionary of field names and their information
-
-**Raises:** ImportError if dsis_schemas is not installed; ValueError if model not found
-
-**Example:**
-```python
-fields = QueryBuilder.get_model_fields("Well")
-print(fields.keys())  # dict_keys(['native_uid', 'well_uwi', 'uwi_type', ...])
+query = QueryBuilder(district_id="123", field="wells").schema("Well").select("name,depth")
+print(query.get_query_string())
+# Returns: "Well?$format=json&$select=name,depth"
 ```
 
 ### `reset()`
 
-Reset the builder to initial state (clears data_table, select, expand, filter, format).
+Reset the builder to initial state (clears schema, select, expand, filter, format).
 
-Note: Does not reset domain, district_id, or field set in constructor.
+Note: Does not reset district_id or field set in constructor.
 
 **Returns:** Self for chaining
 
 **Example:**
 ```python
-builder.reset()
+builder = QueryBuilder(district_id="123", field="wells")
+builder.schema("Well").select("name")
+builder.reset()  # Clears schema and select, keeps district_id and field
+builder.schema("Basin").select("id")  # Reuse for new query
 ```
 
-## DsisQuery
+## DSISClient Casting Methods
 
-The `DsisQuery` class encapsulates a complete OData query with path parameters. It is returned by `QueryBuilder.build()` and passed to `client.executeQuery()`.
+### `cast_results(results, schema_class)`
 
-### Properties
+Cast API response items to model instances.
 
-- `query_string`: The OData query string (e.g., "Well?$format=json&$select=name,depth")
-- `district_id`: Optional district ID for the query
-- `field`: Optional field name for the query
-- `schema`: The schema name extracted from the query string
-- `schema_class`: Optional dsis_model_sdk model class for casting results
+**Parameters:**
+- `results`: List of dictionaries from API response (typically response["value"])
+- `schema_class`: Pydantic model class to cast to (e.g., Basin, Well)
 
-### Result Casting
+**Returns:** List of model instances
 
-DsisQuery supports automatic casting of API results to dsis_model_sdk model instances:
+**Raises:** ValidationError if any result doesn't match schema
 
+**Example:**
 ```python
-from dsis_client import QueryBuilder, DsisQuery
-from dsis_model_sdk.models.common import Well, Fault
+from dsis_model_sdk.models.common import Basin
 
-# Method 1: Set schema via QueryBuilder
-query = QueryBuilder(district_id="123", field="wells").model(Well).select("well_name").build()
+query = QueryBuilder(district_id="123", field="wells").schema(Basin).select("basin_name,basin_id")
 response = client.executeQuery(query)
-
-# Cast results to model instances
-wells = query.cast_results(response.get("value", []))
-for well in wells:
-    print(f"Well: {well.well_name}")  # Type-safe access
-
-# Method 2: Set schema via DsisQuery
-query = DsisQuery("Fault?$format=json&$select=id,type", schema_class=Fault)
-response = client.executeQuery(query)
-
-# Cast single result
-fault = query.cast_result(response["value"][0])
-print(type(fault))  # <class 'dsis_model_sdk.models.common.fault.Fault'>
-
-# Method 3: Set schema after creation
-query = DsisQuery("Well?$format=json&$select=well_name")
-query.set_schema(Well)
-wells = query.cast_results(response.get("value", []))
+basins = client.cast_results(response['value'], Basin)
+for basin in basins:
+    print(f"Basin: {basin.basin_name}")
 ```
 
-### Methods
+### Result Casting with QueryBuilder
 
-#### `set_schema(schema_class)`
-
-Set the schema class for casting results.
-
-**Parameters:**
-- `schema_class`: A dsis_model_sdk model class
-
-**Returns:** Self for chaining
-
-#### `cast_result(result)`
-
-Cast a single result item to the schema class.
-
-**Parameters:**
-- `result`: A single item from the API response
-
-**Returns:** Instance of schema_class
-
-**Raises:** ValueError if schema_class is not set; ValidationError if result doesn't match schema
-
-#### `cast_results(results)`
-
-Cast multiple result items to the schema class.
-
-**Parameters:**
-- `results`: List of items from the API response
-
-**Returns:** List of schema instances
-
-**Raises:** ValueError if schema_class is not set; ValidationError if any result doesn't match schema
-
-### Example
+QueryBuilder supports automatic casting when used with model classes:
 
 ```python
-from dsis_client import QueryBuilder, DSISClient, DSISConfig
-from dsis_model_sdk.models.common import Well, Basin
+from dsis_client import QueryBuilder, DSISClient
+from dsis_model_sdk.models.common import Basin
 
-# Create a DsisQuery using QueryBuilder
-query = QueryBuilder(district_id="123", field="wells").model(Well).select("well_name").build()
+# Set schema with model class
+query = QueryBuilder(district_id="123", field="wells").schema(Basin).select("basin_name,basin_id,native_uid")
 
-# Access properties
-print(query.query_string)  # "Well?$format=json&$select=well_name"
-print(query.district_id)   # "123"
-print(query.field)         # "wells"
-print(query.schema)        # "Well"
-print(query.schema_class)  # <class 'dsis_model_sdk.models.common.well.Well'>
+# Option 1: Auto-cast with executeQuery
+basins = client.executeQuery(query, cast=True)
+for basin in basins:
+    print(f"Basin: {basin.basin_name}")  # Type-safe access with IDE autocomplete
 
-# Execute with client
-client = DSISClient(config)
+# Option 2: Manual cast with client.cast_results()
 response = client.executeQuery(query)
-
-# Cast results to model instances
-wells = query.cast_results(response.get("value", []))
-for well in wells:
-    print(f"Well: {well.well_name} (UWI: {well.well_uwi})")
+basins = client.cast_results(response['value'], Basin)
 ```
 
 ### `test_connection()`
