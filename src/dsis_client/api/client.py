@@ -6,7 +6,7 @@ Handles request construction, authentication header management, and response par
 
 import json
 import logging
-from typing import Any, Dict, Optional, Type, TypeVar, Union
+from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 from urllib.parse import urljoin
 
 import requests
@@ -14,7 +14,6 @@ import requests
 from .auth import DSISAuth
 from .config import DSISConfig
 from .exceptions import DSISAPIError
-from .dsis_query import DsisQuery
 
 logger = logging.getLogger(__name__)
 
@@ -198,38 +197,42 @@ class DSISClient:
             **extra_query,
         )
 
-    def executeQuery(self, query: DsisQuery) -> Dict[str, Any]:
+    def executeQuery(self, query: "QueryBuilder", cast: bool = False) -> Union[Dict[str, Any], List[Any]]:
         """Execute a DSIS query.
 
-        Executes a query that was built using QueryBuilder and wrapped in DsisQuery.
+        Executes a query that was built using QueryBuilder.
         This provides a clean, user-friendly interface for query execution.
 
         Args:
-            query: DsisQuery instance containing the query string and path parameters
+            query: QueryBuilder instance containing the query and path parameters
+            cast: If True and query has a schema class, automatically cast results to model instances
 
         Returns:
-            Dictionary containing the parsed API response
+            If cast=False: Dictionary containing the parsed API response
+            If cast=True: List of model instances (from response["value"])
 
         Raises:
             DSISAPIError: If the API request fails
-            ValueError: If query is invalid
+            ValueError: If query is invalid or cast=True but query has no schema class
 
         Example:
-            >>> # Build query with QueryBuilder
-            >>> query_builder = QueryBuilder().data_table("Fault").select("id,type").filter("type eq 'NORMAL'")
-            >>>
-            >>> # Wrap in DsisQuery with path parameters
-            >>> query = DsisQuery(
-            ...     query_string=query_builder.build(),
+            >>> from dsis_model_sdk.models.common import Fault
+            >>> query = QueryBuilder(
             ...     district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
             ...     field="SNORRE"
-            ... )
+            ... ).schema(Fault).select("id,type").filter("type eq 'NORMAL'")
             >>>
-            >>> # Execute the query
+            >>> # Option 1: Get raw response
             >>> response = client.executeQuery(query)
+            >>>
+            >>> # Option 2: Auto-cast to model instances
+            >>> faults = client.executeQuery(query, cast=True)
         """
-        if not isinstance(query, DsisQuery):
-            raise TypeError(f"Expected DsisQuery, got {type(query)}")
+        # Import here to avoid circular imports
+        from .dsis_query_builder import QueryBuilder
+
+        if not isinstance(query, QueryBuilder):
+            raise TypeError(f"Expected QueryBuilder, got {type(query)}")
 
         logger.debug(f"Executing query: {query}")
 
@@ -239,15 +242,61 @@ class DSISClient:
             segments.append(str(query.district_id))
         if query.field is not None:
             segments.append(query.field)
-        segments.append(query.schema)
+
+        # Get schema name from query
+        query_string = query.get_query_string()
+        schema_name = query_string.split("?")[0]
+        segments.append(schema_name)
 
         endpoint = "/".join(segments)
 
         # Get parsed parameters from the query
-        params = query.get_parsed_params()
+        params = query.build_query_params()
 
         logger.debug(f"Making request to endpoint: {endpoint} with params: {params}")
-        return self._request(endpoint, params)
+        response = self._request(endpoint, params)
+
+        # Auto-cast if requested
+        if cast:
+            if not query._schema_class:
+                raise ValueError(
+                    "Cannot cast results: query has no schema class. "
+                    "Use .schema(ModelClass) when building the query."
+                )
+            return self.cast_results(response.get("value", []), query._schema_class)
+
+        return response
+
+    def cast_results(self, results: List[Dict[str, Any]], schema_class: Type) -> List[Any]:
+        """Cast API response items to model instances.
+
+        Args:
+            results: List of dictionaries from API response (typically response["value"])
+            schema_class: Pydantic model class to cast to (e.g., Fault, Well)
+
+        Returns:
+            List of model instances
+
+        Raises:
+            ValidationError: If any result doesn't match the schema
+
+        Example:
+            >>> from dsis_model_sdk.models.common import Fault
+            >>> query = QueryBuilder(district_id="123", field="SNORRE").schema(Fault)
+            >>> response = client.executeQuery(query)
+            >>> faults = client.cast_results(response["value"], Fault)
+        """
+        casted = []
+        for i, result in enumerate(results):
+            try:
+                instance = schema_class(**result)
+                casted.append(instance)
+            except Exception as e:
+                logger.error(f"Failed to cast result {i} to {schema_class.__name__}: {e}")
+                raise
+
+        logger.debug(f"Cast {len(casted)} results to {schema_class.__name__}")
+        return casted
 
     def _is_valid_model(self, model_name: str, domain: str = "common") -> bool:
         """Check if a model name is valid in dsis_schemas.

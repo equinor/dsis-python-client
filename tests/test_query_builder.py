@@ -3,31 +3,22 @@
 import pytest
 from urllib.parse import unquote, parse_qs, urlparse
 
-from src.dsis_client import QueryBuilder, DsisQuery
+from src.dsis_client import QueryBuilder, DSISClient, DSISConfig
 
 
 class TestQueryBuilderBasic:
     """Test basic QueryBuilder functionality."""
 
     def test_init_default(self):
-        """Test default initialization."""
-        builder = QueryBuilder()
-        assert builder._domain == "common"
-        assert builder._data_table is None
+        """Test default initialization with required parameters."""
+        builder = QueryBuilder(district_id="test_district", field="test_field")
+        assert builder.district_id == "test_district"
+        assert builder.field == "test_field"
+        assert builder._schema_name is None
         assert builder._select == []
         assert builder._expand == []
         assert builder._filter is None
         assert builder._format == "json"
-
-    def test_init_with_domain(self):
-        """Test initialization with domain."""
-        builder = QueryBuilder(domain="native")
-        assert builder._domain == "native"
-
-    def test_init_invalid_domain(self):
-        """Test initialization with invalid domain."""
-        with pytest.raises(ValueError):
-            QueryBuilder(domain="invalid")
 
     def test_init_with_path_parameters(self):
         """Test initialization with path parameters."""
@@ -35,148 +26,103 @@ class TestQueryBuilderBasic:
             district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
             field="SNORRE"
         )
-        assert builder._district_id == "OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA"
-        assert builder._field == "SNORRE"
+        assert builder.district_id == "OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA"
+        assert builder.field == "SNORRE"
 
     def test_init_with_all_parameters(self):
         """Test initialization with all parameters."""
         builder = QueryBuilder(
-            domain="native",
             district_id="test_district",
             field="test_field"
         )
-        assert builder._domain == "native"
-        assert builder._district_id == "test_district"
-        assert builder._field == "test_field"
+        assert builder.district_id == "test_district"
+        assert builder.field == "test_field"
 
 
 class TestQueryBuilderModelHelpers:
-    """Test model helper methods."""
+    """Test schema helper methods."""
 
-    def test_model_method_with_well(self):
-        """Test model() method with Well model."""
+    def test_schema_method_with_well_class(self):
+        """Test schema() method with Well model class."""
         from dsis_model_sdk.models.common import Well
 
-        builder = QueryBuilder()
-        result = builder.model(Well)
+        builder = QueryBuilder(district_id="123", field="test")
+        result = builder.schema(Well)
         assert result is builder  # Check chaining
-        assert builder._data_table == "Well"
+        assert builder._schema_name == "Well"
+        assert builder._schema_class == Well
 
-    def test_model_method_with_basin(self):
-        """Test model() method with Basin model."""
+    def test_schema_method_with_basin_class(self):
+        """Test schema() method with Basin model class."""
         from dsis_model_sdk.models.common import Basin
 
-        builder = QueryBuilder()
-        result = builder.model(Basin)
+        builder = QueryBuilder(district_id="123", field="test")
+        result = builder.schema(Basin)
         assert result is builder
-        assert builder._data_table == "Basin"
+        assert builder._schema_name == "Basin"
+        assert builder._schema_class == Basin
 
-    def test_model_method_invalid_class(self):
-        """Test model() method with invalid class."""
-        builder = QueryBuilder()
-        with pytest.raises(ValueError, match="Invalid model class"):
-            builder.model("not_a_class")
+    def test_schema_method_with_string(self):
+        """Test schema() method with string name."""
+        builder = QueryBuilder(district_id="123", field="test")
+        result = builder.schema("Fault")
+        assert result is builder
+        assert builder._schema_name == "Fault"
+        assert builder._schema_class is None
 
-    def test_select_from_model_valid_fields(self):
-        """Test select_from_model() with valid fields."""
-        from dsis_model_sdk.models.common import Well
+    def test_schema_method_invalid_name(self):
+        """Test schema() method with invalid schema name - no validation."""
+        builder = QueryBuilder(district_id="123", field="test")
+        # No validation in QueryBuilder anymore - API will validate
+        builder.schema("InvalidSchemaName123")
+        assert builder._schema_name == "InvalidSchemaName123"
 
-        builder = QueryBuilder()
-        result = builder.select_from_model(Well, "well_name", "well_uwi")
-        assert result is builder  # Check chaining
-        assert "well_name" in builder._select
-        assert "well_uwi" in builder._select
-
-    def test_select_from_model_invalid_fields(self):
-        """Test select_from_model() with invalid fields."""
-        from dsis_model_sdk.models.common import Well
-
-        builder = QueryBuilder()
-        with pytest.raises(ValueError, match="Invalid fields"):
-            builder.select_from_model(Well, "invalid_field_xyz")
-
-    def test_select_from_model_comma_separated(self):
-        """Test select_from_model() with comma-separated fields."""
-        from dsis_model_sdk.models.common import Well
-
-        builder = QueryBuilder()
-        builder.select_from_model(Well, "well_name,well_uwi")
-        assert "well_name" in builder._select
-        assert "well_uwi" in builder._select
-
-    def test_get_model_static_method(self):
-        """Test get_model() static method."""
-        Well = QueryBuilder.get_model("Well")
-        assert Well.__name__ == "Well"
-
-    def test_get_model_native_domain(self):
-        """Test get_model() with native domain."""
-        Well = QueryBuilder.get_model("Well", domain="native")
-        assert Well.__name__ == "Well"
-
-    def test_get_model_invalid_name(self):
-        """Test get_model() with invalid model name."""
-        with pytest.raises(ValueError, match="not found"):
-            QueryBuilder.get_model("InvalidModelXYZ123")
-
-    def test_get_model_fields_static_method(self):
-        """Test get_model_fields() static method."""
-        fields = QueryBuilder.get_model_fields("Well")
-        assert isinstance(fields, dict)
-        assert len(fields) > 0
-        assert "well_name" in fields or "native_uid" in fields
-
-    def test_full_chain_with_model(self):
-        """Test full chain using model() method."""
+    def test_full_chain_with_schema(self):
+        """Test full chain using schema() method."""
         from dsis_model_sdk.models.common import Fault
 
         query = (QueryBuilder(district_id="123", field="wells")
-            .model(Fault)
-            .select_from_model(Fault, "fault_name", "fault_type", "native_uid")
-            .filter("fault_type eq 'NORMAL'")
-            .build())
+            .schema(Fault)
+            .select("fault_name", "fault_type", "native_uid")
+            .filter("fault_type eq 'NORMAL'"))
 
-        assert isinstance(query, DsisQuery)
+        assert isinstance(query, QueryBuilder)
         assert query.district_id == "123"
         assert query.field == "wells"
-        assert "Fault" in query.query_string
-        assert "fault_name" in unquote(query.query_string)
-        assert "fault_type" in unquote(query.query_string)
+        query_string = query.get_query_string()
+        assert "Fault" in query_string
+        assert "fault_name" in unquote(query_string)
+        assert "fault_type" in unquote(query_string)
 
 
-class TestQueryBuilderDataTable:
-    """Test data_table method."""
+class TestQueryBuilderSchema:
+    """Test schema method."""
 
-    def test_data_table_valid(self):
-        """Test setting valid data_table."""
-        builder = QueryBuilder()
-        result = builder.data_table("Well")
+    def test_schema_valid(self):
+        """Test setting valid schema."""
+        builder = QueryBuilder(district_id="123", field="test")
+        result = builder.schema("Well")
         assert result is builder  # Check chaining
-        assert builder._data_table == "Well"
+        assert builder._schema_name == "Well"
 
-    def test_data_table_validation_enabled(self):
-        """Test data_table validation when enabled."""
-        builder = QueryBuilder()
-        with pytest.raises(ValueError, match="Unknown model"):
-            builder.data_table("InvalidModel123", validate=True)
+    def test_schema_no_validation(self):
+        """Test schema accepts any name - validation moved to API."""
+        builder = QueryBuilder(district_id="123", field="test")
+        # No validation in QueryBuilder - API will validate
+        builder.schema("InvalidModel123")
+        assert builder._schema_name == "InvalidModel123"
 
-    def test_data_table_validation_disabled(self):
-        """Test data_table validation when disabled."""
-        builder = QueryBuilder()
-        builder.data_table("InvalidModel123", validate=False)
-        assert builder._data_table == "InvalidModel123"
+    def test_schema_basin(self):
+        """Test setting Basin schema."""
+        builder = QueryBuilder(district_id="123", field="test")
+        builder.schema("Basin")
+        assert builder._schema_name == "Basin"
 
-    def test_data_table_basin(self):
-        """Test setting Basin data_table."""
-        builder = QueryBuilder()
-        builder.data_table("Basin")
-        assert builder._data_table == "Basin"
-
-    def test_data_table_wellbore(self):
-        """Test setting Wellbore data_table."""
-        builder = QueryBuilder()
-        builder.data_table("Wellbore")
-        assert builder._data_table == "Wellbore"
+    def test_schema_wellbore(self):
+        """Test setting Wellbore schema."""
+        builder = QueryBuilder(district_id="123", field="test")
+        builder.schema("Wellbore")
+        assert builder._schema_name == "Wellbore"
 
 
 class TestQueryBuilderSelect:
@@ -184,32 +130,32 @@ class TestQueryBuilderSelect:
 
     def test_select_single_field(self):
         """Test selecting a single field."""
-        builder = QueryBuilder()
+        builder = QueryBuilder(district_id="123", field="test")
         result = builder.select("name")
         assert result is builder  # Check chaining
         assert builder._select == ["name"]
 
     def test_select_multiple_fields(self):
         """Test selecting multiple fields."""
-        builder = QueryBuilder()
+        builder = QueryBuilder(district_id="123", field="test")
         builder.select("name", "depth", "status")
         assert builder._select == ["name", "depth", "status"]
 
     def test_select_comma_separated(self):
         """Test selecting comma-separated fields."""
-        builder = QueryBuilder()
+        builder = QueryBuilder(district_id="123", field="test")
         builder.select("name,depth,status")
         assert builder._select == ["name", "depth", "status"]
 
     def test_select_mixed(self):
         """Test selecting with mixed comma-separated and individual."""
-        builder = QueryBuilder()
+        builder = QueryBuilder(district_id="123", field="test")
         builder.select("name,depth").select("status")
         assert builder._select == ["name", "depth", "status"]
 
     def test_select_with_spaces(self):
         """Test selecting with spaces in comma-separated list."""
-        builder = QueryBuilder()
+        builder = QueryBuilder(district_id="123", field="test")
         builder.select("name, depth, status")
         assert builder._select == ["name", "depth", "status"]
 
@@ -219,26 +165,26 @@ class TestQueryBuilderExpand:
 
     def test_expand_single_relation(self):
         """Test expanding a single relation."""
-        builder = QueryBuilder()
+        builder = QueryBuilder(district_id="123", field="test")
         result = builder.expand("wells")
         assert result is builder  # Check chaining
         assert builder._expand == ["wells"]
 
     def test_expand_multiple_relations(self):
         """Test expanding multiple relations."""
-        builder = QueryBuilder()
+        builder = QueryBuilder(district_id="123", field="test")
         builder.expand("wells", "horizons", "faults")
         assert builder._expand == ["wells", "horizons", "faults"]
 
     def test_expand_comma_separated(self):
         """Test expanding comma-separated relations."""
-        builder = QueryBuilder()
+        builder = QueryBuilder(district_id="123", field="test")
         builder.expand("wells,horizons,faults")
         assert builder._expand == ["wells", "horizons", "faults"]
 
     def test_expand_mixed(self):
         """Test expanding with mixed comma-separated and individual."""
-        builder = QueryBuilder()
+        builder = QueryBuilder(district_id="123", field="test")
         builder.expand("wells,horizons").expand("faults")
         assert builder._expand == ["wells", "horizons", "faults"]
 
@@ -248,161 +194,146 @@ class TestQueryBuilderFilter:
 
     def test_filter_simple(self):
         """Test setting a simple filter."""
-        builder = QueryBuilder()
+        builder = QueryBuilder(district_id="123", field="test")
         result = builder.filter("depth gt 1000")
         assert result is builder  # Check chaining
         assert builder._filter == "depth gt 1000"
 
     def test_filter_equality(self):
         """Test filter with equality."""
-        builder = QueryBuilder()
+        builder = QueryBuilder(district_id="123", field="test")
         builder.filter("name eq 'Well-1'")
         assert builder._filter == "name eq 'Well-1'"
 
     def test_filter_complex(self):
         """Test filter with complex expression."""
-        builder = QueryBuilder()
+        builder = QueryBuilder(district_id="123", field="test")
         builder.filter("depth gt 1000 and status eq 'active'")
         assert builder._filter == "depth gt 1000 and status eq 'active'"
 
     def test_filter_override(self):
         """Test that filter overrides previous filter."""
-        builder = QueryBuilder()
+        builder = QueryBuilder(district_id="123", field="test")
         builder.filter("depth gt 1000")
         builder.filter("depth lt 2000")
         assert builder._filter == "depth lt 2000"
 
 
-class TestQueryBuilderBuild:
-    """Test build method."""
+class TestQueryBuilderGetQueryString:
+    """Test get_query_string method."""
 
-    def test_build_basic(self):
-        """Test building basic query."""
-        builder = QueryBuilder()
-        query = builder.data_table("Well").build()
-        assert isinstance(query, DsisQuery)
-        assert query.schema == "Well"
-        assert "$format=json" in unquote(query.query_string)
+    def test_get_query_string_basic(self):
+        """Test getting basic query string."""
+        query = QueryBuilder(district_id="123", field="test").schema("Well")
+        query_string = query.get_query_string()
+        assert "Well" in query_string
+        assert "$format=json" in unquote(query_string)
 
-    def test_build_with_select(self):
-        """Test building query with select."""
-        builder = QueryBuilder()
-        query = builder.data_table("Well").select("name,depth").build()
-        assert isinstance(query, DsisQuery)
-        decoded = unquote(query.query_string)
+    def test_get_query_string_with_select(self):
+        """Test getting query string with select."""
+        query = QueryBuilder(district_id="123", field="test").schema("Well").select("name,depth")
+        query_string = query.get_query_string()
+        decoded = unquote(query_string)
         assert "Well" in decoded
         assert "name" in decoded
         assert "depth" in decoded
 
-    def test_build_with_filter(self):
-        """Test building query with filter."""
-        builder = QueryBuilder()
-        query = builder.data_table("Well").filter("depth gt 1000").build()
-        assert isinstance(query, DsisQuery)
-        decoded = unquote(query.query_string)
+    def test_get_query_string_with_filter(self):
+        """Test getting query string with filter."""
+        query = QueryBuilder(district_id="123", field="test").schema("Well").filter("depth gt 1000")
+        query_string = query.get_query_string()
+        decoded = unquote(query_string)
         assert "Well" in decoded
         assert "depth" in decoded
 
-    def test_build_with_expand(self):
-        """Test building query with expand."""
-        builder = QueryBuilder()
-        query = builder.data_table("Basin").expand("wells,horizons").build()
-        assert isinstance(query, DsisQuery)
-        decoded = unquote(query.query_string)
+    def test_get_query_string_with_expand(self):
+        """Test getting query string with expand."""
+        query = QueryBuilder(district_id="123", field="test").schema("Basin").expand("wells,horizons")
+        query_string = query.get_query_string()
+        decoded = unquote(query_string)
         assert "Basin" in decoded
         assert "wells" in decoded
 
-    def test_build_complex(self):
-        """Test building complex query."""
-        builder = QueryBuilder()
-        query = (builder
-            .data_table("Well")
+    def test_get_query_string_complex(self):
+        """Test getting complex query string."""
+        query = (QueryBuilder(district_id="123", field="test")
+            .schema("Well")
             .select("name,depth,status")
             .filter("depth gt 1000")
-            .expand("wellbores")
-            .build())
-        assert isinstance(query, DsisQuery)
-        decoded = unquote(query.query_string)
+            .expand("wellbores"))
+        query_string = query.get_query_string()
+        decoded = unquote(query_string)
         assert "Well" in decoded
         assert "name" in decoded
         assert "depth" in decoded
         assert "wellbores" in decoded
 
-    def test_build_no_data_table(self):
-        """Test building without data_table raises error."""
-        builder = QueryBuilder()
-        with pytest.raises(ValueError, match="data_table must be set"):
-            builder.build()
+    def test_get_query_string_no_schema(self):
+        """Test getting query string without schema raises error."""
+        query = QueryBuilder(district_id="123", field="test")
+        with pytest.raises(ValueError, match="schema must be set"):
+            query.get_query_string()
 
-    def test_build_format(self):
-        """Test that format is included in query."""
-        builder = QueryBuilder()
-        query = builder.data_table("Well").build()
-        assert isinstance(query, DsisQuery)
-        decoded = unquote(query.query_string)
+    def test_get_query_string_format(self):
+        """Test that format is included in query string."""
+        query = QueryBuilder(district_id="123", field="test").schema("Well")
+        query_string = query.get_query_string()
+        decoded = unquote(query_string)
         assert "$format=json" in decoded
 
-    def test_build_with_path_parameters_in_build(self):
-        """Test building query with path parameters passed to build()."""
-        builder = QueryBuilder()
-        query = builder.data_table("Fault").select("id,type").build(
+    def test_query_with_path_parameters(self):
+        """Test query with path parameters in constructor."""
+        query = QueryBuilder(
             district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
             field="SNORRE"
-        )
-        assert isinstance(query, DsisQuery)
+        ).schema("Fault").select("id,type")
+        assert isinstance(query, QueryBuilder)
         assert query.district_id == "OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA"
         assert query.field == "SNORRE"
-        assert query.schema == "Fault"
+        assert query._schema_name == "Fault"
 
-    def test_build_with_path_parameters_in_constructor(self):
-        """Test building query with path parameters in constructor."""
-        builder = QueryBuilder(
+    def test_query_is_query_object(self):
+        """Test that QueryBuilder IS the query object."""
+        query = QueryBuilder(
             district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
             field="SNORRE"
-        )
-        query = builder.data_table("Fault").select("id,type").build()
-        assert isinstance(query, DsisQuery)
+        ).schema("Fault").select("id,type")
+        # QueryBuilder is the query - no build() needed
+        assert isinstance(query, QueryBuilder)
         assert query.district_id == "OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA"
         assert query.field == "SNORRE"
-        assert query.schema == "Fault"
+        assert query._schema_name == "Fault"
 
-    def test_build_path_parameters_override(self):
-        """Test that build() parameters override constructor parameters."""
-        builder = QueryBuilder(
-            district_id="constructor_district",
-            field="constructor_field"
-        )
-        query = builder.data_table("Fault").build(
-            district_id="build_district",
-            field="build_field"
-        )
-        assert isinstance(query, DsisQuery)
-        assert query.district_id == "build_district"
-        assert query.field == "build_field"
+    def test_query_path_parameters_required(self):
+        """Test that district_id and field are required."""
+        # This should work
+        query = QueryBuilder(district_id="123", field="test")
+        assert query.district_id == "123"
+        assert query.field == "test"
 
 
-class TestQueryBuilderQueryString:
-    """Test build_query_string method."""
+class TestQueryBuilderQueryParams:
+    """Test get_query_params_string method."""
 
-    def test_build_query_string_basic(self):
-        """Test building query string without data_table."""
-        builder = QueryBuilder()
-        query_str = builder.select("name").build_query_string()
+    def test_get_query_params_string_basic(self):
+        """Test getting query params string without schema."""
+        builder = QueryBuilder(district_id="123", field="test")
+        query_str = builder.select("name").get_query_params_string()
         decoded = unquote(query_str)
         assert "name" in decoded
         assert "$format=json" in decoded
 
-    def test_build_query_string_with_filter(self):
-        """Test building query string with filter."""
-        builder = QueryBuilder()
-        query_str = builder.filter("depth gt 1000").build_query_string()
+    def test_get_query_params_string_with_filter(self):
+        """Test getting query params string with filter."""
+        builder = QueryBuilder(district_id="123", field="test")
+        query_str = builder.filter("depth gt 1000").get_query_params_string()
         decoded = unquote(query_str)
         assert "depth" in decoded
 
-    def test_build_query_string_empty(self):
-        """Test building empty query string."""
-        builder = QueryBuilder()
-        query_str = builder.build_query_string()
+    def test_get_query_params_string_empty(self):
+        """Test getting empty query params string."""
+        builder = QueryBuilder(district_id="123", field="test")
+        query_str = builder.get_query_params_string()
         # Should still have format
         assert "$format=json" in unquote(query_str)
 
@@ -412,12 +343,12 @@ class TestQueryBuilderReset:
 
     def test_reset_all_fields(self):
         """Test reset clears all fields."""
-        builder = QueryBuilder()
-        builder.data_table("Well").select("name").filter("depth gt 1000").expand("wellbores")
-        
+        builder = QueryBuilder(district_id="123", field="test")
+        builder.schema("Well").select("name").filter("depth gt 1000").expand("wellbores")
+
         result = builder.reset()
         assert result is builder  # Check chaining
-        assert builder._data_table is None
+        assert builder._schema_name is None
         assert builder._select == []
         assert builder._filter is None
         assert builder._expand == []
@@ -425,43 +356,19 @@ class TestQueryBuilderReset:
 
     def test_reset_allows_reuse(self):
         """Test reset allows builder reuse."""
-        builder = QueryBuilder()
+        builder = QueryBuilder(district_id="123", field="test")
 
         # First query
-        query1 = builder.data_table("Well").select("name").build()
-        assert isinstance(query1, DsisQuery)
-        assert "Well" in query1.query_string
+        builder.schema("Well").select("name")
+        query_string1 = builder.get_query_string()
+        assert "Well" in query_string1
 
         # Reset and build different query
         builder.reset()
-        query2 = builder.data_table("Basin").select("id").build()
-        assert isinstance(query2, DsisQuery)
-        assert "Basin" in query2.query_string
-        assert "Well" not in query2.query_string
-
-
-class TestQueryBuilderDomain:
-    """Test domain method."""
-
-    def test_domain_common(self):
-        """Test setting common domain."""
-        builder = QueryBuilder()
-        result = builder.domain("common")
-        assert result is builder  # Check chaining
-        assert builder._domain == "common"
-
-    def test_domain_native(self):
-        """Test setting native domain."""
-        builder = QueryBuilder()
-        result = builder.domain("native")
-        assert result is builder  # Check chaining
-        assert builder._domain == "native"
-
-    def test_domain_invalid(self):
-        """Test setting invalid domain."""
-        builder = QueryBuilder()
-        with pytest.raises(ValueError, match="Domain must be"):
-            builder.domain("invalid")
+        builder.schema("Basin").select("id")
+        query_string2 = builder.get_query_string()
+        assert "Basin" in query_string2
+        assert "Well" not in query_string2
 
 
 class TestQueryBuilderChaining:
@@ -469,15 +376,14 @@ class TestQueryBuilderChaining:
 
     def test_full_chain(self):
         """Test full method chaining."""
-        query = (QueryBuilder()
-            .data_table("Well")
+        query = (QueryBuilder(district_id="123", field="test")
+            .schema("Well")
             .select("name", "depth")
             .filter("depth gt 1000")
-            .expand("wellbores")
-            .build())
+            .expand("wellbores"))
 
-        assert isinstance(query, DsisQuery)
-        decoded = unquote(query.query_string)
+        assert isinstance(query, QueryBuilder)
+        decoded = unquote(query.get_query_string())
         assert "Well" in decoded
         assert "name" in decoded
         assert "depth" in decoded
@@ -485,44 +391,15 @@ class TestQueryBuilderChaining:
 
     def test_chain_with_reset(self):
         """Test chaining with reset."""
-        builder = QueryBuilder()
-        query1 = builder.data_table("Well").select("name").build()
+        builder = QueryBuilder(district_id="123", field="test")
+        builder.schema("Well").select("name")
+        query_string1 = builder.get_query_string()
 
-        query2 = builder.reset().data_table("Basin").select("id").build()
+        builder.reset().schema("Basin").select("id")
+        query_string2 = builder.get_query_string()
 
-        assert isinstance(query1, DsisQuery)
-        assert isinstance(query2, DsisQuery)
-        assert "Well" in query1.query_string
-        assert "Basin" in query2.query_string
-
-
-class TestQueryBuilderListModels:
-    """Test list_available_models static method."""
-
-    def test_list_common_models(self):
-        """Test listing common models."""
-        models = QueryBuilder.list_available_models("common")
-        assert isinstance(models, list)
-        assert len(models) > 0
-        assert "Well" in models
-        assert "Basin" in models
-
-    def test_list_native_models(self):
-        """Test listing native models."""
-        models = QueryBuilder.list_available_models("native")
-        assert isinstance(models, list)
-        assert len(models) > 0
-        assert "Well" in models
-
-    def test_list_models_invalid_domain(self):
-        """Test listing models with invalid domain."""
-        with pytest.raises(ValueError, match="Domain must be"):
-            QueryBuilder.list_available_models("invalid")
-
-    def test_list_models_sorted(self):
-        """Test that models are sorted."""
-        models = QueryBuilder.list_available_models("common")
-        assert models == sorted(models)
+        assert "Well" in query_string1
+        assert "Basin" in query_string2
 
 
 class TestQueryBuilderRepr:
@@ -530,113 +407,99 @@ class TestQueryBuilderRepr:
 
     def test_repr_basic(self):
         """Test string representation."""
-        builder = QueryBuilder()
+        builder = QueryBuilder(district_id="123", field="test")
         repr_str = repr(builder)
         assert "QueryBuilder" in repr_str
-        assert "common" in repr_str
+        assert "123" in repr_str
+        assert "test" in repr_str
 
     def test_repr_with_data(self):
         """Test string representation with data."""
-        builder = QueryBuilder()
-        builder.data_table("Well").select("name")
+        builder = QueryBuilder(district_id="123", field="test")
+        builder.schema("Well").select("name")
         repr_str = repr(builder)
         assert "Well" in repr_str
         assert "name" in repr_str
 
 
-class TestDsisQueryCasting:
-    """Test DsisQuery result casting functionality."""
+class TestQueryBuilderCasting:
+    """Test QueryBuilder and DSISClient result casting functionality."""
 
-    def test_set_schema_method(self):
-        """Test set_schema() method."""
+    def test_schema_with_class_sets_schema_class(self):
+        """Test schema() method with class sets schema_class."""
         from dsis_model_sdk.models.common import Well
 
-        query = DsisQuery("Well?$format=json&$select=well_name")
-        result = query.set_schema(Well)
-        assert result is query  # Check chaining
-        assert query.schema_class == Well
+        query = QueryBuilder(district_id="123", field="test").schema(Well)
+        assert query._schema_class == Well
+        assert query._schema_name == "Well"
 
-    def test_cast_result_single_item(self):
-        """Test casting a single result item."""
+    def test_client_cast_results_multiple_items(self):
+        """Test client casting multiple result items."""
         from dsis_model_sdk.models.common import Well
+        from src.dsis_client.api.config import Environment
 
-        query = DsisQuery("Well?$format=json&$select=well_name").set_schema(Well)
-        item = {"well_name": "TEST_WELL", "well_uwi": "test_uwi", "native_uid": "test_uid"}
+        config = DSISConfig.for_native_model(
+            environment=Environment.DEV,
+            tenant_id="test-tenant",
+            client_id="test-client",
+            client_secret="test-secret",
+            access_app_id="test-app",
+            dsis_username="test",
+            dsis_password="test",
+            subscription_key_dsauth="test-key",
+            subscription_key_dsdata="test-key"
+        )
+        client = DSISClient(config)
 
-        result = query.cast_result(item)
-        assert isinstance(result, Well)
-        assert result.well_name == "TEST_WELL"
-
-    def test_cast_result_without_schema(self):
-        """Test casting without setting schema raises error."""
-        query = DsisQuery("Well?$format=json&$select=well_name")
-        item = {"well_name": "TEST_WELL"}
-
-        with pytest.raises(ValueError, match="schema_class is not set"):
-            query.cast_result(item)
-
-    def test_cast_results_multiple_items(self):
-        """Test casting multiple result items."""
-        from dsis_model_sdk.models.common import Well
-
-        query = DsisQuery("Well?$format=json&$select=well_name").set_schema(Well)
         items = [
             {"well_name": "WELL_1", "well_uwi": "uwi_1", "native_uid": "uid_1"},
             {"well_name": "WELL_2", "well_uwi": "uwi_2", "native_uid": "uid_2"},
         ]
 
-        results = query.cast_results(items)
+        results = client.cast_results(items, Well)
         assert len(results) == 2
         assert all(isinstance(r, Well) for r in results)
         assert results[0].well_name == "WELL_1"
         assert results[1].well_name == "WELL_2"
 
-    def test_cast_results_without_schema(self):
-        """Test casting multiple results without setting schema raises error."""
-        query = DsisQuery("Well?$format=json&$select=well_name")
-        items = [{"well_name": "WELL_1"}]
-
-        with pytest.raises(ValueError, match="schema_class is not set"):
-            query.cast_results(items)
-
-    def test_dsis_query_with_schema_in_constructor(self):
-        """Test DsisQuery initialized with schema_class."""
+    def test_client_cast_results_single_item(self):
+        """Test client casting a single result item."""
         from dsis_model_sdk.models.common import Fault
+        from src.dsis_client.api.config import Environment
 
-        query = DsisQuery(
-            "Fault?$format=json&$select=id,type",
-            schema_class=Fault
+        config = DSISConfig.for_native_model(
+            environment=Environment.DEV,
+            tenant_id="test-tenant",
+            client_id="test-client",
+            client_secret="test-secret",
+            access_app_id="test-app",
+            dsis_username="test",
+            dsis_password="test",
+            subscription_key_dsauth="test-key",
+            subscription_key_dsdata="test-key"
         )
-        assert query.schema_class == Fault
+        client = DSISClient(config)
 
         item = {"id": "123", "type": "NORMAL", "fault_name": "test_fault"}
-        result = query.cast_result(item)
-        assert isinstance(result, Fault)
+        results = client.cast_results([item], Fault)
+        assert len(results) == 1
+        assert isinstance(results[0], Fault)
+        assert results[0].id == "123"
 
-    def test_query_builder_passes_schema_to_dsis_query(self):
-        """Test that QueryBuilder passes schema_class to DsisQuery."""
+    def test_query_builder_stores_schema_class(self):
+        """Test that QueryBuilder stores schema_class."""
         from dsis_model_sdk.models.common import Well
 
-        query = QueryBuilder().model(Well).data_table("Well").select("well_name").build()
-        assert isinstance(query, DsisQuery)
-        assert query.schema_class == Well
+        query = QueryBuilder(district_id="123", field="test").schema(Well).select("well_name")
+        assert isinstance(query, QueryBuilder)
+        assert query._schema_class == Well
 
-    def test_full_chain_with_model_and_casting(self):
-        """Test full chain from QueryBuilder to result casting."""
+    def test_query_builder_with_schema_class(self):
+        """Test QueryBuilder stores schema class for later use."""
         from dsis_model_sdk.models.common import Fault
 
-        query = QueryBuilder().model(Fault).data_table("Fault").select("id,type").build()
-        assert query.schema_class == Fault
-
-        # Simulate API response with required fields
-        items = [
-            {"id": "1", "type": "NORMAL", "fault_name": "fault_1"},
-            {"id": "2", "type": "NORMAL", "fault_name": "fault_2"},
-        ]
-
-        results = query.cast_results(items)
-        assert len(results) == 2
-        assert all(isinstance(r, Fault) for r in results)
+        query = QueryBuilder(district_id="123", field="test").schema(Fault).select("id,type")
+        assert query._schema_class == Fault
 
 
 class TestQueryBuilderIntegration:
@@ -644,49 +507,48 @@ class TestQueryBuilderIntegration:
 
     def test_multiple_builders(self):
         """Test multiple builders don't interfere."""
-        builder1 = QueryBuilder()
-        builder2 = QueryBuilder()
+        builder1 = QueryBuilder(district_id="123", field="test1")
+        builder2 = QueryBuilder(district_id="456", field="test2")
 
-        query1 = builder1.data_table("Well").select("name").build()
-        query2 = builder2.data_table("Basin").select("id").build()
+        builder1.schema("Well").select("name")
+        builder2.schema("Basin").select("id")
 
-        assert isinstance(query1, DsisQuery)
-        assert isinstance(query2, DsisQuery)
-        assert "Well" in query1.query_string
-        assert "Basin" in query2.query_string
-        assert "Well" not in query2.query_string
-        assert "Basin" not in query1.query_string
+        query_string1 = builder1.get_query_string()
+        query_string2 = builder2.get_query_string()
+
+        assert isinstance(builder1, QueryBuilder)
+        assert isinstance(builder2, QueryBuilder)
+        assert "Well" in query_string1
+        assert "Basin" in query_string2
+        assert "Well" not in query_string2
+        assert "Basin" not in query_string1
 
     def test_builder_with_special_characters(self):
         """Test builder with special characters in filter."""
-        builder = QueryBuilder()
-        query = builder.data_table("Well").filter("name eq 'Well-1'").build()
-        assert isinstance(query, DsisQuery)
-        decoded = unquote(query.query_string)
+        query = QueryBuilder(district_id="123", field="test").schema("Well").filter("name eq 'Well-1'")
+        assert isinstance(query, QueryBuilder)
+        decoded = unquote(query.get_query_string())
         assert "Well" in decoded
         assert "Well-1" in decoded
 
     def test_builder_empty_select(self):
         """Test builder with empty select doesn't add parameter."""
-        builder = QueryBuilder()
-        query = builder.data_table("Well").build()
-        assert isinstance(query, DsisQuery)
-        decoded = unquote(query.query_string)
+        query = QueryBuilder(district_id="123", field="test").schema("Well")
+        assert isinstance(query, QueryBuilder)
+        decoded = unquote(query.get_query_string())
         assert "$select" not in decoded
 
     def test_builder_empty_expand(self):
         """Test builder with empty expand doesn't add parameter."""
-        builder = QueryBuilder()
-        query = builder.data_table("Well").build()
-        assert isinstance(query, DsisQuery)
-        decoded = unquote(query.query_string)
+        query = QueryBuilder(district_id="123", field="test").schema("Well")
+        assert isinstance(query, QueryBuilder)
+        decoded = unquote(query.get_query_string())
         assert "$expand" not in decoded
 
     def test_builder_empty_filter(self):
         """Test builder with empty filter doesn't add parameter."""
-        builder = QueryBuilder()
-        query = builder.data_table("Well").build()
-        assert isinstance(query, DsisQuery)
-        decoded = unquote(query.query_string)
+        query = QueryBuilder(district_id="123", field="test").schema("Well")
+        assert isinstance(query, QueryBuilder)
+        decoded = unquote(query.get_query_string())
         assert "$filter" not in decoded
 
