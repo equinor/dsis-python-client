@@ -31,16 +31,16 @@ Usage:
     data = client.get_odata("OW5000", "5000107")
 """
 
-from .client import DSISClient
 from .auth import DSISAuth
+from .client import DSISClient
 from .config import DSISConfig, Environment
 from .exceptions import (
-    DSISException,
-    DSISAuthenticationError,
     DSISAPIError,
+    DSISAuthenticationError,
     DSISConfigurationError,
+    DSISException,
 )
-from .dsis_query_builder import QueryBuilder
+from .query import QueryBuilder
 
 __all__ = [
     "DSISClient",

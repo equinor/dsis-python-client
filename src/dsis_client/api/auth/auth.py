@@ -10,12 +10,13 @@ Azure AD and DSIS authentication mechanisms.
 """
 
 import logging
+from typing import Dict, Optional
+
 import msal
 import requests
-from typing import Optional, Dict
 
-from .config import DSISConfig
-from .exceptions import DSISAuthenticationError
+from ..config import DSISConfig
+from ..exceptions import DSISAuthenticationError
 
 logger = logging.getLogger(__name__)
 

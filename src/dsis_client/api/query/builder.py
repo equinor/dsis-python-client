@@ -1,11 +1,12 @@
 """Query builder for DSIS OData API.
 
-Provides a fluent interface for building and executing DSIS OData queries using dsis_model_sdk schemas.
+Provides a fluent interface for building DSIS OData queries.
 """
 
 import logging
-from typing import Dict, List, Optional, Type, Union
-from urllib.parse import urlencode
+from typing import List, Optional, Type, Union
+
+from . import odata
 
 logger = logging.getLogger(__name__)
 
@@ -141,23 +142,18 @@ class QueryBuilder:
         logger.debug(f"Set format: {format_type}")
         return self
 
-    def build_query_params(self) -> Dict[str, str]:
+    def build_query_params(self) -> dict:
         """Build the OData query parameters.
 
         Returns:
             Dictionary of query parameters
         """
-        params: Dict[str, str] = {"$format": self._format}
-
-        if self._select:
-            params["$select"] = ",".join(self._select)
-        if self._expand:
-            params["$expand"] = ",".join(self._expand)
-        if self._filter:
-            params["$filter"] = self._filter
-
-        logger.debug(f"Built query params: {params}")
-        return params
+        return odata.build_query_params(
+            select=self._select,
+            expand=self._expand,
+            filter_expr=self._filter,
+            format_type=self._format,
+        )
 
     def get_query_string(self) -> str:
         """Get the full OData query string for this query.
@@ -173,18 +169,8 @@ class QueryBuilder:
             >>> print(query.get_query_string())
             Fault?$format=json&$select=id,type
         """
-        if not self._schema_name:
-            raise ValueError("schema must be set before getting query string")
-
         params = self.build_query_params()
-        query_string = ""
-        if params:
-            query_string = urlencode(params)
-            query_string = f"?{query_string}"
-
-        query_str = f"{self._schema_name}{query_string}"
-        logger.debug(f"Built query string: {query_str}")
-        return query_str
+        return odata.build_query_string(self._schema_name, params)
 
     def get_query_params_string(self) -> str:
         """Build just the query parameters part (without schema name).
@@ -193,9 +179,7 @@ class QueryBuilder:
             Query parameters string (e.g., "$format=json&$select=name,depth")
         """
         params = self.build_query_params()
-        if params:
-            return urlencode(params)
-        return ""
+        return odata.build_query_params_string(params)
 
     def reset(self) -> "QueryBuilder":
         """Reset the builder to initial state.
@@ -232,4 +216,3 @@ class QueryBuilder:
             return self.get_query_string()
         except ValueError:
             return f"QueryBuilder(district_id={self.district_id}, field={self.field}, schema=None)"
-
