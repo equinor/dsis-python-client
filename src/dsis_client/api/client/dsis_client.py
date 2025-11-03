@@ -77,9 +77,7 @@ class DSISClient(BaseClient):
             schema_to_use = schema
         elif district_id is not None or field is not None:
             schema_to_use = self.config.model_name
-            logger.debug(
-                f"Using configured model as schema: {self.config.model_name}"
-            )
+            logger.debug(f"Using configured model as schema: {self.config.model_name}")
         else:
             schema_to_use = None
 
@@ -186,9 +184,7 @@ class DSISClient(BaseClient):
 
         return response
 
-    def cast_results(
-        self, results: List[Dict[str, Any]], schema_class
-    ) -> List[Any]:
+    def cast_results(self, results: List[Dict[str, Any]], schema_class) -> List[Any]:
         """Cast API response items to model instances.
 
         Args:

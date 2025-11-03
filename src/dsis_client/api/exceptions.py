@@ -28,4 +28,3 @@ class DSISConfigurationError(DSISException):
     """Raised when configuration is invalid or incomplete."""
 
     pass
-
