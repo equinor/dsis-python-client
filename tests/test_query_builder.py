@@ -52,7 +52,7 @@ def test_query_builder_produces_correct_format(
     schema, select, expand, filter_expr, expected
 ):
     """Test that QueryBuilder produces correctly formatted query strings for various combinations."""
-    from src.dsis_client.api.query import QueryBuilder
+    from dsis_client.api.query import QueryBuilder
 
     builder = QueryBuilder(district_id="TestDist", field="TestField")
     builder.schema(schema)
@@ -70,7 +70,7 @@ def test_query_builder_produces_correct_format(
 
 def test_query_builder_reset_allows_reuse():
     """Test that reset clears all parameters allowing builder reuse."""
-    from src.dsis_client.api.query import QueryBuilder
+    from dsis_client.api.query import QueryBuilder
 
     builder = QueryBuilder(district_id="123", field="Field")
     builder.schema("Well").select("name").filter("depth gt 100")
@@ -88,7 +88,7 @@ def test_query_builder_reset_allows_reuse():
 
 def test_query_requires_schema():
     """Test that schema must be set before building query string."""
-    from src.dsis_client.api.query import QueryBuilder
+    from dsis_client.api.query import QueryBuilder
 
     builder = QueryBuilder(district_id="123", field="test")
 
