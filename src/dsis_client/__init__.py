@@ -24,18 +24,18 @@ Example:
     ...     subscription_key_dsdata="..."
     ... )
     >>> client = DSISClient(config)
-    >>> data = client.get_odata("OW5000", "5000107")
+        >>> data = client.get("OW5000", "5000107")
 """
 
 from .api import (
+    DSISAPIError,
     DSISAuth,
+    DSISAuthenticationError,
     DSISClient,
     DSISConfig,
-    Environment,
-    DSISException,
-    DSISAuthenticationError,
-    DSISAPIError,
     DSISConfigurationError,
+    DSISException,
+    Environment,
     QueryBuilder,
 )
 

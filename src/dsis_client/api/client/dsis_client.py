@@ -6,9 +6,8 @@ Provides high-level methods for interacting with DSIS OData API.
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
-from ..models import HAS_DSIS_SCHEMAS, cast_results, is_valid_model
+from ..models import HAS_DSIS_SCHEMAS, cast_results, is_valid_schema
 from .base_client import BaseClient
-from .model_operations import ModelOperationsMixin
 
 if TYPE_CHECKING:
     from ..query import QueryBuilder
@@ -16,7 +15,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DSISClient(ModelOperationsMixin, BaseClient):
+class DSISClient(BaseClient):
     """Main client for DSIS API interactions.
 
     Provides methods for making authenticated requests to the DSIS API.
@@ -31,33 +30,33 @@ class DSISClient(ModelOperationsMixin, BaseClient):
         self,
         district_id: Optional[Union[str, int]] = None,
         field: Optional[str] = None,
-        data_table: Optional[str] = None,
+        schema: Optional[str] = None,
         format_type: str = "json",
         select: Optional[str] = None,
         expand: Optional[str] = None,
         filter: Optional[str] = None,
-        validate_model: bool = True,
+        validate_schema: bool = True,
         **extra_query: Any,
     ) -> Dict[str, Any]:
         """Make a GET request to the DSIS OData API.
 
         Constructs the OData endpoint URL following the pattern:
-        /<model_name>/<version>[/<district_id>][/<field>][/<data_table>]
+        /<model_name>/<version>[/<district_id>][/<field>][/<schema>]
 
         All path segments are optional and can be omitted.
-        The data_table parameter refers to specific data models from dsis-schemas
+        The schema parameter refers to specific data schemas from dsis-schemas
         (e.g., "Basin", "Well", "Wellbore", "WellLog", etc.).
 
         Args:
             district_id: Optional district ID for the query
             field: Optional field name for the query
-            data_table: Optional data table/model name (e.g., "Basin", "Well", "Wellbore").
-                       If None, uses configured model_name
+            schema: Optional schema name (e.g., "Basin", "Well", "Wellbore").
+                    If None, uses configured model_name
             format_type: Response format (default: "json")
             select: OData $select parameter for field selection (comma-separated)
             expand: OData $expand parameter for related data (comma-separated)
             filter: OData $filter parameter for filtering (OData filter expression)
-            validate_model: If True, validates that data_table is a known model (default: True)
+            validate_schema: If True, validates that schema is a known model (default: True)
             **extra_query: Additional OData query parameters
 
         Returns:
@@ -65,30 +64,30 @@ class DSISClient(ModelOperationsMixin, BaseClient):
 
         Raises:
             DSISAPIError: If the API request fails
-            ValueError: If validate_model=True and data_table is not a known model
+            ValueError: If validate_schema=True and schema is not a known model
 
         Example:
             >>> client.get()  # Just model and version
-            >>> client.get("123", "wells", data_table="Basin")
-            >>> client.get("123", "wells", data_table="Well", select="name,depth")
-            >>> client.get("123", "wells", data_table="Well", filter="depth gt 1000")
+            >>> client.get("123", "wells", schema="Basin")
+            >>> client.get("123", "wells", schema="Well", select="name,depth")
+            >>> client.get("123", "wells", schema="Well", filter="depth gt 1000")
         """
-        # Determine the data_table to use
-        if data_table is not None:
-            table_to_use = data_table
+        # Determine the schema to use
+        if schema is not None:
+            schema_to_use = schema
         elif district_id is not None or field is not None:
-            table_to_use = self.config.model_name
+            schema_to_use = self.config.model_name
             logger.debug(
-                f"Using configured model as data_table: {self.config.model_name}"
+                f"Using configured model as schema: {self.config.model_name}"
             )
         else:
-            table_to_use = None
+            schema_to_use = None
 
-        # Validate data_table if provided and validation is enabled
-        if validate_model and table_to_use is not None and HAS_DSIS_SCHEMAS:
-            if not is_valid_model(table_to_use):
+        # Validate schema if provided and validation is enabled
+        if validate_schema and schema_to_use is not None and HAS_DSIS_SCHEMAS:
+            if not is_valid_schema(schema_to_use):
                 raise ValueError(
-                    f"Unknown model: '{table_to_use}'. Use get_model_by_name() to discover available models."
+                    f"Unknown schema: '{schema_to_use}'. Use get_schema_by_name() to discover available schemas."
                 )
 
         # Build endpoint path segments
@@ -97,8 +96,8 @@ class DSISClient(ModelOperationsMixin, BaseClient):
             segments.append(str(district_id))
         if field is not None:
             segments.append(field)
-        if table_to_use is not None:
-            segments.append(table_to_use)
+        if schema_to_use is not None:
+            segments.append(schema_to_use)
 
         endpoint = "/".join(segments)
 
@@ -114,62 +113,6 @@ class DSISClient(ModelOperationsMixin, BaseClient):
             query.update(extra_query)
 
         return self._request(endpoint, query)
-
-    def get_odata(
-        self,
-        district_id: Optional[Union[str, int]] = None,
-        field: Optional[str] = None,
-        data_table: Optional[str] = None,
-        format_type: str = "json",
-        select: Optional[str] = None,
-        expand: Optional[str] = None,
-        filter: Optional[str] = None,
-        validate_model: bool = True,
-        **extra_query: Any,
-    ) -> Dict[str, Any]:
-        """Get OData from the configured model.
-
-        Convenience method for retrieving OData. Delegates to get() method.
-        Always uses the configured model_name and model_version.
-        The data_table parameter refers to specific data models from dsis-schemas
-        (e.g., "Basin", "Well", "Wellbore", "WellLog", etc.).
-
-        Args:
-            district_id: Optional district ID for the query
-            field: Optional field name for the query
-            data_table: Optional data table/model name (e.g., "Basin", "Well", "Wellbore").
-                       If None, uses configured model_name
-            format_type: Response format (default: "json")
-            select: OData $select parameter for field selection (comma-separated)
-            expand: OData $expand parameter for related data (comma-separated)
-            filter: OData $filter parameter for filtering (OData filter expression)
-            validate_model: If True, validates that data_table is a known model (default: True)
-            **extra_query: Additional OData query parameters
-
-        Returns:
-            Dictionary containing the parsed OData response
-
-        Raises:
-            DSISAPIError: If the API request fails
-            ValueError: If validate_model=True and data_table is not a known model
-
-        Example:
-            >>> client.get_odata()  # Just model and version
-            >>> client.get_odata("123", "wells", data_table="Basin")
-            >>> client.get_odata("123", "wells", data_table="Well", select="name,depth")
-            >>> client.get_odata("123", "wells", data_table="Well", filter="depth gt 1000")
-        """
-        return self.get(
-            district_id=district_id,
-            field=field,
-            data_table=data_table,
-            format_type=format_type,
-            select=select,
-            expand=expand,
-            filter=filter,
-            validate_model=validate_model,
-            **extra_query,
-        )
 
     def executeQuery(
         self, query: "QueryBuilder", cast: bool = False
@@ -242,3 +185,26 @@ class DSISClient(ModelOperationsMixin, BaseClient):
             return cast_results(response.get("value", []), query._schema_class)
 
         return response
+
+    def cast_results(
+        self, results: List[Dict[str, Any]], schema_class
+    ) -> List[Any]:
+        """Cast API response items to model instances.
+
+        Args:
+            results: List of dictionaries from API response (typically response["value"])
+            schema_class: Pydantic model class to cast to (e.g., Fault, Well)
+
+        Returns:
+            List of model instances
+
+        Raises:
+            ValidationError: If any result doesn't match the schema
+
+        Example:
+            >>> from dsis_model_sdk.models.common import Fault
+            >>> query = QueryBuilder(district_id="123", field="SNORRE").schema(Fault)
+            >>> response = client.executeQuery(query)
+            >>> faults = client.cast_results(response["value"], Fault)
+        """
+        return cast_results(results, schema_class)

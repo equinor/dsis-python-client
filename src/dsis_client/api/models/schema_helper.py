@@ -4,7 +4,7 @@ Provides model validation and schema discovery using dsis_model_sdk.
 """
 
 import logging
-from typing import Any, Dict, Optional, Type
+from typing import Optional, Type
 
 logger = logging.getLogger(__name__)
 
@@ -18,99 +18,62 @@ except ImportError:
     logger.debug("dsis_schemas package not available")
 
 
-def is_valid_model(model_name: str, domain: str = "common") -> bool:
-    """Check if a model name is valid in dsis_schemas.
+def is_valid_schema(schema_name: str, domain: str = "common") -> bool:
+    """Check if a schema name is valid in dsis_schemas.
 
     Args:
-        model_name: Name of the model to check
+        schema_name: Name of the schema to check (e.g., "Well", "Basin", "Fault")
         domain: Domain to search in - "common" or "native" (default: "common")
 
     Returns:
-        True if the model exists, False otherwise
+        True if the schema exists, False otherwise
     """
     if not HAS_DSIS_SCHEMAS:
-        logger.debug("dsis_schemas not available, skipping model validation")
+        logger.debug("dsis_schemas not available, skipping schema validation")
         return True
 
     try:
-        model = get_model_by_name(model_name, domain)
-        return model is not None
+        schema = get_schema_by_name(schema_name, domain)
+        return schema is not None
     except Exception as e:
-        logger.debug(f"Error validating model {model_name}: {e}")
+        logger.debug(f"Error validating schema {schema_name}: {e}")
         return False
 
 
-def get_model_by_name(model_name: str, domain: str = "common") -> Optional[Type]:
-    """Get a dsis_schemas model class by name.
+def get_schema_by_name(schema_name: str, domain: str = "common") -> Optional[Type]:
+    """Get a dsis_schemas schema class by name.
 
     Requires dsis_schemas package to be installed.
 
     Args:
-        model_name: Name of the model (e.g., "Well", "Basin", "Wellbore")
+        schema_name: Name of the schema (e.g., "Well", "Basin", "Wellbore")
         domain: Domain to search in - "common" or "native" (default: "common")
 
     Returns:
-        The model class if found, None otherwise
+        The schema class if found, None otherwise
 
     Raises:
         ImportError: If dsis_schemas package is not installed
 
     Example:
-        >>> Well = get_model_by_name("Well")
-        >>> Basin = get_model_by_name("Basin", domain="common")
+        >>> Well = get_schema_by_name("Well")
+        >>> Basin = get_schema_by_name("Basin", domain="common")
     """
     if not HAS_DSIS_SCHEMAS:
         raise ImportError(
             "dsis_schemas package is required. Install it with: pip install dsis-schemas"
         )
 
-    logger.debug(f"Getting model: {model_name} from {domain} domain")
+    logger.debug(f"Getting schema: {schema_name} from {domain} domain")
     try:
         if domain == "common":
-            model_module = models.common
+            schema_module = models.common
         elif domain == "native":
-            model_module = models.native
+            schema_module = models.native
         else:
             raise ValueError(f"Unknown domain: {domain}")
 
-        return getattr(model_module, model_name, None)
+        return getattr(schema_module, schema_name, None)
     except Exception as e:
-        logger.error(f"Failed to get model {model_name}: {e}")
-        return None
-
-
-def get_model_fields(
-    model_name: str, domain: str = "common"
-) -> Optional[Dict[str, Any]]:
-    """Get field information for a dsis_schemas model.
-
-    Requires dsis_schemas package to be installed.
-
-    Args:
-        model_name: Name of the model (e.g., "Well", "Basin", "Wellbore")
-        domain: Domain to search in - "common" or "native" (default: "common")
-
-    Returns:
-        Dictionary of field names and their information
-
-    Raises:
-        ImportError: If dsis_schemas package is not installed
-
-    Example:
-        >>> fields = get_model_fields("Well")
-        >>> print(fields.keys())
-    """
-    if not HAS_DSIS_SCHEMAS:
-        raise ImportError(
-            "dsis_schemas package is required. Install it with: pip install dsis-schemas"
-        )
-
-    logger.debug(f"Getting fields for model: {model_name} from {domain} domain")
-    try:
-        model_class = get_model_by_name(model_name, domain)
-        if model_class is None:
-            return None
-        return dict(model_class.model_fields)
-    except Exception as e:
-        logger.error(f"Failed to get fields for {model_name}: {e}")
+        logger.error(f"Failed to get schema {schema_name}: {e}")
         return None

@@ -70,7 +70,8 @@ config = DSISConfig(
 
 client = DSISClient(config)
 if client.test_connection():
-    data = client.get_odata("OW5000", "<record-id>")
+    # Get data - schema refers to data schemas like "Well", "Basin", "Fault"
+    data = client.get(district_id="<district-id>", field="<field-name>", schema="Basin")
 ```
 
 ## 5. Flow Summary

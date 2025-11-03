@@ -7,5 +7,7 @@ nav:
   - Home: index.md
   - Guides:
     - Getting Started: guides/getting-started.md
+    - QueryBuilder Guide: guides/query-builder.md
+    - Advanced Serialization: guides/advanced-serialization.md
   - API:
     - Summary: api/index.md

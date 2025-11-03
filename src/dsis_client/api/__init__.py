@@ -40,6 +40,11 @@ from .exceptions import (
     DSISConfigurationError,
     DSISException,
 )
+from .models import (
+    cast_results,
+    get_schema_by_name,
+    is_valid_schema,
+)
 from .query import QueryBuilder
 
 __all__ = [
@@ -52,4 +57,8 @@ __all__ = [
     "DSISAPIError",
     "DSISConfigurationError",
     "QueryBuilder",
+    # Model utilities - for advanced users
+    "cast_results",
+    "get_schema_by_name",
+    "is_valid_schema",
 ]

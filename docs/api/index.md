@@ -5,43 +5,29 @@ Concise overview of public surface.
 ## Classes
 
 ### DSISClient
-
-Primary entry point.
-
 Methods (essentials only):
+### `get(*path_segments, format_type="json", select=None, expand=None, filter=None, **extra_query)`
 
-- `get(*path_segments, format_type='json', select=None, params=None, **extra_query)` → dict  # unified flexible path
-- `get_odata(table, record_id=None, format_type='json', **query)` → dict
-- `test_connection()` → bool
-- `refresh_authentication()` → None
+Unified flexible path GET helper. Use positional path segments to build the endpoint.
 
-### DSISConfig
+Examples:
 
-Configuration fields (all required):
+```python
+# Get using just model and version
+data = client.get()
 
-| Field | Purpose |
-|-------|---------|
-| environment | Target deployment (DEV / QA / PROD) |
-| tenant_id | Azure AD tenant identifier |
-| client_id | App registration client id |
-| client_secret | Secret for the client (secure) |
-| access_app_id | Access application id (internal) |
-| dsis_username | DSIS account user name |
-| dsis_password | DSIS account password |
-| subscription_key_dsauth | APIM subscription key for dsauth (token exchange) |
-| subscription_key_dsdata | APIM subscription key for dsdata (data calls) |
+# Get Basin data for a district and field
+data = client.get("123", "wells", "Basin")
 
-Derived properties:
+# Get with field selection
+data = client.get("123", "wells", "Well", select="name,depth,status")
 
-| Property | Description |
-|----------|-------------|
-| base_url | Environment base API gateway URL |
-| token_endpoint | dsauth endpoint URL |
-| data_endpoint | dsdata base endpoint |
-| authority | Azure AD authority URL |
-| scope | OAuth scope list for access app |
+# Get with filtering
+data = client.get("123", "wells", "Well", filter="depth gt 1000")
 
-Validation pattern example:
+# Get with expand
+data = client.get("123", "wells", "Well", expand="logs,completions")
+```
 
 ```python
 required = [
@@ -97,7 +83,7 @@ cfg = DSISConfig(
     subscription_key_dsdata=os.getenv("DSIS_SUBSCRIPTION_KEY_DSDATA")
 )
 client = DSISClient(cfg)
-data = client.get_odata("OW5000", "<record-id>")
+data = client.get("OW5000", "<record-id>")
 ```
 
 ## Error Handling Hint
@@ -121,10 +107,10 @@ from dsis_client import DSISClient, DSISConfig, Environment
 
 def process_data(client: DSISClient, table: str, record_id: Optional[str] = None) -> Dict[str, Any]:
     """Process data with proper type hints."""
-    return client.get_odata(table, record_id, format_type="json")
+    return client.get(table, record_id, format_type="json")
 
 # Usage with type checking
 config: DSISConfig = DSISConfig(...)
 client: DSISClient = DSISClient(config)
-data: Dict[str, Any] = client.get_odata("OW5000", "5000107")
+data: Dict[str, Any] = client.get("OW5000", "5000107")
 ```
