@@ -29,6 +29,8 @@ jobs:
           # Install the package in editable mode so tests can import the package
           pip install -e .
           pip install pytest pytest-cov
+          # Ensure msal is available for the auth module
+          pip install msal
 
       - name: Run pytest
         run: pytest tests/ --doctest-modules --junitxml=junit/test-results.xml
