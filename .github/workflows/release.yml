@@ -9,7 +9,7 @@ permissions: {}
 jobs:
   release:
     name: Release
-    uses: equinor/ops-actions/.github/workflows/release-please.yml@v9.28.0
+    uses: equinor/ops-actions/.github/workflows/release-please.yml@v9.29.0
     with:
       release_type: python
     permissions:
@@ -21,7 +21,7 @@ jobs:
     name: Build
     needs: release
     if: needs.release.outputs.release_created == 'true'
-    uses: equinor/ops-actions/.github/workflows/python-package.yml@v9.28.0
+    uses: equinor/ops-actions/.github/workflows/python-package.yml@v9.29.0
     permissions:
       contents: read
 
