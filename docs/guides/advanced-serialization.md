@@ -97,7 +97,7 @@ from dsis_client import QueryBuilder
 from dsis_model_sdk.models.common import Basin
 
 query = QueryBuilder(district_id="123", field="SNORRE").schema(Basin)
-basins = client.executeQuery(query, cast=True)  # Returns list of Basin objects
+basins = client.execute_query(query, cast=True)  # Returns list of Basin objects
 ```
 
 ## Performance Comparison

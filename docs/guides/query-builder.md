@@ -45,7 +45,7 @@ query = (
 )
 
 # Execute query
-response = client.executeQuery(query)
+response = client.execute_query(query)
 items = response.get("value", [])
 ```
 
@@ -62,7 +62,7 @@ query = (
 )
 
 # Auto-cast results to Basin instances
-basins = client.executeQuery(query, cast=True)
+basins = client.execute_query(query, cast=True)
 
 # Access typed properties
 for basin in basins:
@@ -155,11 +155,11 @@ query = QueryBuilder(district_id=dist, field=fld)
 
 # First query
 query.schema("Well").select("well_name")
-response1 = client.executeQuery(query)
+response1 = client.execute_query(query)
 
 # Reset and build new query
 query.reset().schema("Fault").select("fault_type")
-response2 = client.executeQuery(query)
+response2 = client.execute_query(query)
 ```
 
 ## Execution Patterns
@@ -168,7 +168,7 @@ response2 = client.executeQuery(query)
 
 ```python
 query = QueryBuilder(district_id=dist, field=fld).schema("Basin")
-response = client.executeQuery(query)
+response = client.execute_query(query)
 
 # Response structure
 items = response.get("value", [])      # List of items
@@ -183,10 +183,10 @@ from dsis_model_sdk.models.common import Basin
 query = QueryBuilder(district_id=dist, field=fld).schema(Basin).select("basin_name,basin_id")
 
 # Option 1: Cast during execution
-basins = client.executeQuery(query, cast=True)
+basins = client.execute_query(query, cast=True)
 
 # Option 2: Manual cast after execution
-response = client.executeQuery(query)
+response = client.execute_query(query)
 basins = client.cast_results(response["value"], Basin)
 ```
 
@@ -195,7 +195,7 @@ basins = client.cast_results(response["value"], Basin)
 ```python
 try:
     query = QueryBuilder(district_id=dist, field=fld).schema("Well")
-    response = client.executeQuery(query)
+    response = client.execute_query(query)
     items = response.get("value", [])
     print(f"Retrieved {len(items)} wells")
 except Exception as e:
@@ -223,7 +223,7 @@ query = (
     .top(50)
 )
 
-response = client.executeQuery(query)
+response = client.execute_query(query)
 wells = response.get("value", [])
 print(f"Retrieved {len(wells)} producer wells")
 ```
@@ -240,7 +240,7 @@ query = (
 )
 
 try:
-    basins = client.executeQuery(query, cast=True)
+    basins = client.execute_query(query, cast=True)
     
     for basin in basins:
         print(f"Basin: {basin.basin_name}")
@@ -261,18 +261,18 @@ base_query = QueryBuilder(district_id=dist, field=fld)
 
 # Query 1: Get all faults
 fault_query = base_query.schema("Fault").select("fault_id,fault_type")
-faults = client.executeQuery(fault_query).get("value", [])
+faults = client.execute_query(fault_query).get("value", [])
 
 # Query 2: Get all wells (reset and rebuild)
 well_query = base_query.reset().schema("Well").select("well_name,well_uwi")
-wells = client.executeQuery(well_query).get("value", [])
+wells = client.execute_query(well_query).get("value", [])
 ```
 
 ## Tips and Best Practices
 
 1. **Always specify required fields**: When using model classes, ensure you select all required fields for the model
 2. **Use environment variables**: Never hardcode credentials in your code
-3. **Handle errors gracefully**: Wrap `executeQuery()` in try-except blocks
+3. **Handle errors gracefully**: Wrap `execute_query()` in try-except blocks
 4. **Reuse QueryBuilder**: Use `.reset()` to clear and rebuild queries instead of creating new instances
 5. **Enable auto-casting**: Use `cast=True` with model classes for type-safe results
 6. **Test connection first**: Call `client.test_connection()` when setting up to see if credentials are correct

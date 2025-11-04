@@ -132,7 +132,7 @@ query = QueryBuilder(
 
 # Execute the query with client
 client = DSISClient(config)
-response = client.executeQuery(query)
+response = client.execute_query(query)
 
 # Build a complex query with chaining
 query = (QueryBuilder(district_id="123", field="wells")
@@ -141,18 +141,18 @@ query = (QueryBuilder(district_id="123", field="wells")
     .filter("depth gt 1000")
     .expand("wellbores"))
 
-response = client.executeQuery(query)
+response = client.execute_query(query)
 
 # Reuse builder for multiple queries
 builder = QueryBuilder(district_id="123", field="wells")
 
 # Query 1
 query1 = builder.schema("Well").select("name,depth")
-response1 = client.executeQuery(query1)
+response1 = client.execute_query(query1)
 
 # Query 2 (reset builder for new query)
 query2 = builder.reset().schema("Basin").select("id,name")
-response2 = client.executeQuery(query2)
+response2 = client.execute_query(query2)
 ```
 
 #### Using Model Classes with Auto-Casting
@@ -168,13 +168,13 @@ query = (QueryBuilder(district_id="123", field="wells")
     .schema(Basin)
     .select("basin_name", "basin_id", "native_uid"))
 
-# Option 1: Auto-cast results with executeQuery
-basins = client.executeQuery(query, cast=True)
+# Option 1: Auto-cast results with execute_query
+basins = client.execute_query(query, cast=True)
 for basin in basins:
     print(f"Basin: {basin.basin_name}")  # Type-safe access with IDE autocomplete
 
 # Option 2: Manual cast with client.cast_results()
-response = client.executeQuery(query)
+response = client.execute_query(query)
 basins = client.cast_results(response['value'], Basin)
 
 # Import models directly from dsis_model_sdk
@@ -364,7 +364,7 @@ data = client.get_odata("123", "wells", data_table="Well", filter="depth gt 1000
 data = client.get_odata("123", "wells", data_table="Well", expand="logs,completions")
 ```
 
-### `executeQuery(query, cast=False)`
+### `execute_query(query, cast=False)`
 
 Execute a QueryBuilder query.
 
@@ -388,11 +388,11 @@ from dsis_model_sdk.models.common import Basin
 query = QueryBuilder(district_id="123", field="wells").schema(Basin).select("basin_name,basin_id")
 
 # Option 1: Get raw response
-response = client.executeQuery(query)
+response = client.execute_query(query)
 print(response)
 
 # Option 2: Auto-cast to model instances
-basins = client.executeQuery(query, cast=True)
+basins = client.execute_query(query, cast=True)
 for basin in basins:
     print(basin.basin_name)
 ```
@@ -586,7 +586,7 @@ Cast API response items to model instances.
 from dsis_model_sdk.models.common import Basin
 
 query = QueryBuilder(district_id="123", field="wells").schema(Basin).select("basin_name,basin_id")
-response = client.executeQuery(query)
+response = client.execute_query(query)
 basins = client.cast_results(response['value'], Basin)
 for basin in basins:
     print(f"Basin: {basin.basin_name}")

@@ -112,7 +112,7 @@ class DSISClient(BaseClient):
 
         return self._request(endpoint, query)
 
-    def executeQuery(
+    def execute_query(
         self, query: "QueryBuilder", cast: bool = False
     ) -> Union[Dict[str, Any], List[Any]]:
         """Execute a DSIS query.
@@ -140,10 +140,10 @@ class DSISClient(BaseClient):
             ... ).schema(Fault).select("id,type").filter("type eq 'NORMAL'")
             >>>
             >>> # Option 1: Get raw response
-            >>> response = client.executeQuery(query)
+            >>> response = client.execute_query(query)
             >>>
             >>> # Option 2: Auto-cast to model instances
-            >>> faults = client.executeQuery(query, cast=True)
+            >>> faults = client.execute_query(query, cast=True)
         """
         # Import here to avoid circular imports
         from ..query import QueryBuilder

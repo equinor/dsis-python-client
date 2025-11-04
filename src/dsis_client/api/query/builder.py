@@ -25,8 +25,8 @@ class QueryBuilder:
         ...     district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
         ...     field="SNORRE"
         ... ).schema(Fault).select("id,type").filter("type eq 'NORMAL'")
-        >>> response = client.executeQuery(query)
-        >>> faults = query.cast_results(response["value"])
+    >>> response = client.execute_query(query)
+    >>> faults = query.cast_results(response["value"])
     """
 
     def __init__(self, district_id: Union[str, int], field: str):
