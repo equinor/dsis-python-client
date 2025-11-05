@@ -9,7 +9,7 @@ permissions: {}
 jobs:
   build:
     name: Build
-    uses: equinor/ops-actions/.github/workflows/python-package.yml@v9.28.0
+    uses: equinor/ops-actions/.github/workflows/python-package.yml@v9.29.0
     permissions:
       contents: read
     with:

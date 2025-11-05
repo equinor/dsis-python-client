@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.2.1](https://github.com/equinor/dsis-python-client/compare/v0.2.0...v0.2.1) (2025-11-04)
+
+
+### Bug Fixes
+
+* correct the full form for DSIS in readme ([#22](https://github.com/equinor/dsis-python-client/issues/22)) ([011a5f6](https://github.com/equinor/dsis-python-client/commit/011a5f6140506be8f578beece9cb783f6640d154))
+
+## [0.2.0](https://github.com/equinor/dsis-python-client/compare/v0.1.4...v0.2.0) (2025-11-04)
+
+
+### Features
+
+* dsis client setup and query builder ([#21](https://github.com/equinor/dsis-python-client/issues/21)) ([7342725](https://github.com/equinor/dsis-python-client/commit/73427254e2288a76e5f3d000cd86445639e949cc))
+* Implement query builder for DSIS OData API ([7342725](https://github.com/equinor/dsis-python-client/commit/73427254e2288a76e5f3d000cd86445639e949cc))
+
+
+### Documentation
+
+* add changelog tab ([#14](https://github.com/equinor/dsis-python-client/issues/14)) ([0c23e6d](https://github.com/equinor/dsis-python-client/commit/0c23e6d3cb3d10f2ef928775b4879215690c661e))
+* add home page ([#17](https://github.com/equinor/dsis-python-client/issues/17)) ([1638ce6](https://github.com/equinor/dsis-python-client/commit/1638ce6d4792a59c5f317d9a231c3a7bd2b9aad8))
+
 ## [0.1.4](https://github.com/equinor/dsis-python-client/compare/v0.1.3...v0.1.4) (2025-10-15)
 
 

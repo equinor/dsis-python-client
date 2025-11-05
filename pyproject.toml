@@ -1,11 +1,13 @@
 [project]
 name = "dsis-client"
-version = "0.1.4"
+version = "0.2.1"
 description = "A Python client for communicating with DSIS"
 readme = "README.md"
 authors = []
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+	"msal"
+]
 license = "MIT"
 license-files = ["LICENSE"]
 
