@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/equinor/dsis-python-client/compare/v0.2.0...v0.2.1) (2025-11-04)
+
+
+### Bug Fixes
+
+* correct the full form for DSIS in readme ([#22](https://github.com/equinor/dsis-python-client/issues/22)) ([011a5f6](https://github.com/equinor/dsis-python-client/commit/011a5f6140506be8f578beece9cb783f6640d154))
+
 ## [0.2.0](https://github.com/equinor/dsis-python-client/compare/v0.1.4...v0.2.0) (2025-11-04)
 
 
