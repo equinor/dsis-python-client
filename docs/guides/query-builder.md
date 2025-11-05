@@ -130,22 +130,6 @@ query.expand("wellbores")
 query.expand("wellbores,interpretations")
 ```
 
-### top()
-
-Limit number of results.
-
-```python
-query.top(100)  # Return max 100 items
-```
-
-### skip()
-
-Skip first N results (pagination).
-
-```python
-query.skip(50)  # Skip first 50 items
-```
-
 ### reset()
 
 Clear query parameters for reuse.
@@ -220,7 +204,6 @@ query = (
     .schema("Well")
     .select("well_name,well_uwi,spud_date")
     .filter("well_type eq 'Producer'")
-    .top(50)
 )
 
 response = client.execute_query(query)
