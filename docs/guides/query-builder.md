@@ -162,6 +162,37 @@ query.reset().schema("Fault").select("fault_type")
 response2 = client.execute_query(query)
 ```
 
+## Automatic Pagination
+
+The DSIS API returns a maximum of 1000 items per response. When there are more results, the response includes an `odata.nextLink` field pointing to the next page.
+
+By default, `execute_query()` automatically follows all `odata.nextLink` references and aggregates all pages into a single response. You can control this behavior with the `fetch_all` parameter.
+
+```python
+# Default: Automatically fetch all pages (fetch_all=True)
+query = QueryBuilder(district_id=dist, field=fld).schema("Well")
+response = client.execute_query(query)
+all_wells = response.get("value", [])  # Contains ALL wells, even if >1000
+
+# Manual pagination: Get only first page (fetch_all=False)
+response = client.execute_query(query, fetch_all=False)
+first_page = response.get("value", [])  # Max 1000 items
+next_link = response.get("odata.nextLink")  # URL for next page if available
+```
+
+**When to use `fetch_all=False`:**
+
+- You only need a sample of data
+- You want to implement custom pagination logic
+- You're displaying paginated results in a UI
+- Memory constraints with very large datasets
+
+**When to use `fetch_all=True` (default):**
+
+- You need all data for analysis or processing
+- You want simplified code without pagination logic
+- Dataset size is manageable in memory
+
 ## Execution Patterns
 
 ### Pattern 1: Basic Execution
@@ -266,6 +297,22 @@ faults = client.execute_query(fault_query).get("value", [])
 # Query 2: Get all wells (reset and rebuild)
 well_query = base_query.reset().schema("Well").select("well_name,well_uwi")
 wells = client.execute_query(well_query).get("value", [])
+```
+
+### Example 4: Manual Pagination Control
+
+```python
+# Get first page only
+query = QueryBuilder(district_id=dist, field=fld).schema("Well")
+response = client.execute_query(query, fetch_all=False)
+
+wells = response.get("value", [])
+print(f"First page: {len(wells)} wells")
+
+# Check if more pages exist
+if "odata.nextLink" in response:
+    print("More results available")
+    # You can implement custom pagination logic here if needed
 ```
 
 ## Tips and Best Practices

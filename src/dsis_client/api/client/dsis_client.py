@@ -4,9 +4,9 @@ Provides high-level methods for interacting with DSIS OData API.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Union
 
-from ..models import HAS_DSIS_SCHEMAS, cast_results, is_valid_schema
+from ..models import cast_results
 from .base_client import BaseClient
 
 if TYPE_CHECKING:
@@ -26,94 +26,8 @@ class DSISClient(BaseClient):
         auth: DSISAuth instance handling authentication
     """
 
-    def get(
-        self,
-        district_id: Optional[Union[str, int]] = None,
-        field: Optional[str] = None,
-        schema: Optional[str] = None,
-        format_type: str = "json",
-        select: Optional[str] = None,
-        expand: Optional[str] = None,
-        filter: Optional[str] = None,
-        validate_schema: bool = True,
-        **extra_query: Any,
-    ) -> Dict[str, Any]:
-        """Make a GET request to the DSIS OData API.
-
-        Constructs the OData endpoint URL following the pattern:
-        /<model_name>/<version>[/<district_id>][/<field>][/<schema>]
-
-        All path segments are optional and can be omitted.
-        The schema parameter refers to specific data schemas from dsis-schemas
-        (e.g., "Basin", "Well", "Wellbore", "WellLog", etc.).
-
-        Args:
-            district_id: Optional district ID for the query
-            field: Optional field name for the query
-            schema: Optional schema name (e.g., "Basin", "Well", "Wellbore").
-                    If None, uses configured model_name
-            format_type: Response format (default: "json")
-            select: OData $select parameter for field selection (comma-separated)
-            expand: OData $expand parameter for related data (comma-separated)
-            filter: OData $filter parameter for filtering (OData filter expression)
-            validate_schema: If True, validates that schema is a known model (default: True)
-            **extra_query: Additional OData query parameters
-
-        Returns:
-            Dictionary containing the parsed API response
-
-        Raises:
-            DSISAPIError: If the API request fails
-            ValueError: If validate_schema=True and schema is not a known model
-
-        Example:
-            >>> client.get()  # Just model and version
-            >>> client.get("123", "wells", schema="Basin")
-            >>> client.get("123", "wells", schema="Well", select="name,depth")
-            >>> client.get("123", "wells", schema="Well", filter="depth gt 1000")
-        """
-        # Determine the schema to use
-        if schema is not None:
-            schema_to_use = schema
-        elif district_id is not None or field is not None:
-            schema_to_use = self.config.model_name
-            logger.debug(f"Using configured model as schema: {self.config.model_name}")
-        else:
-            schema_to_use = None
-
-        # Validate schema if provided and validation is enabled
-        if validate_schema and schema_to_use is not None and HAS_DSIS_SCHEMAS:
-            if not is_valid_schema(schema_to_use):
-                raise ValueError(
-                    f"Unknown schema: '{schema_to_use}'. Use get_schema_by_name() to discover available schemas."
-                )
-
-        # Build endpoint path segments
-        segments = [self.config.model_name, self.config.model_version]
-        if district_id is not None:
-            segments.append(str(district_id))
-        if field is not None:
-            segments.append(field)
-        if schema_to_use is not None:
-            segments.append(schema_to_use)
-
-        endpoint = "/".join(segments)
-
-        # Build query parameters
-        query: Dict[str, Any] = {"$format": format_type}
-        if select:
-            query["$select"] = select
-        if expand:
-            query["$expand"] = expand
-        if filter:
-            query["$filter"] = filter
-        if extra_query:
-            query.update(extra_query)
-
-        return self._request(endpoint, query)
-
     def execute_query(
-        self, query: "QueryBuilder", cast: bool = False
+        self, query: "QueryBuilder", cast: bool = False, fetch_all: bool = True
     ) -> Union[Dict[str, Any], List[Any]]:
         """Execute a DSIS query.
 
@@ -123,6 +37,8 @@ class DSISClient(BaseClient):
         Args:
             query: QueryBuilder instance containing the query and path parameters
             cast: If True and query has a schema class, automatically cast results to model instances
+            fetch_all: If True (default) and the response contains an OData nextLink,
+                automatically follow it and aggregate all pages into a single response.
 
         Returns:
             If cast=False: Dictionary containing the parsed API response
@@ -173,6 +89,10 @@ class DSISClient(BaseClient):
         logger.debug(f"Making request to endpoint: {endpoint} with params: {params}")
         response = self._request(endpoint, params)
 
+        # If requested, follow OData nextLink(s) and aggregate results
+        if fetch_all:
+            response = self._aggregate_nextlink_pages(response, endpoint)
+
         # Auto-cast if requested
         if cast:
             if not query._schema_class:
@@ -204,3 +124,51 @@ class DSISClient(BaseClient):
             >>> faults = client.cast_results(response["value"], Fault)
         """
         return cast_results(results, schema_class)
+
+    def _aggregate_nextlink_pages(
+        self, response: Dict[str, Any], endpoint: str
+    ) -> Dict[str, Any]:
+        """Follow OData nextLink(s) and aggregate paged results into a single response.
+
+        The nextLink contains the schema name and full query string including skiptoken.
+        We replace the last segment of the endpoint with the entire nextLink.
+
+        Args:
+            response: Initial API response dict
+            endpoint: Full endpoint path from initial request (without query params)
+
+        Returns:
+            Aggregated response with all items in 'value' and metadata preserved
+        """
+        next_key = "odata.nextLink"
+        all_items = list(response.get("value", []))
+        next_link = response.get(next_key)
+
+        while next_link:
+            logger.debug(f"Following nextLink: {next_link}")
+
+            # Replace the last segment of endpoint (schema name) with the full next_link
+            endpoint_parts = endpoint.rsplit("/", 1)
+            if len(endpoint_parts) == 2:
+                temp_endpoint = f"{endpoint_parts[0]}/{next_link}"
+            else:
+                # Fallback if endpoint has no slash (shouldn't happen in practice)
+                temp_endpoint = next_link
+
+            # Make request with the temp endpoint
+            next_resp = self._request(temp_endpoint, params=None)
+            items = next_resp.get("value", [])
+            if items:
+                all_items.extend(items)
+
+            # Check for next link in the next response
+            next_link = next_resp.get(next_key)
+
+            # If this was the final page, preserve its metadata
+            if not next_link and "odata.metadata" in next_resp:
+                response["odata.metadata"] = next_resp["odata.metadata"]
+
+        # Replace value with aggregated items
+        response["value"] = all_items
+
+        return response

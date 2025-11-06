@@ -4,7 +4,7 @@ Handles HTTP requests, session management, and connection testing.
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 from urllib.parse import urljoin
 
 import requests
@@ -114,3 +114,92 @@ class BaseClient:
         except Exception as e:
             logger.error(f"Connection test failed: {e}")
             return False
+
+    def get(
+        self,
+        district_id: Optional[Union[str, int]] = None,
+        field: Optional[str] = None,
+        schema: Optional[str] = None,
+        format_type: str = "json",
+        select: Optional[str] = None,
+        expand: Optional[str] = None,
+        filter: Optional[str] = None,
+        validate_schema: bool = True,
+        **extra_query: Any,
+    ) -> Dict[str, Any]:
+        """Make a GET request to the DSIS OData API.
+
+        Constructs the OData endpoint URL following the pattern:
+        /<model_name>/<version>[/<district_id>][/<field>][/<schema>]
+
+        All path segments are optional and can be omitted.
+        The schema parameter refers to specific data schemas from dsis-schemas
+        (e.g., "Basin", "Well", "Wellbore", "WellLog", etc.).
+
+        Args:
+            district_id: Optional district ID for the query
+            field: Optional field name for the query
+            schema: Optional schema name (e.g., "Basin", "Well", "Wellbore").
+                    If None, uses configured model_name
+            format_type: Response format (default: "json")
+            select: OData $select parameter for field selection (comma-separated)
+            expand: OData $expand parameter for related data (comma-separated)
+            filter: OData $filter parameter for filtering (OData filter expression)
+            validate_schema: If True, validates that schema is a known model (default: True)
+            **extra_query: Additional OData query parameters
+
+        Returns:
+            Dictionary containing the parsed API response
+
+        Raises:
+            DSISAPIError: If the API request fails
+            ValueError: If validate_schema=True and schema is not a known model
+
+        Example:
+            >>> client.get()  # Just model and version
+            >>> client.get("123", "wells", schema="Basin")
+            >>> client.get("123", "wells", schema="Well", select="name,depth")
+            >>> client.get("123", "wells", schema="Well", filter="depth gt 1000")
+        """
+        # Import here to avoid circular imports
+        from ..models import HAS_DSIS_SCHEMAS, is_valid_schema
+
+        # Determine the schema to use
+        if schema is not None:
+            schema_to_use = schema
+        elif district_id is not None or field is not None:
+            schema_to_use = self.config.model_name
+            logger.debug(f"Using configured model as schema: {self.config.model_name}")
+        else:
+            schema_to_use = None
+
+        # Validate schema if provided and validation is enabled
+        if validate_schema and schema_to_use is not None and HAS_DSIS_SCHEMAS:
+            if not is_valid_schema(schema_to_use):
+                raise ValueError(
+                    f"Unknown schema: '{schema_to_use}'. Use get_schema_by_name() to discover available schemas."
+                )
+
+        # Build endpoint path segments
+        segments = [self.config.model_name, self.config.model_version]
+        if district_id is not None:
+            segments.append(str(district_id))
+        if field is not None:
+            segments.append(field)
+        if schema_to_use is not None:
+            segments.append(schema_to_use)
+
+        endpoint = "/".join(segments)
+
+        # Build query parameters
+        query: Dict[str, Any] = {"$format": format_type}
+        if select:
+            query["$select"] = select
+        if expand:
+            query["$expand"] = expand
+        if filter:
+            query["$filter"] = filter
+        if extra_query:
+            query.update(extra_query)
+
+        return self._request(endpoint, query)
