@@ -166,13 +166,21 @@ response2 = client.execute_query(query)
 
 The DSIS API returns a maximum of 1000 items per response. When there are more results, the response includes an `odata.nextLink` field pointing to the next page.
 
-By default, `execute_query()` automatically follows all `odata.nextLink` references and aggregates all pages into a single response. You can control this behavior with the `fetch_all` parameter.
+By default, `execute_query()` automatically follows all `odata.nextLink` references and **yields items as they are fetched** (memory efficient). You can control this behavior with the `fetch_all` parameter.
 
 ```python
-# Default: Automatically fetch all pages (fetch_all=True)
+# Default: Fetch all pages and yield items one at a time (fetch_all=True)
 query = QueryBuilder(district_id=dist, field=fld).schema("Well")
-response = client.execute_query(query)
-all_wells = response.get("value", [])  # Contains ALL wells, even if >1000
+
+# Option 1: Process items as they arrive 
+for well in client.execute_query(query):
+    process(well)  # Process each item immediately
+
+# Option 2: Collect all items into a list 
+all_wells = list(client.execute_query(query))
+print(f"Total wells: {len(all_wells)}")
+
+In my tests I could not find significant memory differences between these two approaches, but it was a small dataset. Option 2 was a bit faster.
 
 # Manual pagination: Get only first page (fetch_all=False)
 response = client.execute_query(query, fetch_all=False)
@@ -180,30 +188,52 @@ first_page = response.get("value", [])  # Max 1000 items
 next_link = response.get("odata.nextLink")  # URL for next page if available
 ```
 
+**When to use `fetch_all=True` (default):**
+
+- You want to process all data automatically across all pages
+- You can process items one at a time (streaming/iteration)
+- You want memory-efficient processing of large datasets
+
 **When to use `fetch_all=False`:**
 
 - You only need a sample of data
 - You want to implement custom pagination logic
 - You're displaying paginated results in a UI
-- Memory constraints with very large datasets
 
-**When to use `fetch_all=True` (default):**
+**Memory Considerations:**
 
-- You need all data for analysis or processing
-- You want simplified code without pagination logic
-- Dataset size is manageable in memory
+When `fetch_all=True`, the library yields items as they are fetched rather than loading everything into memory at once. This means:
+
+- ✅ **Good**: `for item in client.execute_query(query): process(item)` - Memory efficient
+- ⚠️ **Use carefully**: `all_items = list(client.execute_query(query))` - Loads everything into memory
+
+If you have a very large dataset (e.g., 100,000+ items), process items as they arrive rather than converting to a list.
 
 ## Execution Patterns
 
-### Pattern 1: Basic Execution
+### Pattern 1: Basic Execution (Streaming)
 
 ```python
 query = QueryBuilder(district_id=dist, field=fld).schema("Basin")
-response = client.execute_query(query)
+
+# Process items as they arrive (memory efficient)
+for item in client.execute_query(query):
+    print(item.get("basin_name"))
+
+# Or collect all items into a list (uses more memory)
+all_items = list(client.execute_query(query))
+print(f"Total items: {len(all_items)}")
+```
+
+### Pattern 1b: Single Page Execution
+
+```python
+query = QueryBuilder(district_id=dist, field=fld).schema("Basin")
+response = client.execute_query(query, fetch_all=False)
 
 # Response structure
-items = response.get("value", [])      # List of items
-count = response.get("@odata.count")   # Total count (if requested)
+items = response.get("value", [])      # List of items (max 1000)
+next_link = response.get("odata.nextLink")  # URL for next page
 ```
 
 ### Pattern 2: Auto-Casting with Model Class
@@ -213,11 +243,15 @@ from dsis_model_sdk.models.common import Basin
 
 query = QueryBuilder(district_id=dist, field=fld).schema(Basin).select("basin_name,basin_id")
 
-# Option 1: Cast during execution
-basins = client.execute_query(query, cast=True)
+# Option 1: Stream and cast each item as it arrives (memory efficient)
+for basin in client.execute_query(query, cast=True):
+    print(f"Basin: {basin.basin_name} (ID: {basin.basin_id})")
 
-# Option 2: Manual cast after execution
-response = client.execute_query(query)
+# Option 2: Collect all cast items into a list
+basins = list(client.execute_query(query, cast=True))
+
+# Option 3: Manual cast after single-page execution
+response = client.execute_query(query, fetch_all=False)
 basins = client.cast_results(response["value"], Basin)
 ```
 
@@ -226,23 +260,28 @@ basins = client.cast_results(response["value"], Basin)
 ```python
 try:
     query = QueryBuilder(district_id=dist, field=fld).schema("Well")
-    response = client.execute_query(query)
-    items = response.get("value", [])
-    print(f"Retrieved {len(items)} wells")
+    
+    # Process items as they arrive
+    item_count = 0
+    for item in client.execute_query(query):
+        item_count += 1
+        # Process each item
+    
+    print(f"Retrieved {item_count} wells")
 except Exception as e:
     print(f"Query failed: {e}")
 ```
 
 ## Complete Examples
 
-### Example 1: Filtered Query with Pagination
+### Example 1: Filtered Query with Streaming
 
 ```python
 # Use the `DSISConfig.for_native_model(...)` example from the "Basic Configuration"
 # section above to create `config` and `client`. The snippet below assumes
 # `client` is already created and available.
 
-# Build query with filters and pagination
+# Build query with filters
 query = (
     QueryBuilder(
         district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
@@ -254,8 +293,12 @@ query = (
     .top(50)
 )
 
-response = client.execute_query(query)
-wells = response.get("value", [])
+# Process wells as they arrive
+for well in client.execute_query(query):
+    print(f"Well: {well['well_name']}")
+
+# Or collect all into a list
+wells = list(client.execute_query(query))
 print(f"Retrieved {len(wells)} producer wells")
 ```
 
@@ -271,9 +314,8 @@ query = (
 )
 
 try:
-    basins = client.execute_query(query, cast=True)
-    
-    for basin in basins:
+    # Stream and auto-cast each basin as it arrives
+    for basin in client.execute_query(query, cast=True):
         print(f"Basin: {basin.basin_name}")
         print(f"  ID: {basin.basin_id}")
         print(f"  UID: {basin.native_uid}")
@@ -292,11 +334,11 @@ base_query = QueryBuilder(district_id=dist, field=fld)
 
 # Query 1: Get all faults
 fault_query = base_query.schema("Fault").select("fault_id,fault_type")
-faults = client.execute_query(fault_query).get("value", [])
+faults = list(client.execute_query(fault_query))
 
 # Query 2: Get all wells (reset and rebuild)
 well_query = base_query.reset().schema("Well").select("well_name,well_uwi")
-wells = client.execute_query(well_query).get("value", [])
+wells = list(client.execute_query(well_query))
 ```
 
 ### Example 4: Manual Pagination Control

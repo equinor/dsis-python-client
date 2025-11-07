@@ -4,7 +4,7 @@ Provides high-level methods for interacting with DSIS OData API.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Union
+from typing import TYPE_CHECKING, Any, Dict, List
 
 from ..models import cast_results
 from .base_client import BaseClient
@@ -28,38 +28,32 @@ class DSISClient(BaseClient):
 
     def execute_query(
         self, query: "QueryBuilder", cast: bool = False, fetch_all: bool = True
-    ) -> Union[Dict[str, Any], List[Any]]:
+    ):
         """Execute a DSIS query.
-
-        Executes a query that was built using QueryBuilder.
-        This provides a clean, user-friendly interface for query execution.
 
         Args:
             query: QueryBuilder instance containing the query and path parameters
             cast: If True and query has a schema class, automatically cast results to model instances
-            fetch_all: If True (default) and the response contains an OData nextLink,
-                automatically follow it and aggregate all pages into a single response.
+            fetch_all: If True (default), yields items from all pages as they are fetched (memory efficient).
+                If False, returns a single page as a dictionary.
+
+        Yields:
+            If fetch_all=True: yields each item (or model instance if cast=True) as soon as it is available.
 
         Returns:
-            If cast=False: Dictionary containing the parsed API response
-            If cast=True: List of model instances (from response["value"])
+            If fetch_all=False: Dictionary containing the parsed API response (single page)
 
         Raises:
             DSISAPIError: If the API request fails
             ValueError: If query is invalid or cast=True but query has no schema class
 
         Example:
-            >>> from dsis_model_sdk.models.common import Fault
-            >>> query = QueryBuilder(
-            ...     district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
-            ...     field="SNORRE"
-            ... ).schema(Fault).select("id,type").filter("type eq 'NORMAL'")
+            >>> # Process items one by one (memory efficient)
+            >>> for item in client.execute_query(query, fetch_all=True):
+            ...     process(item)
             >>>
-            >>> # Option 1: Get raw response
-            >>> response = client.execute_query(query)
-            >>>
-            >>> # Option 2: Auto-cast to model instances
-            >>> faults = client.execute_query(query, cast=True)
+            >>> # Or aggregate all items into a list
+            >>> all_items = list(client.execute_query(query, fetch_all=True))
         """
         # Import here to avoid circular imports
         from ..query import QueryBuilder
@@ -89,20 +83,28 @@ class DSISClient(BaseClient):
         logger.debug(f"Making request to endpoint: {endpoint} with params: {params}")
         response = self._request(endpoint, params)
 
-        # If requested, follow OData nextLink(s) and aggregate results
         if fetch_all:
-            response = self._aggregate_nextlink_pages(response, endpoint)
-
-        # Auto-cast if requested
-        if cast:
-            if not query._schema_class:
-                raise ValueError(
-                    "Cannot cast results: query has no schema class. "
-                    "Use .schema(ModelClass) when building the query."
-                )
-            return cast_results(response.get("value", []), query._schema_class)
-
-        return response
+            if cast:
+                if not query._schema_class:
+                    raise ValueError(
+                        "Cannot cast results: query has no schema class. "
+                        "Use .schema(ModelClass) when building the query."
+                    )
+                for item in self._yield_nextlink_pages(response, endpoint):
+                    yield query._schema_class(**item)
+            else:
+                for item in self._yield_nextlink_pages(response, endpoint):
+                    yield item
+        else:
+            # Single page response
+            if cast:
+                if not query._schema_class:
+                    raise ValueError(
+                        "Cannot cast results: query has no schema class. "
+                        "Use .schema(ModelClass) when building the query."
+                    )
+                return cast_results(response.get("value", []), query._schema_class)
+            return response
 
     def cast_results(self, results: List[Dict[str, Any]], schema_class) -> List[Any]:
         """Cast API response items to model instances.
@@ -125,23 +127,25 @@ class DSISClient(BaseClient):
         """
         return cast_results(results, schema_class)
 
-    def _aggregate_nextlink_pages(
-        self, response: Dict[str, Any], endpoint: str
-    ) -> Dict[str, Any]:
-        """Follow OData nextLink(s) and aggregate paged results into a single response.
+    def _yield_nextlink_pages(self, response: Dict[str, Any], endpoint: str):
+        """Generator that yields items from all pages following OData nextLinks.
 
-        The nextLink contains the schema name and full query string including skiptoken.
-        We replace the last segment of the endpoint with the entire nextLink.
+        This yields items as they are fetched, allowing for memory-efficient
+        processing of large result sets.
 
         Args:
             response: Initial API response dict
             endpoint: Full endpoint path from initial request (without query params)
 
-        Returns:
-            Aggregated response with all items in 'value' and metadata preserved
+        Yields:
+            Individual items from each page's 'value' array
         """
         next_key = "odata.nextLink"
-        all_items = list(response.get("value", []))
+
+        # Yield items from the initial response
+        for item in response.get("value", []):
+            yield item
+
         next_link = response.get(next_key)
 
         while next_link:
@@ -157,18 +161,10 @@ class DSISClient(BaseClient):
 
             # Make request with the temp endpoint
             next_resp = self._request(temp_endpoint, params=None)
-            items = next_resp.get("value", [])
-            if items:
-                all_items.extend(items)
+
+            # Yield items from this page
+            for item in next_resp.get("value", []):
+                yield item
 
             # Check for next link in the next response
             next_link = next_resp.get(next_key)
-
-            # If this was the final page, preserve its metadata
-            if not next_link and "odata.metadata" in next_resp:
-                response["odata.metadata"] = next_resp["odata.metadata"]
-
-        # Replace value with aggregated items
-        response["value"] = all_items
-
-        return response
