@@ -95,6 +95,3 @@ def test_execute_query_max_pages_limited(monkeypatch):
 
     # Assert: result contains only items from the first page
     assert result == sample["value"]
-
-
-

@@ -15,7 +15,8 @@ class QueryBuilder:
     """Fluent query builder for DSIS OData API queries.
 
     Provides a chainable interface for building OData queries with validation
-    against dsis_model_sdk schemas. This class IS the query object - no need to call build().
+    against dsis_model_sdk schemas. This class IS the query object - no need
+    to call build().
 
     district_id and field are required parameters that specify the data location.
 
@@ -165,7 +166,11 @@ class QueryBuilder:
             ValueError: If schema is not set
 
         Example:
-            >>> query = QueryBuilder(district_id="123", field="SNORRE").schema("Fault").select("id,type")
+            >>> query = (
+            ...     QueryBuilder(district_id="123", field="SNORRE")
+            ...     .schema("Fault")
+            ...     .select("id,type")
+            ... )
             >>> print(query.get_query_string())
             Fault?$format=json&$select=id,type
         """
@@ -215,4 +220,7 @@ class QueryBuilder:
         try:
             return self.get_query_string()
         except ValueError:
-            return f"QueryBuilder(district_id={self.district_id}, field={self.field}, schema=None)"
+            return (
+                f"QueryBuilder(district_id={self.district_id}, "
+                f"field={self.field}, schema=None)"
+            )

@@ -145,7 +145,8 @@ class BaseClient:
             select: OData $select parameter for field selection (comma-separated)
             expand: OData $expand parameter for related data (comma-separated)
             filter: OData $filter parameter for filtering (OData filter expression)
-            validate_schema: If True, validates that schema is a known model (default: True)
+            validate_schema: If True, validates that schema is a known model
+                (default: True)
             **extra_query: Additional OData query parameters
 
         Returns:
@@ -177,7 +178,8 @@ class BaseClient:
         if validate_schema and schema_to_use is not None and HAS_DSIS_SCHEMAS:
             if not is_valid_schema(schema_to_use):
                 raise ValueError(
-                    f"Unknown schema: '{schema_to_use}'. Use get_schema_by_name() to discover available schemas."
+                    f"Unknown schema: '{schema_to_use}'. Use "
+                    "get_schema_by_name() to discover available schemas."
                 )
 
         # Build endpoint path segments

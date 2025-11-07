@@ -61,7 +61,8 @@ def get_schema_by_name(schema_name: str, domain: str = "common") -> Optional[Typ
     """
     if not HAS_DSIS_SCHEMAS:
         raise ImportError(
-            "dsis_schemas package is required. Install it with: pip install dsis-schemas"
+            "dsis_schemas package is required. Install it with: "
+            "pip install dsis-schemas"
         )
 
     logger.debug(f"Getting schema: {schema_name} from {domain} domain")

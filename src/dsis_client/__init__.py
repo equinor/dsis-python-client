@@ -1,8 +1,9 @@
 """
 DSIS Python Client
 
-A Python SDK for the DSIS (Drilling & Well Services Information System) API Management system.
-Provides easy access to DSIS data through Equinor's Azure API Management gateway.
+A Python SDK for the DSIS (Drilling & Well Services Information System) API
+Management system. Provides easy access to DSIS data through Equinor's Azure
+API Management gateway.
 
 This package includes:
 - DSISClient: Main client for API interactions

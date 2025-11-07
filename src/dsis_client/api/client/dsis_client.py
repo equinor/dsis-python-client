@@ -33,7 +33,8 @@ class DSISClient(BaseClient):
 
         Args:
             query: QueryBuilder instance containing the query and path parameters
-            cast: If True and query has a schema class, automatically cast results to model instances
+            cast: If True and query has a schema class, automatically cast results
+                to model instances
             max_pages: Maximum number of pages to fetch. -1 (default) fetches all pages.
                 Use 1 for a single page, 2 for two pages, etc.
 
@@ -103,7 +104,8 @@ class DSISClient(BaseClient):
         """Cast API response items to model instances.
 
         Args:
-            results: List of dictionaries from API response (typically response["value"])
+            results: List of dictionaries from API response
+                (typically response["value"])
             schema_class: Pydantic model class to cast to (e.g., Fault, Well)
 
         Returns:
