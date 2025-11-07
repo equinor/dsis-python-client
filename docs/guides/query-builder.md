@@ -204,6 +204,21 @@ print(f"First two pages: {len(two_pages_items)} wells")
 
 ## Execution Patterns
 
+### ⚠️ Critical: Schema Requirement for `cast=True`
+
+**If you want to use `cast=True` to automatically convert results to model instances, you MUST pass a model class (not a string) to `.schema()`:**
+
+```python
+# ✅ Correct: Pass model class for casting
+from dsis_model_sdk.models.common import Basin
+query = QueryBuilder(district_id=dist, field=fld).schema(Basin)
+results = client.execute_query(query, cast=True)  # Works!
+
+# ❌ Wrong: String schema name won't work with cast=True
+query = QueryBuilder(district_id=dist, field=fld).schema("Basin")
+results = client.execute_query(query, cast=True)  # Has no effect!
+```
+
 ### Pattern 1: Basic Execution (Streaming)
 
 ```python
@@ -245,6 +260,28 @@ basins = list(client.execute_query(query, cast=True))
 # Option 3: Fetch only first page and cast
 basins = list(client.execute_query(query, cast=True, max_pages=1))
 ```
+
+**⚠️ IMPORTANT: Using `cast=True`**
+
+To use `cast=True`, you **MUST** build your query using a model class imported from `dsis_model_sdk`, not a string schema name:
+
+```python
+# ✅ CORRECT: Using model class from dsis_model_sdk
+from dsis_model_sdk.models.common import Basin  # or native
+query = QueryBuilder(district_id=dist, field=fld).schema(Basin)
+basins = list(client.execute_query(query, cast=True))
+
+# ❌ INCORRECT: Using string schema name with cast=True
+query = QueryBuilder(district_id=dist, field=fld).schema("Basin")
+basins = list(client.execute_query(query, cast=True))  # Will not work!
+```
+
+The schema model can come from either:
+
+- `from dsis_model_sdk.models.common import Basin`
+- `from dsis_model_sdk.models.native import Basin`
+
+If you use a string schema name, `cast=True` will have no effect. Omit `cast=True` or use a model class instead.
 
 ### Pattern 3: Error Handling
 
