@@ -27,33 +27,36 @@ class DSISClient(BaseClient):
     """
 
     def execute_query(
-        self, query: "QueryBuilder", cast: bool = False, fetch_all: bool = True
+        self, query: "QueryBuilder", cast: bool = False, max_pages: int = -1
     ):
         """Execute a DSIS query.
 
         Args:
             query: QueryBuilder instance containing the query and path parameters
             cast: If True and query has a schema class, automatically cast results to model instances
-            fetch_all: If True (default), yields items from all pages as they are fetched (memory efficient).
-                If False, returns a single page as a dictionary.
+            max_pages: Maximum number of pages to fetch. -1 (default) fetches all pages.
+                Use 1 for a single page, 2 for two pages, etc.
 
         Yields:
-            If fetch_all=True: yields each item (or model instance if cast=True) as soon as it is available.
-
-        Returns:
-            If fetch_all=False: Dictionary containing the parsed API response (single page)
+            Items from the result pages (or model instances if cast=True)
 
         Raises:
             DSISAPIError: If the API request fails
             ValueError: If query is invalid or cast=True but query has no schema class
 
         Example:
-            >>> # Process items one by one (memory efficient)
-            >>> for item in client.execute_query(query, fetch_all=True):
+            >>> # Fetch all pages (default)
+            >>> for item in client.execute_query(query):
             ...     process(item)
             >>>
-            >>> # Or aggregate all items into a list
-            >>> all_items = list(client.execute_query(query, fetch_all=True))
+            >>> # Aggregate all pages into a list
+            >>> all_items = list(client.execute_query(query))
+            >>>
+            >>> # Fetch only one page
+            >>> page_items = list(client.execute_query(query, max_pages=1))
+            >>>
+            >>> # Fetch two pages
+            >>> two_pages = list(client.execute_query(query, max_pages=2))
         """
         # Import here to avoid circular imports
         from ..query import QueryBuilder
@@ -61,7 +64,7 @@ class DSISClient(BaseClient):
         if not isinstance(query, QueryBuilder):
             raise TypeError(f"Expected QueryBuilder, got {type(query)}")
 
-        logger.debug(f"Executing query: {query}")
+        logger.debug(f"Executing query: {query} (max_pages={max_pages})")
 
         # Build endpoint path segments
         segments = [self.config.model_name, self.config.model_version]
@@ -83,28 +86,18 @@ class DSISClient(BaseClient):
         logger.debug(f"Making request to endpoint: {endpoint} with params: {params}")
         response = self._request(endpoint, params)
 
-        if fetch_all:
-            if cast:
-                if not query._schema_class:
-                    raise ValueError(
-                        "Cannot cast results: query has no schema class. "
-                        "Use .schema(ModelClass) when building the query."
-                    )
-                for item in self._yield_nextlink_pages(response, endpoint):
-                    yield query._schema_class(**item)
-            else:
-                for item in self._yield_nextlink_pages(response, endpoint):
-                    yield item
+        # Yield items from all pages (up to max_pages)
+        if cast:
+            if not query._schema_class:
+                raise ValueError(
+                    "Cannot cast results: query has no schema class. "
+                    "Use .schema(ModelClass) when building the query."
+                )
+            for item in self._yield_nextlink_pages(response, endpoint, max_pages):
+                yield query._schema_class(**item)
         else:
-            # Single page response
-            if cast:
-                if not query._schema_class:
-                    raise ValueError(
-                        "Cannot cast results: query has no schema class. "
-                        "Use .schema(ModelClass) when building the query."
-                    )
-                return cast_results(response.get("value", []), query._schema_class)
-            return response
+            for item in self._yield_nextlink_pages(response, endpoint, max_pages):
+                yield item
 
     def cast_results(self, results: List[Dict[str, Any]], schema_class) -> List[Any]:
         """Cast API response items to model instances.
@@ -127,28 +120,38 @@ class DSISClient(BaseClient):
         """
         return cast_results(results, schema_class)
 
-    def _yield_nextlink_pages(self, response: Dict[str, Any], endpoint: str):
-        """Generator that yields items from all pages following OData nextLinks.
+    def _yield_nextlink_pages(
+        self, response: Dict[str, Any], endpoint: str, max_pages: int = -1
+    ):
+        """Generator that yields items from pages following OData nextLinks.
 
-        This yields items as they are fetched, allowing for memory-efficient
-        processing of large result sets.
+        Yields items up to max_pages. If max_pages=-1, yields all pages.
 
         Args:
             response: Initial API response dict
             endpoint: Full endpoint path from initial request (without query params)
+            max_pages: Maximum number of pages to yield. -1 means unlimited (all pages).
 
         Yields:
             Individual items from each page's 'value' array
         """
         next_key = "odata.nextLink"
+        page_count = 0
 
         # Yield items from the initial response
         for item in response.get("value", []):
             yield item
+        page_count += 1
+
+        if page_count >= max_pages and max_pages != -1:
+            return
 
         next_link = response.get(next_key)
 
         while next_link:
+            if max_pages != -1 and page_count >= max_pages:
+                break
+
             logger.debug(f"Following nextLink: {next_link}")
 
             # Replace the last segment of endpoint (schema name) with the full next_link
@@ -165,6 +168,8 @@ class DSISClient(BaseClient):
             # Yield items from this page
             for item in next_resp.get("value", []):
                 yield item
+
+            page_count += 1
 
             # Check for next link in the next response
             next_link = next_resp.get(next_key)

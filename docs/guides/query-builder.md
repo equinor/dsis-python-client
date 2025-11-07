@@ -166,48 +166,41 @@ response2 = client.execute_query(query)
 
 The DSIS API returns a maximum of 1000 items per response. When there are more results, the response includes an `odata.nextLink` field pointing to the next page.
 
-By default, `execute_query()` automatically follows all `odata.nextLink` references and **yields items as they are fetched** (memory efficient). You can control this behavior with the `fetch_all` parameter.
+By default, `execute_query()` automatically follows all `odata.nextLink` references and **yields items as they are fetched** (memory efficient). You can control pagination with the `max_pages` parameter:
 
 ```python
-# Default: Fetch all pages and yield items one at a time (fetch_all=True)
+# Default: Fetch all pages (max_pages=-1)
 query = QueryBuilder(district_id=dist, field=fld).schema("Well")
 
-# Option 1: Process items as they arrive 
+# Option 1: Process items as they arrive (streaming, memory efficient)
 for well in client.execute_query(query):
     process(well)  # Process each item immediately
 
-# Option 2: Collect all items into a list 
+# Option 2: Collect all items into a list
 all_wells = list(client.execute_query(query))
 print(f"Total wells: {len(all_wells)}")
 
-In my tests I could not find significant memory differences between these two approaches, but it was a small dataset. Option 2 was a bit faster.
+# Option 3: Fetch only first page (max_pages=1)
+first_page_items = list(client.execute_query(query, max_pages=1))
+print(f"First page: {len(first_page_items)} wells (max 1000)")
 
-# Manual pagination: Get only first page (fetch_all=False)
-response = client.execute_query(query, fetch_all=False)
-first_page = response.get("value", [])  # Max 1000 items
-next_link = response.get("odata.nextLink")  # URL for next page if available
+# Option 4: Fetch first two pages (max_pages=2)
+two_pages_items = list(client.execute_query(query, max_pages=2))
+print(f"First two pages: {len(two_pages_items)} wells")
 ```
 
-**When to use `fetch_all=True` (default):**
+**max_pages Parameter:**
 
-- You want to process all data automatically across all pages
-- You can process items one at a time (streaming/iteration)
-- You want memory-efficient processing of large datasets
+- `max_pages=-1` (default): Fetch and yield from all pages
+- `max_pages=1`: Yield items from first page only (max 1000 items)
+- `max_pages=2`: Yield items from first two pages
+- `max_pages=N`: Yield items from first N pages (or fewer if fewer pages available)
 
-**When to use `fetch_all=False`:**
+**When to use different max_pages values:**
 
-- You only need a sample of data
-- You want to implement custom pagination logic
-- You're displaying paginated results in a UI
-
-**Memory Considerations:**
-
-When `fetch_all=True`, the library yields items as they are fetched rather than loading everything into memory at once. This means:
-
-- ✅ **Good**: `for item in client.execute_query(query): process(item)` - Memory efficient
-- ⚠️ **Use carefully**: `all_items = list(client.execute_query(query))` - Loads everything into memory
-
-If you have a very large dataset (e.g., 100,000+ items), process items as they arrive rather than converting to a list.
+- `-1` (unlimited): You want all data automatically across all pages
+- `1`: You only need a sample, or want to implement custom pagination
+- `N>1`: You want to process data in page-sized chunks
 
 ## Execution Patterns
 
@@ -229,11 +222,10 @@ print(f"Total items: {len(all_items)}")
 
 ```python
 query = QueryBuilder(district_id=dist, field=fld).schema("Basin")
-response = client.execute_query(query, fetch_all=False)
 
-# Response structure
-items = response.get("value", [])      # List of items (max 1000)
-next_link = response.get("odata.nextLink")  # URL for next page
+# Fetch only first page (max 1000 items)
+first_page_items = list(client.execute_query(query, max_pages=1))
+print(f"Retrieved {len(first_page_items)} items from first page")
 ```
 
 ### Pattern 2: Auto-Casting with Model Class
@@ -250,9 +242,8 @@ for basin in client.execute_query(query, cast=True):
 # Option 2: Collect all cast items into a list
 basins = list(client.execute_query(query, cast=True))
 
-# Option 3: Manual cast after single-page execution
-response = client.execute_query(query, fetch_all=False)
-basins = client.cast_results(response["value"], Basin)
+# Option 3: Fetch only first page and cast
+basins = list(client.execute_query(query, cast=True, max_pages=1))
 ```
 
 ### Pattern 3: Error Handling
@@ -341,20 +332,18 @@ well_query = base_query.reset().schema("Well").select("well_name,well_uwi")
 wells = list(client.execute_query(well_query))
 ```
 
-### Example 4: Manual Pagination Control
+### Example 4: Single Page Execution
 
 ```python
-# Get first page only
+# Get first page only (max 1000 items)
 query = QueryBuilder(district_id=dist, field=fld).schema("Well")
-response = client.execute_query(query, fetch_all=False)
+first_page_wells = list(client.execute_query(query, max_pages=1))
 
-wells = response.get("value", [])
-print(f"First page: {len(wells)} wells")
+print(f"First page: {len(first_page_wells)} wells")
 
-# Check if more pages exist
-if "odata.nextLink" in response:
-    print("More results available")
-    # You can implement custom pagination logic here if needed
+# For limited pagination (e.g., 2-3 pages), use max_pages parameter
+two_pages_wells = list(client.execute_query(query, max_pages=2))
+print(f"First two pages: {len(two_pages_wells)} wells")
 ```
 
 ## Tips and Best Practices
