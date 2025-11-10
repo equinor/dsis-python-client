@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/equinor/dsis-python-client/compare/v0.2.1...v0.3.0) (2025-11-10)
+
+
+### Features
+
+* add automatic pagination support to DSIS API client ([#29](https://github.com/equinor/dsis-python-client/issues/29)) ([c4e5766](https://github.com/equinor/dsis-python-client/commit/c4e5766e7cb22cee2f5deea4a64ec67c9bfcf725)), closes [#28](https://github.com/equinor/dsis-python-client/issues/28)
+
 ## [0.2.1](https://github.com/equinor/dsis-python-client/compare/v0.2.0...v0.2.1) (2025-11-04)
 
 
