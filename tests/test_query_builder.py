@@ -51,7 +51,10 @@ import pytest
 def test_query_builder_produces_correct_format(
     schema, select, expand, filter_expr, expected
 ):
-    """Test that QueryBuilder produces correctly formatted query strings for various combinations."""
+    """Test that QueryBuilder produces correctly formatted query strings.
+
+    Tests various combinations of query parameters.
+    """
     from dsis_client.api.query import QueryBuilder
 
     builder = QueryBuilder(district_id="TestDist", field="TestField")

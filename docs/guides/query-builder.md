@@ -146,17 +146,85 @@ query.reset().schema("Fault").select("fault_type")
 response2 = client.execute_query(query)
 ```
 
+## Automatic Pagination
+
+The DSIS API returns a maximum of 1000 items per response. When there are more results, the response includes an `odata.nextLink` field pointing to the next page.
+
+By default, `execute_query()` automatically follows all `odata.nextLink` references and **yields items as they are fetched** (memory efficient). You can control pagination with the `max_pages` parameter:
+
+```python
+# Default: Fetch all pages (max_pages=-1)
+query = QueryBuilder(district_id=dist, field=fld).schema("Well")
+
+# Option 1: Process items as they arrive (streaming, memory efficient)
+for well in client.execute_query(query):
+    process(well)  # Process each item immediately
+
+# Option 2: Collect all items into a list
+all_wells = list(client.execute_query(query))
+print(f"Total wells: {len(all_wells)}")
+
+# Option 3: Fetch only first page (max_pages=1)
+first_page_items = list(client.execute_query(query, max_pages=1))
+print(f"First page: {len(first_page_items)} wells (max 1000)")
+
+# Option 4: Fetch first two pages (max_pages=2)
+two_pages_items = list(client.execute_query(query, max_pages=2))
+print(f"First two pages: {len(two_pages_items)} wells")
+```
+
+**max_pages Parameter:**
+
+- `max_pages=-1` (default): Fetch and yield from all pages
+- `max_pages=1`: Yield items from first page only (max 1000 items)
+- `max_pages=2`: Yield items from first two pages
+- `max_pages=N`: Yield items from first N pages (or fewer if fewer pages available)
+
+**When to use different max_pages values:**
+
+- `-1` (unlimited): You want all data automatically across all pages
+- `1`: You only need a sample, or want to implement custom pagination
+- `N>1`: You want to process data in page-sized chunks
+
 ## Execution Patterns
 
-### Pattern 1: Basic Execution
+### ⚠️ Critical: Schema Requirement for `cast=True`
+
+**If you want to use `cast=True` to automatically convert results to model instances, you MUST pass a model class (not a string) to `.schema()`:**
+
+```python
+# ✅ Correct: Pass model class for casting
+from dsis_model_sdk.models.common import Basin
+query = QueryBuilder(district_id=dist, field=fld).schema(Basin)
+results = client.execute_query(query, cast=True)  # Works!
+
+# ❌ Wrong: String schema name won't work with cast=True
+query = QueryBuilder(district_id=dist, field=fld).schema("Basin")
+results = client.execute_query(query, cast=True)  # Has no effect!
+```
+
+### Pattern 1: Basic Execution (Streaming)
 
 ```python
 query = QueryBuilder(district_id=dist, field=fld).schema("Basin")
-response = client.execute_query(query)
 
-# Response structure
-items = response.get("value", [])      # List of items
-count = response.get("@odata.count")   # Total count (if requested)
+# Process items as they arrive (memory efficient)
+for item in client.execute_query(query):
+    print(item.get("basin_name"))
+
+# Or collect all items into a list (uses more memory)
+all_items = list(client.execute_query(query))
+print(f"Total items: {len(all_items)}")
+```
+
+### Pattern 1b: Single Page Execution
+
+```python
+query = QueryBuilder(district_id=dist, field=fld).schema("Basin")
+
+# Fetch only first page (max 1000 items)
+first_page_items = list(client.execute_query(query, max_pages=1))
+print(f"Retrieved {len(first_page_items)} items from first page")
 ```
 
 ### Pattern 2: Auto-Casting with Model Class
@@ -166,36 +234,66 @@ from dsis_model_sdk.models.common import Basin
 
 query = QueryBuilder(district_id=dist, field=fld).schema(Basin).select("basin_name,basin_id")
 
-# Option 1: Cast during execution
-basins = client.execute_query(query, cast=True)
+# Option 1: Stream and cast each item as it arrives (memory efficient)
+for basin in client.execute_query(query, cast=True):
+    print(f"Basin: {basin.basin_name} (ID: {basin.basin_id})")
 
-# Option 2: Manual cast after execution
-response = client.execute_query(query)
-basins = client.cast_results(response["value"], Basin)
+# Option 2: Collect all cast items into a list
+basins = list(client.execute_query(query, cast=True))
+
+# Option 3: Fetch only first page and cast
+basins = list(client.execute_query(query, cast=True, max_pages=1))
 ```
+
+**⚠️ IMPORTANT: Using `cast=True`**
+
+To use `cast=True`, you **MUST** build your query using a model class imported from `dsis_model_sdk`, not a string schema name:
+
+```python
+# ✅ CORRECT: Using model class from dsis_model_sdk
+from dsis_model_sdk.models.common import Basin  # or native
+query = QueryBuilder(district_id=dist, field=fld).schema(Basin)
+basins = list(client.execute_query(query, cast=True))
+
+# ❌ INCORRECT: Using string schema name with cast=True
+query = QueryBuilder(district_id=dist, field=fld).schema("Basin")
+basins = list(client.execute_query(query, cast=True))  # Will not work!
+```
+
+The schema model can come from either:
+
+- `from dsis_model_sdk.models.common import Basin`
+- `from dsis_model_sdk.models.native import Basin`
+
+If you use a string schema name, `cast=True` will have no effect. Omit `cast=True` or use a model class instead.
 
 ### Pattern 3: Error Handling
 
 ```python
 try:
     query = QueryBuilder(district_id=dist, field=fld).schema("Well")
-    response = client.execute_query(query)
-    items = response.get("value", [])
-    print(f"Retrieved {len(items)} wells")
+    
+    # Process items as they arrive
+    item_count = 0
+    for item in client.execute_query(query):
+        item_count += 1
+        # Process each item
+    
+    print(f"Retrieved {item_count} wells")
 except Exception as e:
     print(f"Query failed: {e}")
 ```
 
 ## Complete Examples
 
-### Example 1: Filtered Query with Pagination
+### Example 1: Filtered Query with Streaming
 
 ```python
 # Use the `DSISConfig.for_native_model(...)` example from the "Basic Configuration"
 # section above to create `config` and `client`. The snippet below assumes
 # `client` is already created and available.
 
-# Build query with filters and pagination
+# Build query with filters
 query = (
     QueryBuilder(
         district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
@@ -206,8 +304,12 @@ query = (
     .filter("well_type eq 'Producer'")
 )
 
-response = client.execute_query(query)
-wells = response.get("value", [])
+# Process wells as they arrive
+for well in client.execute_query(query):
+    print(f"Well: {well['well_name']}")
+
+# Or collect all into a list
+wells = list(client.execute_query(query))
 print(f"Retrieved {len(wells)} producer wells")
 ```
 
@@ -223,9 +325,8 @@ query = (
 )
 
 try:
-    basins = client.execute_query(query, cast=True)
-    
-    for basin in basins:
+    # Stream and auto-cast each basin as it arrives
+    for basin in client.execute_query(query, cast=True):
         print(f"Basin: {basin.basin_name}")
         print(f"  ID: {basin.basin_id}")
         print(f"  UID: {basin.native_uid}")
@@ -244,11 +345,25 @@ base_query = QueryBuilder(district_id=dist, field=fld)
 
 # Query 1: Get all faults
 fault_query = base_query.schema("Fault").select("fault_id,fault_type")
-faults = client.execute_query(fault_query).get("value", [])
+faults = list(client.execute_query(fault_query))
 
 # Query 2: Get all wells (reset and rebuild)
 well_query = base_query.reset().schema("Well").select("well_name,well_uwi")
-wells = client.execute_query(well_query).get("value", [])
+wells = list(client.execute_query(well_query))
+```
+
+### Example 4: Single Page Execution
+
+```python
+# Get first page only (max 1000 items)
+query = QueryBuilder(district_id=dist, field=fld).schema("Well")
+first_page_wells = list(client.execute_query(query, max_pages=1))
+
+print(f"First page: {len(first_page_wells)} wells")
+
+# For limited pagination (e.g., 2-3 pages), use max_pages parameter
+two_pages_wells = list(client.execute_query(query, max_pages=2))
+print(f"First two pages: {len(two_pages_wells)} wells")
 ```
 
 ## Tips and Best Practices

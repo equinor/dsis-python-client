@@ -4,9 +4,9 @@ Provides high-level methods for interacting with DSIS OData API.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List
 
-from ..models import HAS_DSIS_SCHEMAS, cast_results, is_valid_schema
+from ..models import cast_results
 from .base_client import BaseClient
 
 if TYPE_CHECKING:
@@ -26,124 +26,38 @@ class DSISClient(BaseClient):
         auth: DSISAuth instance handling authentication
     """
 
-    def get(
-        self,
-        district_id: Optional[Union[str, int]] = None,
-        field: Optional[str] = None,
-        schema: Optional[str] = None,
-        format_type: str = "json",
-        select: Optional[str] = None,
-        expand: Optional[str] = None,
-        filter: Optional[str] = None,
-        validate_schema: bool = True,
-        **extra_query: Any,
-    ) -> Dict[str, Any]:
-        """Make a GET request to the DSIS OData API.
-
-        Constructs the OData endpoint URL following the pattern:
-        /<model_name>/<version>[/<district_id>][/<field>][/<schema>]
-
-        All path segments are optional and can be omitted.
-        The schema parameter refers to specific data schemas from dsis-schemas
-        (e.g., "Basin", "Well", "Wellbore", "WellLog", etc.).
-
-        Args:
-            district_id: Optional district ID for the query
-            field: Optional field name for the query
-            schema: Optional schema name (e.g., "Basin", "Well", "Wellbore").
-                    If None, uses configured model_name
-            format_type: Response format (default: "json")
-            select: OData $select parameter for field selection (comma-separated)
-            expand: OData $expand parameter for related data (comma-separated)
-            filter: OData $filter parameter for filtering (OData filter expression)
-            validate_schema: If True, validates that schema is a known model (default: True)
-            **extra_query: Additional OData query parameters
-
-        Returns:
-            Dictionary containing the parsed API response
-
-        Raises:
-            DSISAPIError: If the API request fails
-            ValueError: If validate_schema=True and schema is not a known model
-
-        Example:
-            >>> client.get()  # Just model and version
-            >>> client.get("123", "wells", schema="Basin")
-            >>> client.get("123", "wells", schema="Well", select="name,depth")
-            >>> client.get("123", "wells", schema="Well", filter="depth gt 1000")
-        """
-        # Determine the schema to use
-        if schema is not None:
-            schema_to_use = schema
-        elif district_id is not None or field is not None:
-            schema_to_use = self.config.model_name
-            logger.debug(f"Using configured model as schema: {self.config.model_name}")
-        else:
-            schema_to_use = None
-
-        # Validate schema if provided and validation is enabled
-        if validate_schema and schema_to_use is not None and HAS_DSIS_SCHEMAS:
-            if not is_valid_schema(schema_to_use):
-                raise ValueError(
-                    f"Unknown schema: '{schema_to_use}'. Use get_schema_by_name() to discover available schemas."
-                )
-
-        # Build endpoint path segments
-        segments = [self.config.model_name, self.config.model_version]
-        if district_id is not None:
-            segments.append(str(district_id))
-        if field is not None:
-            segments.append(field)
-        if schema_to_use is not None:
-            segments.append(schema_to_use)
-
-        endpoint = "/".join(segments)
-
-        # Build query parameters
-        query: Dict[str, Any] = {"$format": format_type}
-        if select:
-            query["$select"] = select
-        if expand:
-            query["$expand"] = expand
-        if filter:
-            query["$filter"] = filter
-        if extra_query:
-            query.update(extra_query)
-
-        return self._request(endpoint, query)
-
     def execute_query(
-        self, query: "QueryBuilder", cast: bool = False
-    ) -> Union[Dict[str, Any], List[Any]]:
+        self, query: "QueryBuilder", cast: bool = False, max_pages: int = -1
+    ):
         """Execute a DSIS query.
-
-        Executes a query that was built using QueryBuilder.
-        This provides a clean, user-friendly interface for query execution.
 
         Args:
             query: QueryBuilder instance containing the query and path parameters
-            cast: If True and query has a schema class, automatically cast results to model instances
+            cast: If True and query has a schema class, automatically cast results
+                to model instances
+            max_pages: Maximum number of pages to fetch. -1 (default) fetches all pages.
+                Use 1 for a single page, 2 for two pages, etc.
 
-        Returns:
-            If cast=False: Dictionary containing the parsed API response
-            If cast=True: List of model instances (from response["value"])
+        Yields:
+            Items from the result pages (or model instances if cast=True)
 
         Raises:
             DSISAPIError: If the API request fails
             ValueError: If query is invalid or cast=True but query has no schema class
 
         Example:
-            >>> from dsis_model_sdk.models.common import Fault
-            >>> query = QueryBuilder(
-            ...     district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
-            ...     field="SNORRE"
-            ... ).schema(Fault).select("id,type").filter("type eq 'NORMAL'")
+            >>> # Fetch all pages (default)
+            >>> for item in client.execute_query(query):
+            ...     process(item)
             >>>
-            >>> # Option 1: Get raw response
-            >>> response = client.execute_query(query)
+            >>> # Aggregate all pages into a list
+            >>> all_items = list(client.execute_query(query))
             >>>
-            >>> # Option 2: Auto-cast to model instances
-            >>> faults = client.execute_query(query, cast=True)
+            >>> # Fetch only one page
+            >>> page_items = list(client.execute_query(query, max_pages=1))
+            >>>
+            >>> # Fetch two pages
+            >>> two_pages = list(client.execute_query(query, max_pages=2))
         """
         # Import here to avoid circular imports
         from ..query import QueryBuilder
@@ -151,7 +65,7 @@ class DSISClient(BaseClient):
         if not isinstance(query, QueryBuilder):
             raise TypeError(f"Expected QueryBuilder, got {type(query)}")
 
-        logger.debug(f"Executing query: {query}")
+        logger.debug(f"Executing query: {query} (max_pages={max_pages})")
 
         # Build endpoint path segments
         segments = [self.config.model_name, self.config.model_version]
@@ -173,22 +87,25 @@ class DSISClient(BaseClient):
         logger.debug(f"Making request to endpoint: {endpoint} with params: {params}")
         response = self._request(endpoint, params)
 
-        # Auto-cast if requested
+        # Yield items from all pages (up to max_pages)
         if cast:
             if not query._schema_class:
                 raise ValueError(
                     "Cannot cast results: query has no schema class. "
                     "Use .schema(ModelClass) when building the query."
                 )
-            return cast_results(response.get("value", []), query._schema_class)
-
-        return response
+            for item in self._yield_nextlink_pages(response, endpoint, max_pages):
+                yield query._schema_class(**item)
+        else:
+            for item in self._yield_nextlink_pages(response, endpoint, max_pages):
+                yield item
 
     def cast_results(self, results: List[Dict[str, Any]], schema_class) -> List[Any]:
         """Cast API response items to model instances.
 
         Args:
-            results: List of dictionaries from API response (typically response["value"])
+            results: List of dictionaries from API response
+                (typically response["value"])
             schema_class: Pydantic model class to cast to (e.g., Fault, Well)
 
         Returns:
@@ -204,3 +121,57 @@ class DSISClient(BaseClient):
             >>> faults = client.cast_results(response["value"], Fault)
         """
         return cast_results(results, schema_class)
+
+    def _yield_nextlink_pages(
+        self, response: Dict[str, Any], endpoint: str, max_pages: int = -1
+    ):
+        """Generator that yields items from pages following OData nextLinks.
+
+        Yields items up to max_pages. If max_pages=-1, yields all pages.
+
+        Args:
+            response: Initial API response dict
+            endpoint: Full endpoint path from initial request (without query params)
+            max_pages: Maximum number of pages to yield. -1 means unlimited (all pages).
+
+        Yields:
+            Individual items from each page's 'value' array
+        """
+        next_key = "odata.nextLink"
+        page_count = 0
+
+        # Yield items from the initial response
+        for item in response.get("value", []):
+            yield item
+        page_count += 1
+
+        if page_count >= max_pages and max_pages != -1:
+            return
+
+        next_link = response.get(next_key)
+
+        while next_link:
+            if max_pages != -1 and page_count >= max_pages:
+                break
+
+            logger.debug(f"Following nextLink: {next_link}")
+
+            # Replace the last segment of endpoint (schema name) with the full next_link
+            endpoint_parts = endpoint.rsplit("/", 1)
+            if len(endpoint_parts) == 2:
+                temp_endpoint = f"{endpoint_parts[0]}/{next_link}"
+            else:
+                # Fallback if endpoint has no slash (shouldn't happen in practice)
+                temp_endpoint = next_link
+
+            # Make request with the temp endpoint
+            next_resp = self._request(temp_endpoint, params=None)
+
+            # Yield items from this page
+            for item in next_resp.get("value", []):
+                yield item
+
+            page_count += 1
+
+            # Check for next link in the next response
+            next_link = next_resp.get(next_key)
