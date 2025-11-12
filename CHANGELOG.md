@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/equinor/dsis-python-client/compare/v0.3.0...v0.4.0) (2025-11-12)
+
+
+### Features
+
+* make json format optional in stead of a forced default ([#32](https://github.com/equinor/dsis-python-client/issues/32)) ([735f490](https://github.com/equinor/dsis-python-client/commit/735f490ffa64e0985068b79ecb8f709296cbce00))
+
 ## [0.3.0](https://github.com/equinor/dsis-python-client/compare/v0.2.1...v0.3.0) (2025-11-10)
 
 
