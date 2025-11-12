@@ -44,7 +44,7 @@ class QueryBuilder:
         self._select: List[str] = []
         self._expand: List[str] = []
         self._filter: Optional[str] = None
-        self._format = "json"
+        self._format: Optional[str] = "json"
 
     def schema(self, schema: Union[str, Type]) -> "QueryBuilder":
         """Set the schema (data table) using a name or model class.
@@ -130,14 +130,21 @@ class QueryBuilder:
         logger.debug(f"Set filter: {filter_expr}")
         return self
 
-    def format(self, format_type: str) -> "QueryBuilder":
+    def format(self, format_type: Optional[str] = "json") -> "QueryBuilder":
         """Set the response format.
 
         Args:
-            format_type: Format type (default: "json")
+            format_type: Format type ("json", empty string to omit, or None).
+                Defaults to "json".
 
         Returns:
             Self for chaining
+
+        Example:
+            >>> builder.format()  # Use default "json"
+            >>> builder.format("json")  # Explicitly set to json
+            >>> builder.format("")  # Omit format parameter from query
+            >>> builder.format(None)  # Omit format parameter from query
         """
         self._format = format_type
         logger.debug(f"Set format: {format_type}")
@@ -199,7 +206,7 @@ class QueryBuilder:
         self._select = []
         self._expand = []
         self._filter = None
-        self._format = "json"
+        self._format: Optional[str] = "json"
         logger.debug("Reset builder")
         return self
 
