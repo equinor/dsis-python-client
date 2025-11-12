@@ -130,6 +130,23 @@ query.expand("wellbores")
 query.expand("wellbores,interpretations")
 ```
 
+### format()
+
+Set the response format parameter.
+
+```python
+# Default: json format (included by default)
+query = QueryBuilder(district_id=dist, field=fld).schema("Well").select("well_name")
+# Result: Well?$format=json&$select=well_name
+
+# Explicitly set to json
+query.format("json")
+
+# Omit format parameter entirely
+query.format("")  # or .format(None)
+# Result: Well?$select=well_name
+```
+
 ### reset()
 
 Clear query parameters for reuse.

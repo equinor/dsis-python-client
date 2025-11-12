@@ -11,7 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 def build_query_params(
-    select: list, expand: list, filter_expr: str, format_type: str = "json"
+    select: list,
+    expand: list,
+    filter_expr: str,
+    format_type: str = "json",
 ) -> Dict[str, str]:
     """Build OData query parameters dictionary.
 
@@ -19,12 +22,17 @@ def build_query_params(
         select: List of fields to select
         expand: List of relations to expand
         filter_expr: OData filter expression
-        format_type: Response format (default: "json")
+        format_type: Response format (default: "json"). Use None or empty
+            string to omit the $format parameter.
 
     Returns:
         Dictionary of query parameters
     """
-    params: Dict[str, str] = {"$format": format_type}
+    params: Dict[str, str] = {}
+
+    # Only add format if it's not None or empty
+    if format_type:
+        params["$format"] = format_type
 
     if select:
         params["$select"] = ",".join(select)
