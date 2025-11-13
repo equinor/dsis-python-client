@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/equinor/dsis-python-client/compare/v0.4.0...v0.4.1) (2025-11-13)
+
+
+### Bug Fixes
+
+* update required Python version to 3.11 in pyproject.toml ([#34](https://github.com/equinor/dsis-python-client/issues/34)) ([d325265](https://github.com/equinor/dsis-python-client/commit/d3252658240d9033d21bf8b1f35b49ba3c412012))
+
 ## [0.4.0](https://github.com/equinor/dsis-python-client/compare/v0.3.0...v0.4.0) (2025-11-12)
 
 
