@@ -9,6 +9,9 @@ permissions: {}
 jobs:
   pytest:
     name: pytest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
     runs-on: ubuntu-latest
     permissions:
       contents: read # Required to checkout the repository.
@@ -21,7 +24,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
         with:
-          python-version-file: .python-version
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
@@ -40,5 +43,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v5
         with:
-          name: pytest-results
+          name: pytest-results-${{ matrix.python-version }}
           path: junit/test-results.xml
