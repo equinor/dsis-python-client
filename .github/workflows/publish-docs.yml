@@ -11,7 +11,7 @@ permissions: {}
 jobs:
   build:
     name: Build
-    uses: equinor/ops-actions/.github/workflows/mkdocs.yml@v9.29.0
+    uses: equinor/ops-actions/.github/workflows/mkdocs.yml@v9.32.0
     with:
       requirements: requirements-docs.txt
       upload_artifact: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -22,7 +22,7 @@ jobs:
     name: Publish
     needs: build
     if: needs.build.outputs.artifact_uploaded == 'true'
-    uses: equinor/ops-actions/.github/workflows/github-pages.yml@v9.29.0
+    uses: equinor/ops-actions/.github/workflows/github-pages.yml@v9.32.0
     with:
       artifact_name: ${{ needs.build.outputs.artifact_name }}
     permissions:
