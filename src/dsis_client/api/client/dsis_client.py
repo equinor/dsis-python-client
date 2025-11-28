@@ -122,6 +122,61 @@ class DSISClient(BaseClient):
         """
         return cast_results(results, schema_class)
 
+    def get_bulk_data(
+        self,
+        schema: str,
+        native_uid: str,
+        district_id: str = None,
+        field: str = None,
+        data_field: str = "data",
+    ) -> bytes:
+        """Fetch binary bulk data (protobuf) for a specific entity.
+
+        The DSIS API serves large binary data fields (horizon z-values, log curves,
+        seismic amplitudes) as Protocol Buffers via a special OData endpoint:
+        /{schema}('{native_uid}')/{data_field}/$value
+
+        Args:
+            schema: Schema name (e.g., "HorizonData3D", "LogCurve", "SeismicDataSet3D")
+            native_uid: The native_uid of the entity
+            district_id: Optional district ID (if required by API)
+            field: Optional field name (if required by API)
+            data_field: Name of the binary data field (default: "data")
+
+        Returns:
+            Binary protobuf data as bytes
+
+        Raises:
+            DSISAPIError: If the API request fails
+
+        Example:
+            >>> # Fetch horizon binary data
+            >>> binary_data = client.get_bulk_data(
+            ...     schema="HorizonData3D",
+            ...     native_uid="horizon_123",
+            ...     district_id="123",
+            ...     field="SNORRE"
+            ... )
+            >>>
+            >>> # Decode the protobuf data
+            >>> from dsis_model_sdk.protobuf import decode_horizon_data
+            >>> decoded = decode_horizon_data(binary_data)
+        """
+        # Build endpoint path segments
+        segments = [self.config.model_name, self.config.model_version]
+        if district_id is not None:
+            segments.append(str(district_id))
+        if field is not None:
+            segments.append(field)
+
+        # Add the OData entity key and data field path
+        segments.append(f"{schema}('{native_uid}')/{data_field}/$value")
+
+        endpoint = "/".join(segments)
+
+        logger.debug(f"Fetching bulk data from: {endpoint}")
+        return self._request_binary(endpoint)
+
     def _yield_nextlink_pages(
         self, response: Dict[str, Any], endpoint: str, max_pages: int = -1
     ):

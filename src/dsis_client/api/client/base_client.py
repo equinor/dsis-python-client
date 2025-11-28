@@ -76,6 +76,40 @@ class BaseClient:
             logger.warning(f"Failed to parse JSON response: {e}")
             return {"data": response.text}
 
+    def _request_binary(
+        self, endpoint: str, params: Optional[Dict[str, Any]] = None
+    ) -> bytes:
+        """Make an authenticated GET request for binary data.
+
+        Internal method for fetching binary protobuf data from the DSIS API.
+
+        Args:
+            endpoint: API endpoint path
+            params: Query parameters
+
+        Returns:
+            Binary response content
+
+        Raises:
+            DSISAPIError: If the request fails or returns non-200 status
+        """
+        url = urljoin(f"{self.config.data_endpoint}/", endpoint)
+        headers = self.auth.get_auth_headers()
+        headers["Accept"] = "application/octet-stream"
+
+        logger.debug(f"Making binary request to {url}")
+        response = self._session.get(url, headers=headers, params=params)
+
+        if response.status_code != 200:
+            error_msg = (
+                f"Binary API request failed: {response.status_code} - "
+                f"{response.reason} - {response.text}"
+            )
+            logger.error(error_msg)
+            raise DSISAPIError(error_msg)
+
+        return response.content
+
     def refresh_authentication(self) -> None:
         """Refresh authentication tokens.
 
