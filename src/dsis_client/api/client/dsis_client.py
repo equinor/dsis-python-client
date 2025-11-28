@@ -4,7 +4,7 @@ Provides high-level methods for interacting with DSIS OData API.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Union, Optional
 
 from ..models import cast_results
 from .base_client import BaseClient
@@ -240,3 +240,71 @@ class DSISClient(BaseClient):
 
             # Check for next link in the next response
             next_link = next_resp.get(next_key)
+
+    def get_entity_data(
+        self,
+        entity: Union[Dict[str, Any], Any],
+        schema: str,
+        query: Optional["QueryBuilder"] = None,
+        district_id: Optional[str] = None,
+        field: Optional[str] = None,
+        data_field: str = "data",
+    ) -> bytes:
+        """Fetch binary bulk data for an entity result.
+
+        This is a convenience method that extracts the native_uid from an entity
+        (either a dict or model instance) and fetches its binary data.
+
+        Args:
+            entity: Entity dict or model instance (must have 'native_uid' attribute/key)
+            schema: Schema name (e.g., "HorizonData3D", "LogCurve", "SeismicDataSet3D")
+            query: Optional QueryBuilder instance to extract district_id and field from.
+                   If provided, district_id and field parameters are ignored.
+            district_id: Optional district ID (if required by API). Ignored if query is provided.
+            field: Optional field name (if required by API). Ignored if query is provided.
+            data_field: Name of the binary data field (default: "data")
+
+        Returns:
+            Binary protobuf data as bytes
+
+        Raises:
+            ValueError: If entity doesn't have a native_uid
+            DSISAPIError: If the API request fails
+
+        Example:
+            >>> # Option 1: Pass the query object (recommended - no need to repeat district_id/field)
+            >>> query = QueryBuilder(district_id="123", field="SNORRE").schema("LogCurve").select("native_uid,log_curve_name")
+            >>> log_curves = list(client.execute_query(query, max_pages=1))
+            >>> log_curve = log_curves[0]
+            >>> binary_data = client.get_entity_data(log_curve, schema="LogCurve", query=query)
+            >>>
+            >>> # Option 2: Pass district_id and field explicitly
+            >>> binary_data = client.get_entity_data(log_curve, schema="LogCurve", district_id="123", field="SNORRE")
+            >>>
+            >>> # Decode the data
+            >>> from dsis_model_sdk.protobuf import decode_log_curves
+            >>> decoded = decode_log_curves(binary_data)
+        """
+        # Extract native_uid from entity (works for both dict and model instance)
+        if isinstance(entity, dict):
+            native_uid = entity.get("native_uid")
+        else:
+            native_uid = getattr(entity, "native_uid", None)
+
+        if not native_uid:
+            raise ValueError(
+                "Entity must have a 'native_uid' field/attribute to fetch binary data"
+            )
+
+        # Extract district_id and field from query if provided
+        if query is not None:
+            district_id = query.district_id
+            field = query.field
+
+        return self.get_bulk_data(
+            schema=schema,
+            native_uid=native_uid,
+            district_id=district_id,
+            field=field,
+            data_field=data_field,
+        )
