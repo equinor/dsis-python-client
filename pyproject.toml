@@ -7,10 +7,17 @@ authors = []
 requires-python = ">=3.11"
 dependencies = [
 	"msal",
-	"dsis-schemas>=0.0.2"
+	"dsis-schemas[protobuf]>=0.0.2"
 ]
 license = "MIT"
 license-files = ["LICENSE"]
+
+[project.optional-dependencies]
+dev = [
+	"pytest>=7.0.0",
+	"pytest-cov>=4.0.0",
+	"pytest-mock>=3.10.0",
+]
 
 [project.scripts]
 dsis-client = "dsis_client:main"

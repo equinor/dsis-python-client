@@ -201,7 +201,7 @@ class BaseClient:
             >>> client.get("123", "wells", schema="Well", filter="depth gt 1000")
         """
         # Import here to avoid circular imports
-        from ..models import HAS_DSIS_SCHEMAS, is_valid_schema
+        from ..models import is_valid_schema
 
         # Determine the schema to use
         if schema is not None:
@@ -213,7 +213,7 @@ class BaseClient:
             schema_to_use = None
 
         # Validate schema if provided and validation is enabled
-        if validate_schema and schema_to_use is not None and HAS_DSIS_SCHEMAS:
+        if validate_schema and schema_to_use is not None:
             if not is_valid_schema(schema_to_use):
                 raise ValueError(
                     f"Unknown schema: '{schema_to_use}'. Use "
