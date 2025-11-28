@@ -134,11 +134,14 @@ class DSISClient(BaseClient):
 
         The DSIS API serves large binary data fields (horizon z-values, log curves,
         seismic amplitudes) as Protocol Buffers via a special OData endpoint:
-        /{schema}('{native_uid}')/{data_field}/$value
+        /{schema}('{native_uid}')/{data_field}
+
+        Note: The endpoint does NOT include /$value suffix, and the API returns
+        binary data with Accept: application/json header.
 
         Args:
             schema: Schema name (e.g., "HorizonData3D", "LogCurve", "SeismicDataSet3D")
-            native_uid: The native_uid of the entity
+            native_uid: The native_uid of the entity (e.g., "46075" for LogCurve)
             district_id: Optional district ID (if required by API)
             field: Optional field name (if required by API)
             data_field: Name of the binary data field (default: "data")
@@ -150,17 +153,23 @@ class DSISClient(BaseClient):
             DSISAPIError: If the API request fails
 
         Example:
-            >>> # Fetch horizon binary data
+            >>> # Step 1: Query for entities to get native_uid
+            >>> query = QueryBuilder(district_id=123, field="SNORRE").schema(LogCurve).select("native_uid,log_curve_name")
+            >>> curves = list(client.execute_query(query, cast=True, max_pages=1))
+            >>>
+            >>> # Step 2: Fetch binary protobuf data
             >>> binary_data = client.get_bulk_data(
-            ...     schema="HorizonData3D",
-            ...     native_uid="horizon_123",
-            ...     district_id="123",
+            ...     schema="LogCurve",
+            ...     native_uid=curves[0].native_uid,
+            ...     district_id=123,
             ...     field="SNORRE"
             ... )
             >>>
-            >>> # Decode the protobuf data
-            >>> from dsis_model_sdk.protobuf import decode_horizon_data
-            >>> decoded = decode_horizon_data(binary_data)
+            >>> # Step 3: Decode the protobuf data
+            >>> from dsis_model_sdk.protobuf import decode_log_curves
+            >>> from dsis_model_sdk.utils.protobuf_decoders import log_curve_to_dict
+            >>> decoded = decode_log_curves(binary_data)
+            >>> data_dict = log_curve_to_dict(decoded)
         """
         # Build endpoint path segments
         segments = [self.config.model_name, self.config.model_version]
@@ -170,7 +179,8 @@ class DSISClient(BaseClient):
             segments.append(field)
 
         # Add the OData entity key and data field path
-        segments.append(f"{schema}('{native_uid}')/{data_field}/$value")
+        # Note: No /$value suffix - the API endpoint is just /{schema}('{native_uid}')/data
+        segments.append(f"{schema}('{native_uid}')/{data_field}")
 
         endpoint = "/".join(segments)
 

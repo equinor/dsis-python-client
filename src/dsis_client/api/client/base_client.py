@@ -83,6 +83,9 @@ class BaseClient:
 
         Internal method for fetching binary protobuf data from the DSIS API.
 
+        Note: The DSIS API returns binary protobuf data with Accept: application/json,
+        not application/octet-stream. This is the actual behavior observed in the API.
+
         Args:
             endpoint: API endpoint path
             params: Query parameters
@@ -95,7 +98,8 @@ class BaseClient:
         """
         url = urljoin(f"{self.config.data_endpoint}/", endpoint)
         headers = self.auth.get_auth_headers()
-        headers["Accept"] = "application/octet-stream"
+        # Use application/json - the API returns binary data with this Accept header
+        headers["Accept"] = "application/json"
 
         logger.debug(f"Making binary request to {url}")
         response = self._session.get(url, headers=headers, params=params)

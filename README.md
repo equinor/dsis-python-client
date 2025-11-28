@@ -404,6 +404,8 @@ print(f"Trace samples: {len(trace)}")
   - Use NumPy for efficient array operations
 - The `data` field in models like `HorizonData3D`, `LogCurve`, and `SeismicDataSet3D` contains the binary protobuf data
 - Always check if the `data` field exists before attempting to decode it
+- **API Endpoint Format**: The binary data endpoint is `/{Schema}('{native_uid}')/data` (no `/$value` suffix)
+- **Accept Header**: The API returns binary protobuf data with `Accept: application/json` header (not `application/octet-stream`)
 
 ## Configuration
 
