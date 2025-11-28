@@ -78,6 +78,11 @@ if horizons:
         schema="HorizonData3D",
         query=query
     )
+
+    if binary_data is None:
+        print("⚠ No bulk data available for this horizon")
+        exit(0)
+
     print(f"✓ Received {len(binary_data):,} bytes of binary data")
 
     # Step 3: Decode protobuf data
@@ -133,30 +138,34 @@ if log_curves:
         schema="LogCurve",
         query=query
     )
-    print(f"✓ Received {len(binary_data):,} bytes")
 
-    # Step 3: Decode and analyze
-    print("\nStep 3: Decoding protobuf data...")
-    decoded = decode_log_curves(binary_data)
-    print(f"✓ Decoded successfully")
-    print(f"  Curve type: {'DEPTH' if decoded.curve_type == decoded.DEPTH else 'TIME'}")
-    print(f"  Index start: {decoded.index.start_index}")
-    print(f"  Index increment: {decoded.index.increment}")
-    print(f"  Number of samples: {decoded.index.number_of_index}")
+    if binary_data is None:
+        print("⚠ No bulk data available for this log curve")
+    else:
+        print(f"✓ Received {len(binary_data):,} bytes")
 
-    # Step 4: Convert to dict for easier access
-    print("\nStep 4: Converting to dict...")
-    data = log_curve_to_dict(decoded)
-    print(f"✓ Found {len(data['curves'])} curves in dataset")
+        # Step 3: Decode and analyze
+        print("\nStep 3: Decoding protobuf data...")
+        decoded = decode_log_curves(binary_data)
+        print(f"✓ Decoded successfully")
+        print(f"  Curve type: {'DEPTH' if decoded.curve_type == decoded.DEPTH else 'TIME'}")
+        print(f"  Index start: {decoded.index.start_index}")
+        print(f"  Index increment: {decoded.index.increment}")
+        print(f"  Number of samples: {decoded.index.number_of_index}")
 
-    for curve_name, curve_data in list(data['curves'].items())[:3]:  # Show first 3
-        print(f"\n  Curve: {curve_name}")
-        print(f"    Unit: {curve_data['unit']}")
-        print(f"    Values: {len(curve_data['values'])} samples")
-        if len(curve_data['values']) > 0:
-            print(f"    Range: {min(curve_data['values']):.2f} - {max(curve_data['values']):.2f}")
+        # Step 4: Convert to dict for easier access
+        print("\nStep 4: Converting to dict...")
+        data = log_curve_to_dict(decoded)
+        print(f"✓ Found {len(data['curves'])} curves in dataset")
 
-    print("\n✓ Example 2 completed successfully!")
+        for curve_name, curve_data in list(data['curves'].items())[:3]:  # Show first 3
+            print(f"\n  Curve: {curve_name}")
+            print(f"    Unit: {curve_data['unit']}")
+            print(f"    Values: {len(curve_data['values'])} samples")
+            if len(curve_data['values']) > 0:
+                print(f"    Range: {min(curve_data['values']):.2f} - {max(curve_data['values']):.2f}")
+
+        print("\n✓ Example 2 completed successfully!")
 
 
 # Example 3: Working with Seismic Data
@@ -187,30 +196,34 @@ if seismic_datasets:
         schema="SeismicDataSet3D",
         query=query
     )
-    print(f"✓ Received {len(binary_data):,} bytes ({len(binary_data) / 1024 / 1024:.2f} MB)")
 
-    # Step 3: Decode protobuf data
-    print("\nStep 3: Decoding protobuf data...")
-    decoded = decode_seismic_float_data(binary_data)
-    print(f"✓ Decoded successfully")
-    print(f"  Dimensions: i={decoded.length.i}, j={decoded.length.j}, k={decoded.length.k}")
+    if binary_data is None:
+        print("⚠ No bulk data available for this seismic dataset")
+    else:
+        print(f"✓ Received {len(binary_data):,} bytes ({len(binary_data) / 1024 / 1024:.2f} MB)")
 
-    # Step 4: Convert to NumPy array
-    print("\nStep 4: Converting to NumPy array...")
-    array, metadata = seismic_3d_to_numpy(decoded)
-    print(f"✓ Array shape: {array.shape}")
-    print(f"  Memory size: {array.nbytes / 1024 / 1024:.2f} MB")
-    print(f"  Amplitude range: {np.min(array):.2f} to {np.max(array):.2f}")
+        # Step 3: Decode protobuf data
+        print("\nStep 3: Decoding protobuf data...")
+        decoded = decode_seismic_float_data(binary_data)
+        print(f"✓ Decoded successfully")
+        print(f"  Dimensions: i={decoded.length.i}, j={decoded.length.j}, k={decoded.length.k}")
 
-    # Step 5: Extract a single trace
-    print("\nStep 5: Extracting a single trace...")
-    trace_i, trace_j = min(100, array.shape[0] - 1), min(100, array.shape[1] - 1)
-    trace = array[trace_i, trace_j, :]
-    print(f"✓ Trace at ({trace_i}, {trace_j}):")
-    print(f"  Samples: {len(trace)}")
-    print(f"  Min: {np.min(trace):.2f}, Max: {np.max(trace):.2f}")
+        # Step 4: Convert to NumPy array
+        print("\nStep 4: Converting to NumPy array...")
+        array, metadata = seismic_3d_to_numpy(decoded)
+        print(f"✓ Array shape: {array.shape}")
+        print(f"  Memory size: {array.nbytes / 1024 / 1024:.2f} MB")
+        print(f"  Amplitude range: {np.min(array):.2f} to {np.max(array):.2f}")
 
-    print("\n✓ Example 3 completed successfully!")
+        # Step 5: Extract a single trace
+        print("\nStep 5: Extracting a single trace...")
+        trace_i, trace_j = min(100, array.shape[0] - 1), min(100, array.shape[1] - 1)
+        trace = array[trace_i, trace_j, :]
+        print(f"✓ Trace at ({trace_i}, {trace_j}):")
+        print(f"  Samples: {len(trace)}")
+        print(f"  Min: {np.min(trace):.2f}, Max: {np.max(trace):.2f}")
+
+        print("\n✓ Example 3 completed successfully!")
 
 
 print("\n" + "=" * 80)

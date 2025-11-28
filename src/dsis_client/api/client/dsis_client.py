@@ -129,7 +129,7 @@ class DSISClient(BaseClient):
         district_id: str = None,
         field: str = None,
         data_field: str = "data",
-    ) -> bytes:
+    ) -> Optional[bytes]:
         """Fetch binary bulk data (protobuf) for a specific entity.
 
         The DSIS API serves large binary data fields (horizon z-values, log curves,
@@ -147,10 +147,10 @@ class DSISClient(BaseClient):
             data_field: Name of the binary data field (default: "data")
 
         Returns:
-            Binary protobuf data as bytes
+            Binary protobuf data as bytes, or None if the entity has no bulk data
 
         Raises:
-            DSISAPIError: If the API request fails
+            DSISAPIError: If the API request fails (other than 404 for missing data)
 
         Example:
             >>> # Step 1: Query for entities to get native_uid
@@ -165,11 +165,14 @@ class DSISClient(BaseClient):
             ...     field="SNORRE"
             ... )
             >>>
-            >>> # Step 3: Decode the protobuf data
-            >>> from dsis_model_sdk.protobuf import decode_log_curves
-            >>> from dsis_model_sdk.utils.protobuf_decoders import log_curve_to_dict
-            >>> decoded = decode_log_curves(binary_data)
-            >>> data_dict = log_curve_to_dict(decoded)
+            >>> # Step 3: Check if data exists and decode
+            >>> if binary_data:
+            ...     from dsis_model_sdk.protobuf import decode_log_curves
+            ...     from dsis_model_sdk.utils.protobuf_decoders import log_curve_to_dict
+            ...     decoded = decode_log_curves(binary_data)
+            ...     data_dict = log_curve_to_dict(decoded)
+            ... else:
+            ...     print("No bulk data available for this entity")
         """
         # Build endpoint path segments
         segments = [self.config.model_name, self.config.model_version]
@@ -249,7 +252,7 @@ class DSISClient(BaseClient):
         district_id: Optional[str] = None,
         field: Optional[str] = None,
         data_field: str = "data",
-    ) -> bytes:
+    ) -> Optional[bytes]:
         """Fetch binary bulk data for an entity result.
 
         This is a convenience method that extracts the native_uid from an entity
@@ -265,11 +268,11 @@ class DSISClient(BaseClient):
             data_field: Name of the binary data field (default: "data")
 
         Returns:
-            Binary protobuf data as bytes
+            Binary protobuf data as bytes, or None if the entity has no bulk data
 
         Raises:
             ValueError: If entity doesn't have a native_uid
-            DSISAPIError: If the API request fails
+            DSISAPIError: If the API request fails (other than 404 for missing data)
 
         Example:
             >>> # Option 1: Pass the query object (recommended - no need to repeat district_id/field)
@@ -281,9 +284,12 @@ class DSISClient(BaseClient):
             >>> # Option 2: Pass district_id and field explicitly
             >>> binary_data = client.get_entity_data(log_curve, schema="LogCurve", district_id="123", field="SNORRE")
             >>>
-            >>> # Decode the data
-            >>> from dsis_model_sdk.protobuf import decode_log_curves
-            >>> decoded = decode_log_curves(binary_data)
+            >>> # Check if data exists and decode
+            >>> if binary_data:
+            ...     from dsis_model_sdk.protobuf import decode_log_curves
+            ...     decoded = decode_log_curves(binary_data)
+            ... else:
+            ...     print("No bulk data available for this entity")
         """
         # Extract native_uid from entity (works for both dict and model instance)
         if isinstance(entity, dict):
