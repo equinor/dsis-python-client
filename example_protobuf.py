@@ -75,7 +75,7 @@ if horizons:
     print("\nStep 2: Fetching binary bulk data...")
     binary_data = client.get_entity_data(
         entity=horizon,
-        schema="HorizonData3D",
+        schema=HorizonData3D,  # Type-safe!
         query=query
     )
 
@@ -135,7 +135,7 @@ if log_curves:
     print("\nStep 2: Fetching binary bulk data...")
     binary_data = client.get_entity_data(
         entity=log_curve,
-        schema="LogCurve",
+        schema=LogCurve,  # Type-safe!
         query=query
     )
 
@@ -193,7 +193,7 @@ if seismic_datasets:
     print("\nStep 2: Fetching binary bulk data (this may take a while)...")
     binary_data = client.get_entity_data(
         entity=seismic,
-        schema="SeismicDataSet3D",
+        schema=SeismicDataSet3D,  # Type-safe!
         query=query
     )
 

@@ -4,7 +4,7 @@ Handles HTTP requests, session management, and connection testing.
 """
 
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Iterator, Optional, Union
 from urllib.parse import urljoin
 
 import requests
@@ -117,6 +117,53 @@ class BaseClient:
             raise DSISAPIError(error_msg)
 
         return response.content
+
+    def _request_binary_stream(
+        self, endpoint: str, params: Optional[Dict[str, Any]] = None, chunk_size: int = 8192
+    ):
+        """Stream binary data in chunks to avoid loading large datasets into memory.
+
+        Internal method for streaming binary protobuf data from the DSIS API.
+
+        Note: The DSIS API returns binary protobuf data with Accept: application/json,
+        not application/octet-stream. This is the actual behavior observed in the API.
+
+        Args:
+            endpoint: API endpoint path
+            params: Query parameters
+            chunk_size: Size of chunks to yield (default: 8192 bytes)
+
+        Yields:
+            Binary data chunks as bytes
+
+        Raises:
+            DSISAPIError: If the request fails with an error other than 404
+            StopIteration: If the entity has no bulk data (404)
+        """
+        url = urljoin(f"{self.config.data_endpoint}/", endpoint)
+        headers = self.auth.get_auth_headers()
+        # Use application/json - the API returns binary data with this Accept header
+        headers["Accept"] = "application/json"
+
+        logger.debug(f"Making streaming binary request to {url}")
+        response = self._session.get(url, headers=headers, params=params, stream=True)
+
+        if response.status_code == 404:
+            # Entity exists but has no bulk data field
+            logger.debug(f"No bulk data available for endpoint: {endpoint}")
+            return
+        elif response.status_code != 200:
+            error_msg = (
+                f"Binary API request failed: {response.status_code} - "
+                f"{response.reason} - {response.text}"
+            )
+            logger.error(error_msg)
+            raise DSISAPIError(error_msg)
+
+        # Stream the content in chunks
+        for chunk in response.iter_content(chunk_size=chunk_size):
+            if chunk:  # filter out keep-alive new chunks
+                yield chunk
 
     def refresh_authentication(self) -> None:
         """Refresh authentication tokens.
