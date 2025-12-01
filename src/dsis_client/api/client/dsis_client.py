@@ -4,7 +4,7 @@ Provides high-level methods for interacting with DSIS OData API.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Union, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Union, Optional, Type
 
 from ..models import cast_results
 from .base_client import BaseClient
@@ -202,7 +202,7 @@ class DSISClient(BaseClient):
         district_id: str = None,
         field: str = None,
         data_field: str = "data",
-        chunk_size: int = 8192,
+        chunk_size: int = 10 * 1024 * 1024,
     ):
         """Stream binary bulk data (protobuf) in chunks for memory-efficient processing.
 
@@ -223,7 +223,7 @@ class DSISClient(BaseClient):
             district_id: Optional district ID (if required by API)
             field: Optional field name (if required by API)
             data_field: Name of the binary data field (default: "data")
-            chunk_size: Size of chunks to yield in bytes (default: 8192)
+            chunk_size: Size of chunks to yield in bytes (default: 10MB, recommended by DSIS)
 
         Yields:
             Binary data chunks as bytes. Returns immediately if no bulk data available (404).
@@ -240,7 +240,7 @@ class DSISClient(BaseClient):
             ...     native_uid="12345",
             ...     district_id=123,
             ...     field="SNORRE",
-            ...     chunk_size=1024*1024  # 1MB chunks
+            ...     chunk_size=10*1024*1024  # 10MB chunks (DSIS recommended)
             ... ):
             ...     chunks.append(chunk)
             ...     print(f"Received {len(chunk)} bytes")
@@ -404,7 +404,7 @@ class DSISClient(BaseClient):
         district_id: Optional[str] = None,
         field: Optional[str] = None,
         data_field: str = "data",
-        chunk_size: int = 8192,
+        chunk_size: int = 10 * 1024 * 1024,
     ):
         """Stream binary bulk data for an entity in chunks for memory-efficient processing.
 
@@ -420,7 +420,7 @@ class DSISClient(BaseClient):
             district_id: Optional district ID (if required by API). Ignored if query is provided.
             field: Optional field name (if required by API). Ignored if query is provided.
             data_field: Name of the binary data field (default: "data")
-            chunk_size: Size of chunks to yield in bytes (default: 8192)
+            chunk_size: Size of chunks to yield in bytes (default: 10MB, recommended by DSIS)
 
         Yields:
             Binary data chunks as bytes. Returns immediately if no bulk data available (404).
@@ -442,7 +442,7 @@ class DSISClient(BaseClient):
             ...     entity=seismic,
             ...     schema=SeismicDataSet3D,  # Type-safe!
             ...     query=query,
-            ...     chunk_size=1024*1024  # 1MB chunks
+            ...     chunk_size=10*1024*1024  # 10MB chunks (DSIS recommended)
             ... ):
             ...     chunks.append(chunk)
             ...     print(f"Downloaded {len(chunk):,} bytes")

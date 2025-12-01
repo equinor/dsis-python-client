@@ -58,7 +58,7 @@ seismic_datasets = list(client.execute_query(query, cast=True, max_pages=1))
 if seismic_datasets:
     seismic = seismic_datasets[0]
     print(f"Seismic Dataset: {seismic.seismic_dataset_name}")
-    print(f"Streaming binary data in 1MB chunks...")
+    print(f"Streaming binary data in 10MB chunks (DSIS recommended)...")
 
     chunks = []
     total_bytes = 0
@@ -69,7 +69,7 @@ if seismic_datasets:
         entity=seismic,
         schema=SeismicDataSet3D,  # Type-safe!
         query=query,
-        chunk_size=1024 * 1024,  # 1MB chunks
+        chunk_size=10 * 1024 * 1024,  # 10MB chunks (DSIS recommended)
     ):
         chunks.append(chunk)
         chunk_count += 1
@@ -115,7 +115,7 @@ if horizons:
             entity=horizon,
             schema=HorizonData3D,  # Type-safe!
             query=query,
-            chunk_size=64 * 1024,  # 64KB chunks
+            chunk_size=10 * 1024 * 1024,  # 10MB chunks (DSIS recommended)
         ):
             f.write(chunk)
             total_bytes += len(chunk)
@@ -152,14 +152,14 @@ if log_curves:
     log_curve = log_curves[0]
     print(f"Log Curve: {log_curve.log_curve_name}")
 
-    max_size = 10 * 1024 * 1024  # 10MB limit
+    max_size = 100 * 1024 * 1024  # 100MB limit
     chunks = []
     total_bytes = 0
 
     print(f"Streaming with {max_size / 1024 / 1024:.1f}MB size limit...")
 
     for chunk in client.get_entity_data_stream(
-        entity=log_curve, schema=LogCurve, query=query, chunk_size=1024 * 1024  # Type-safe!
+        entity=log_curve, schema=LogCurve, query=query, chunk_size=10 * 1024 * 1024  # Type-safe! 10MB chunks (DSIS recommended)
     ):
         chunks.append(chunk)
         total_bytes += len(chunk)

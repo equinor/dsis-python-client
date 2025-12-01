@@ -119,7 +119,7 @@ class BaseClient:
         return response.content
 
     def _request_binary_stream(
-        self, endpoint: str, params: Optional[Dict[str, Any]] = None, chunk_size: int = 8192
+        self, endpoint: str, params: Optional[Dict[str, Any]] = None, chunk_size: int = 10 * 1024 * 1024
     ):
         """Stream binary data in chunks to avoid loading large datasets into memory.
 
@@ -131,7 +131,7 @@ class BaseClient:
         Args:
             endpoint: API endpoint path
             params: Query parameters
-            chunk_size: Size of chunks to yield (default: 8192 bytes)
+            chunk_size: Size of chunks to yield (default: 10MB, recommended by DSIS)
 
         Yields:
             Binary data chunks as bytes
