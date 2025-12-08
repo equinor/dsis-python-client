@@ -445,11 +445,12 @@ class DSISClient(BaseClient):
             ...     print("No bulk data available for this entity")
         """
         import warnings
+
         warnings.warn(
             "get_entity_data() is deprecated and will be removed in version 1.0.0. "
             "Use get_bulk_data() instead, which now accepts entity objects directly.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
 
         # Simply delegate to get_bulk_data which now handles entities
@@ -524,11 +525,12 @@ class DSISClient(BaseClient):
             ...     decoded = decode_seismic_float_data(binary_data)
         """
         import warnings
+
         warnings.warn(
             "get_entity_data_stream() is deprecated and will be removed in version 1.0.0. "
             "Use get_bulk_data_stream() instead, which now accepts entity objects directly.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
 
         # Simply delegate to get_bulk_data_stream which now handles entities

@@ -65,8 +65,12 @@ print("-" * 80)
 
 # Step 1: Query for horizon metadata (exclude binary data field for efficiency)
 print("Step 1: Querying for horizon metadata...")
-query = QueryBuilder(district_id=district_id, field=field).schema(HorizonData3D).select(
-    "horizon_name,horizon_mean,horizon_mean_unit,horizon_min,horizon_max,native_uid"
+query = (
+    QueryBuilder(district_id=district_id, field=field)
+    .schema(HorizonData3D)
+    .select(
+        "horizon_name,horizon_mean,horizon_mean_unit,horizon_min,horizon_max,native_uid"
+    )
 )
 
 horizons = list(client.execute_query(query, cast=True, max_pages=1))
@@ -83,7 +87,7 @@ if horizons:
     binary_data = client.get_bulk_data(
         schema=HorizonData3D,  # Type-safe!
         native_uid=horizon,  # Pass entity directly
-        query=query
+        query=query,
     )
 
     if binary_data is None:
@@ -123,8 +127,10 @@ print("-" * 80)
 
 # Step 1: Query for log curve metadata
 print("Step 1: Querying for log curve metadata...")
-query = QueryBuilder(district_id=district_id, field=field).schema(LogCurve).select(
-    "log_curve_name,native_uid"
+query = (
+    QueryBuilder(district_id=district_id, field=field)
+    .schema(LogCurve)
+    .select("log_curve_name,native_uid")
 )
 
 log_curves = list(client.execute_query(query, cast=True, max_pages=1))
@@ -139,7 +145,7 @@ if log_curves:
     binary_data = client.get_bulk_data(
         schema=LogCurve,  # Type-safe!
         native_uid=log_curve,  # Pass entity directly
-        query=query
+        query=query,
     )
 
     if binary_data is None:
@@ -151,7 +157,9 @@ if log_curves:
         print("\nStep 3: Decoding protobuf data...")
         decoded = decode_log_curves(binary_data)
         print("✓ Decoded successfully")
-        print(f"  Curve type: {'DEPTH' if decoded.curve_type == decoded.DEPTH else 'TIME'}")
+        print(
+            f"  Curve type: {'DEPTH' if decoded.curve_type == decoded.DEPTH else 'TIME'}"
+        )
         print(f"  Index start: {decoded.index.start_index}")
         print(f"  Index increment: {decoded.index.increment}")
         print(f"  Number of samples: {decoded.index.number_of_index}")
@@ -161,12 +169,14 @@ if log_curves:
         data = log_curve_to_dict(decoded)
         print(f"✓ Found {len(data['curves'])} curves in dataset")
 
-        for curve_name, curve_data in list(data['curves'].items())[:3]:  # Show first 3
+        for curve_name, curve_data in list(data["curves"].items())[:3]:  # Show first 3
             print(f"\n  Curve: {curve_name}")
             print(f"    Unit: {curve_data['unit']}")
             print(f"    Values: {len(curve_data['values'])} samples")
-            if len(curve_data['values']) > 0:
-                print(f"    Range: {min(curve_data['values']):.2f} - {max(curve_data['values']):.2f}")
+            if len(curve_data["values"]) > 0:
+                print(
+                    f"    Range: {min(curve_data['values']):.2f} - {max(curve_data['values']):.2f}"
+                )
 
         print("\n✓ Example 2 completed successfully!")
 
@@ -177,8 +187,10 @@ print("-" * 80)
 
 # Step 1: Query for seismic metadata
 print("Step 1: Querying for seismic dataset metadata...")
-query = QueryBuilder(district_id=district_id, field=field).schema(SeismicDataSet3D).select(
-    "seismic_dataset_name,native_uid"
+query = (
+    QueryBuilder(district_id=district_id, field=field)
+    .schema(SeismicDataSet3D)
+    .select("seismic_dataset_name,native_uid")
 )
 
 seismic_datasets = list(client.execute_query(query, cast=True, max_pages=1))
@@ -193,19 +205,23 @@ if seismic_datasets:
     binary_data = client.get_bulk_data(
         schema=SeismicDataSet3D,  # Type-safe!
         native_uid=seismic,  # Pass entity directly
-        query=query
+        query=query,
     )
 
     if binary_data is None:
         print("⚠ No bulk data available for this seismic dataset")
     else:
-        print(f"✓ Received {len(binary_data):,} bytes ({len(binary_data) / 1024 / 1024:.2f} MB)")
+        print(
+            f"✓ Received {len(binary_data):,} bytes ({len(binary_data) / 1024 / 1024:.2f} MB)"
+        )
 
         # Step 3: Decode protobuf data
         print("\nStep 3: Decoding protobuf data...")
         decoded = decode_seismic_float_data(binary_data)
         print("✓ Decoded successfully")
-        print(f"  Dimensions: i={decoded.length.i}, j={decoded.length.j}, k={decoded.length.k}")
+        print(
+            f"  Dimensions: i={decoded.length.i}, j={decoded.length.j}, k={decoded.length.k}"
+        )
 
         # Step 4: Convert to NumPy array
         print("\nStep 4: Converting to NumPy array...")
@@ -235,4 +251,3 @@ print("3. Decode binary data using dsis_model_sdk.protobuf decoders")
 print("4. Convert to NumPy arrays for analysis and visualization")
 print("5. Always check data size before fetching (especially seismic!)")
 print("=" * 80)
-

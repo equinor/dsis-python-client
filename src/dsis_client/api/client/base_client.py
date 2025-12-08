@@ -119,7 +119,10 @@ class BaseClient:
         return response.content
 
     def _request_binary_stream(
-        self, endpoint: str, params: Optional[Dict[str, Any]] = None, chunk_size: int = 10 * 1024 * 1024
+        self,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None,
+        chunk_size: int = 10 * 1024 * 1024,
     ):
         """Stream binary data in chunks to avoid loading large datasets into memory.
 

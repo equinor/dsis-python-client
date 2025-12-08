@@ -53,8 +53,10 @@ print("\n\nExample 1: Stream Seismic Data with Progress Tracking")
 print("-" * 80)
 
 # Query for seismic metadata
-query = QueryBuilder(district_id=district_id, field=field).schema(SeismicDataSet3D).select(
-    "seismic_dataset_name,native_uid"
+query = (
+    QueryBuilder(district_id=district_id, field=field)
+    .schema(SeismicDataSet3D)
+    .select("seismic_dataset_name,native_uid")
 )
 
 seismic_datasets = list(client.execute_query(query, cast=True, max_pages=1))
@@ -78,17 +80,23 @@ if seismic_datasets:
         chunks.append(chunk)
         chunk_count += 1
         total_bytes += len(chunk)
-        print(f"  Chunk {chunk_count}: {len(chunk):,} bytes (Total: {total_bytes / 1024 / 1024:.2f} MB)")
+        print(
+            f"  Chunk {chunk_count}: {len(chunk):,} bytes (Total: {total_bytes / 1024 / 1024:.2f} MB)"
+        )
 
     if chunks:
-        print(f"\n✓ Downloaded {chunk_count} chunks, total: {total_bytes / 1024 / 1024:.2f} MB")
+        print(
+            f"\n✓ Downloaded {chunk_count} chunks, total: {total_bytes / 1024 / 1024:.2f} MB"
+        )
 
         # Combine and decode
         print("Decoding protobuf data...")
         binary_data = b"".join(chunks)
 
         decoded = decode_seismic_float_data(binary_data)
-        print(f"✓ Decoded successfully: {decoded.length.i} x {decoded.length.j} x {decoded.length.k}")
+        print(
+            f"✓ Decoded successfully: {decoded.length.i} x {decoded.length.j} x {decoded.length.k}"
+        )
     else:
         print("⚠ No bulk data available")
 
@@ -97,8 +105,10 @@ if seismic_datasets:
 print("\n\nExample 2: Stream Directly to File")
 print("-" * 80)
 
-query = QueryBuilder(district_id=district_id, field=field).schema(HorizonData3D).select(
-    "horizon_name,native_uid"
+query = (
+    QueryBuilder(district_id=district_id, field=field)
+    .schema(HorizonData3D)
+    .select("horizon_name,native_uid")
 )
 
 horizons = list(client.execute_query(query, cast=True, max_pages=1))
@@ -139,8 +149,10 @@ if horizons:
 print("\n\nExample 3: Conditional Streaming with Size Limit")
 print("-" * 80)
 
-query = QueryBuilder(district_id=district_id, field=field).schema(LogCurve).select(
-    "log_curve_name,native_uid"
+query = (
+    QueryBuilder(district_id=district_id, field=field)
+    .schema(LogCurve)
+    .select("log_curve_name,native_uid")
 )
 
 log_curves = list(client.execute_query(query, cast=True, max_pages=1))
@@ -166,7 +178,9 @@ if log_curves:
 
         # Stop if we exceed size limit
         if total_bytes > max_size:
-            print(f"⚠ Size limit exceeded! Downloaded: {total_bytes / 1024 / 1024:.2f} MB")
+            print(
+                f"⚠ Size limit exceeded! Downloaded: {total_bytes / 1024 / 1024:.2f} MB"
+            )
             print("  Stopping stream early...")
             break
 
