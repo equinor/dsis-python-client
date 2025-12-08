@@ -8,8 +8,7 @@ requires-python = ">=3.11"
 dependencies = [
 	"msal",
 	"requests>=2.28.0",
-	"dsis-schemas[protobuf]>=0.0.4",
-	"protobuf>=6.33.0"
+	"dsis-schemas[protobuf]>=0.0.5"
 ]
 license = "MIT"
 license-files = ["LICENSE"]
