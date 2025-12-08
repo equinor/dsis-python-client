@@ -189,7 +189,7 @@ if seismic_datasets:
     print(f"\nSeismic Dataset: {seismic.seismic_dataset_name}")
 
     # Step 2: Fetch binary data using get_bulk_data() (WARNING: Can be very large!)
-    print(\"\\nStep 2: Fetching binary bulk data (this may take a while)...\")
+    print("\nStep 2: Fetching binary bulk data (this may take a while)...")
     binary_data = client.get_bulk_data(
         schema=SeismicDataSet3D,  # Type-safe!
         native_uid=seismic,  # Pass entity directly

@@ -97,8 +97,6 @@ if seismic_datasets:
 print("\n\nExample 2: Stream Directly to File")
 print("-" * 80)
 
-from dsis_model_sdk.models.common import HorizonData3D
-
 query = QueryBuilder(district_id=district_id, field=field).schema(HorizonData3D).select(
     "horizon_name,native_uid"
 )
