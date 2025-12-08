@@ -391,6 +391,81 @@ trace = array[100, 100, :]
 print(f"Trace samples: {len(trace)}")
 ```
 
+#### Example: Decoding Surface Grid Data
+
+Surface grids (e.g., `SurfaceGrid` in OpenWorksCommonModel) use the LGCStructure protobuf format, which is a generic tabular data structure from Landmark Graphics Corporation. Each grid is represented as a collection of elements (columns), where each element contains an array of values.
+
+```python
+from io import BytesIO
+from dsis_model_sdk.protobuf import decode_lgc_structure, LGCStructure_pb2
+
+# Query for surface grid metadata
+query = QueryBuilder(district_id=district_id, field=field).schema("SurfaceGrid").select("native_uid,grid_name")
+grids = list(client.execute_query(query, cast=True, max_pages=1))
+
+# Fetch binary data for a specific grid
+grid = grids[0]
+print(f"Downloading grid: {grid.grid_name or grid.native_uid}")
+
+# Build the endpoint URL (SurfaceGrid uses /$value suffix)
+endpoint_path = f"{config.model_name}/{config.model_version}/{district_id}/{field}/SurfaceGrid('{grid.native_uid}')/$value"
+full_url = f"{config.data_endpoint}/{endpoint_path}"
+
+# Get the binary data
+headers = client.auth.get_auth_headers()
+headers["Accept"] = "application/json"
+response = client._session.get(full_url, headers=headers)
+data = response.content
+
+print(f"Downloaded {len(data):,} bytes")
+
+# LGCStructure data is length-prefixed with varint encoding
+def read_varint(stream):
+    """Read a varint length prefix from stream."""
+    shift = 0
+    result = 0
+    while True:
+        byte_data = stream.read(1)
+        if not byte_data:
+            return 0
+        byte = byte_data[0]
+        result |= (byte & 0x7F) << shift
+        if not (byte & 0x80):
+            return result
+        shift += 7
+
+# Parse the length-prefixed message
+stream = BytesIO(data)
+size = read_varint(stream)
+message_data = stream.read(size)
+
+# Decode the LGCStructure
+lgc = decode_lgc_structure(message_data)
+
+print(f"Structure name: {lgc.structName}")
+print(f"Number of elements: {len(lgc.elements)}")
+
+# Process grid elements (columns)
+for i, el in enumerate(lgc.elements[:5]):  # Show first 5 elements
+    data_type = LGCStructure_pb2.LGCStructure.LGCElement.DataType.Name(el.dataType)
+    
+    if el.dataType == LGCStructure_pb2.LGCStructure.LGCElement.DataType.FLOAT:
+        values = el.data_float
+    elif el.dataType == LGCStructure_pb2.LGCStructure.LGCElement.DataType.DOUBLE:
+        values = el.data_double
+    elif el.dataType == LGCStructure_pb2.LGCStructure.LGCElement.DataType.INT:
+        values = el.data_int
+    else:
+        values = []
+    
+    print(f"Element {i}: '{el.elementName}', Type: {data_type}, Values: {len(values):,}")
+
+# For a typical surface grid:
+# - Each element represents a row or column in the grid
+# - Values are typically FLOAT type representing Z-values (elevation/depth)
+# - Missing/null values are often represented as -99999.0 or similar sentinel values
+```
+
 **Important Notes:**
 - Binary bulk data fields are typically large. Make sure to:
   - Select only the entities you need with appropriate filters
