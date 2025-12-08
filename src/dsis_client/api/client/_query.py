@@ -60,7 +60,7 @@ class QueryExecutionMixin:
         if not isinstance(query, QueryBuilder):
             raise TypeError(f"Expected QueryBuilder, got {type(query)}")
 
-        logger.debug(f"Executing query: {query} (max_pages={max_pages})")
+        logger.info(f"Executing query: {query} (max_pages={max_pages})")
 
         # Build endpoint path segments
         segments = [self.config.model_name, self.config.model_version]
@@ -79,7 +79,7 @@ class QueryExecutionMixin:
         # Get parsed parameters from the query
         params = query.build_query_params()
 
-        logger.debug(f"Making request to endpoint: {endpoint} with params: {params}")
+        logger.info(f"Making request to endpoint: {endpoint} with params: {params}")
         response = self._request(endpoint, params)
 
         # Yield items from all pages (up to max_pages)

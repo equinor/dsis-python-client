@@ -50,7 +50,7 @@ class HTTPTransportMixin:
         url = urljoin(f"{self.config.data_endpoint}/", endpoint)
         headers = self.auth.get_auth_headers()
 
-        logger.debug(f"Making request to {url}")
+        logger.info(f"Making request to {url}")
         response = self._session.get(url, headers=headers, params=params)
 
         if response.status_code != 200:
@@ -92,12 +92,12 @@ class HTTPTransportMixin:
         # Use application/json - the API returns binary data with this Accept header
         headers["Accept"] = "application/json"
 
-        logger.debug(f"Making binary request to {url}")
+        logger.info(f"Making binary request to {url}")
         response = self._session.get(url, headers=headers, params=params)
 
         if response.status_code == 404:
             # Entity exists but has no bulk data field
-            logger.debug(f"No bulk data available for endpoint: {endpoint}")
+            logger.info(f"No bulk data available for endpoint: {endpoint}")
             return None
         elif response.status_code != 200:
             error_msg = (
@@ -139,12 +139,12 @@ class HTTPTransportMixin:
         # Use application/json - the API returns binary data with this Accept header
         headers["Accept"] = "application/json"
 
-        logger.debug(f"Making streaming binary request to {url}")
+        logger.info(f"Making streaming binary request to {url}")
         response = self._session.get(url, headers=headers, params=params, stream=True)
 
         if response.status_code == 404:
             # Entity exists but has no bulk data field
-            logger.debug(f"No bulk data available for endpoint: {endpoint}")
+            logger.info(f"No bulk data available for endpoint: {endpoint}")
             return
         elif response.status_code != 200:
             error_msg = (

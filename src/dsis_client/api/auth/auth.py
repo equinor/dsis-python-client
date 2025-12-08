@@ -47,7 +47,7 @@ class DSISAuth:
         Raises:
             DSISAuthenticationError: If token acquisition fails
         """
-        logger.debug("Acquiring Azure AD token")
+        logger.info("Acquiring Azure AD token")
 
         app = msal.ConfidentialClientApplication(
             self.config.client_id,
@@ -65,7 +65,7 @@ class DSISAuth:
             )
 
         self._aad_token = result["access_token"]
-        logger.debug("Azure AD token acquired successfully")
+        logger.info("Azure AD token acquired successfully")
         return self._aad_token
 
     def get_dsis_token(self, aad_token: Optional[str] = None) -> str:
@@ -83,7 +83,7 @@ class DSISAuth:
         Raises:
             DSISAuthenticationError: If token acquisition fails
         """
-        logger.debug("Acquiring DSIS token")
+        logger.info("Acquiring DSIS token")
 
         if aad_token is None:
             aad_token = self.get_aad_token()
@@ -120,7 +120,7 @@ class DSISAuth:
             raise DSISAuthenticationError("DSIS token not found in response")
 
         self._dsis_token = token_data["access_token"]
-        logger.debug("DSIS token acquired successfully")
+        logger.info("DSIS token acquired successfully")
         return self._dsis_token
 
     def get_auth_headers(self) -> Dict[str, str]:
@@ -159,9 +159,9 @@ class DSISAuth:
         Raises:
             DSISAuthenticationError: If token acquisition fails
         """
-        logger.debug("Refreshing authentication tokens")
+        logger.info("Refreshing authentication tokens")
         self._aad_token = None
         self._dsis_token = None
         self.get_aad_token()
         self.get_dsis_token(self._aad_token)
-        logger.debug("Authentication tokens refreshed successfully")
+        logger.info("Authentication tokens refreshed successfully")

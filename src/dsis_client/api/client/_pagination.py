@@ -51,7 +51,7 @@ class PaginationMixin:
             if max_pages != -1 and page_count >= max_pages:
                 break
 
-            logger.debug(f"Following nextLink: {next_link}")
+            logger.info(f"Following nextLink: {next_link}")
 
             # Replace the last segment of endpoint (schema name) with the full next_link
             endpoint_parts = endpoint.rsplit("/", 1)

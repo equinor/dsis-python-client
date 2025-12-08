@@ -41,7 +41,7 @@ def build_query_params(
     if filter_expr:
         params["$filter"] = filter_expr
 
-    logger.debug(f"Built query params: {params}")
+    logger.info(f"Built query params: {params}")
     return params
 
 
@@ -67,7 +67,7 @@ def build_query_string(schema_name: str, params: Dict[str, str]) -> str:
         query_string = f"?{query_string}"
 
     query_str = f"{schema_name}{query_string}"
-    logger.debug(f"Built query string: {query_str}")
+    logger.info(f"Built query string: {query_str}")
     return query_str
 
 

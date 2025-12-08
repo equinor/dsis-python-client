@@ -72,7 +72,7 @@ class QueryBuilder:
             self._schema_class = None
 
         self._schema_name = schema_name
-        logger.debug(f"Set schema: {schema_name}")
+        logger.info(f"Set schema: {schema_name}")
         return self
 
     def select(self, *fields: str) -> "QueryBuilder":
@@ -91,7 +91,7 @@ class QueryBuilder:
         for field_spec in fields:
             # Handle comma-separated fields
             self._select.extend([f.strip() for f in field_spec.split(",")])
-        logger.debug(f"Added select fields: {fields}")
+        logger.info(f"Added select fields: {fields}")
         return self
 
     def expand(self, *relations: str) -> "QueryBuilder":
@@ -110,7 +110,7 @@ class QueryBuilder:
         for rel_spec in relations:
             # Handle comma-separated relations
             self._expand.extend([r.strip() for r in rel_spec.split(",")])
-        logger.debug(f"Added expand relations: {relations}")
+        logger.info(f"Added expand relations: {relations}")
         return self
 
     def filter(self, filter_expr: str) -> "QueryBuilder":
@@ -127,7 +127,7 @@ class QueryBuilder:
             >>> builder.filter("name eq 'Well-1'")
         """
         self._filter = filter_expr
-        logger.debug(f"Set filter: {filter_expr}")
+        logger.info(f"Set filter: {filter_expr}")
         return self
 
     def format(self, format_type: Optional[str] = "json") -> "QueryBuilder":
@@ -147,7 +147,7 @@ class QueryBuilder:
             >>> builder.format(None)  # Omit format parameter from query
         """
         self._format = format_type
-        logger.debug(f"Set format: {format_type}")
+        logger.info(f"Set format: {format_type}")
         return self
 
     def build_query_params(self) -> dict:
@@ -207,7 +207,7 @@ class QueryBuilder:
         self._expand = []
         self._filter = None
         self._format: Optional[str] = "json"
-        logger.debug("Reset builder")
+        logger.info("Reset builder")
         return self
 
     def __repr__(self) -> str:

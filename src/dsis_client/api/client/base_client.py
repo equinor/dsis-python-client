@@ -34,7 +34,7 @@ class BaseClient(HTTPTransportMixin):
         self.config = config
         self.auth = DSISAuth(config)
         self._session = requests.Session()
-        logger.debug(
+        logger.info(
             f"Base client initialized for {config.environment.value} environment"
         )
 
@@ -47,7 +47,7 @@ class BaseClient(HTTPTransportMixin):
         Raises:
             DSISAuthenticationError: If token acquisition fails
         """
-        logger.debug("Refreshing authentication")
+        logger.info("Refreshing authentication")
         self.auth.refresh_tokens()
 
     def test_connection(self) -> bool:
@@ -60,14 +60,14 @@ class BaseClient(HTTPTransportMixin):
             True if connection is successful, False otherwise
         """
         try:
-            logger.debug("Testing DSIS API connection")
+            logger.info("Testing DSIS API connection")
             headers = self.auth.get_auth_headers()
             response = self._session.get(
                 self.config.data_endpoint, headers=headers, timeout=10
             )
             success = response.status_code in [200, 404]
             if success:
-                logger.debug("Connection test successful")
+                logger.info("Connection test successful")
             else:
                 logger.warning(
                     f"Connection test failed with status {response.status_code}"
@@ -132,7 +132,7 @@ class BaseClient(HTTPTransportMixin):
             schema_to_use = schema
         elif district_id is not None or field is not None:
             schema_to_use = self.config.model_name
-            logger.debug(f"Using configured model as schema: {self.config.model_name}")
+            logger.info(f"Using configured model as schema: {self.config.model_name}")
         else:
             schema_to_use = None
 

@@ -28,7 +28,7 @@ def is_valid_schema(schema_name: str, domain: str = "common") -> bool:
         schema = get_schema_by_name(schema_name, domain)
         return schema is not None
     except Exception as e:
-        logger.debug(f"Error validating schema {schema_name}: {e}")
+        logger.info(f"Error validating schema {schema_name}: {e}")
         return False
 
 
@@ -46,7 +46,7 @@ def get_schema_by_name(schema_name: str, domain: str = "common") -> Optional[Typ
         >>> Well = get_schema_by_name("Well")
         >>> Basin = get_schema_by_name("Basin", domain="common")
     """
-    logger.debug(f"Getting schema: {schema_name} from {domain} domain")
+    logger.info(f"Getting schema: {schema_name} from {domain} domain")
     try:
         if domain == "common":
             schema_module = models.common

@@ -123,7 +123,7 @@ class BulkDataMixin:
 
         endpoint = "/".join(segments)
 
-        logger.debug(f"Fetching bulk data from: {endpoint}")
+        logger.info(f"Fetching bulk data from: {endpoint}")
         return self._request_binary(endpoint)
 
     def get_bulk_data_stream(
@@ -237,7 +237,7 @@ class BulkDataMixin:
 
         endpoint = "/".join(segments)
 
-        logger.debug(f"Streaming bulk data from: {endpoint} (chunk_size={chunk_size})")
+        logger.info(f"Streaming bulk data from: {endpoint} (chunk_size={chunk_size})")
         yield from self._request_binary_stream(endpoint, chunk_size=chunk_size)
 
     def get_entity_data(

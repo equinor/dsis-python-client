@@ -36,5 +36,5 @@ def cast_results(results: List[Dict[str, Any]], schema_class: Type) -> List[Any]
             logger.error(f"Failed to cast result {i} to {schema_class.__name__}: {e}")
             raise
 
-    logger.debug(f"Cast {len(casted)} results to {schema_class.__name__}")
+    logger.info(f"Cast {len(casted)} results to {schema_class.__name__}")
     return casted
