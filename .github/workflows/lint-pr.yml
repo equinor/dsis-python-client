@@ -10,7 +10,7 @@ permissions: {}
 jobs:
   lint-pr:
     name: Lint PR Title
-    uses: equinor/ops-actions/.github/workflows/commitlint.yml@v9.32.0
+    uses: equinor/ops-actions/.github/workflows/commitlint.yml@v9.32.1
     with:
       message: ${{ github.event.pull_request.title }}
     permissions:
