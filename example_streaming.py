@@ -15,6 +15,12 @@ import os
 from dotenv import load_dotenv
 
 from dsis_client import DSISClient, DSISConfig, Environment, QueryBuilder
+from dsis_model_sdk.models.common import SeismicDataSet3D, HorizonData3D, LogCurve
+from dsis_model_sdk.protobuf import (
+    decode_seismic_float_data,
+    decode_horizon_data,
+    decode_log_curves,
+)
 
 # Load environment variables
 load_dotenv()
@@ -46,8 +52,6 @@ print("=" * 80)
 print("\n\nExample 1: Stream Seismic Data with Progress Tracking")
 print("-" * 80)
 
-from dsis_model_sdk.models.common import SeismicDataSet3D
-
 # Query for seismic metadata
 query = QueryBuilder(district_id=district_id, field=field).schema(SeismicDataSet3D).select(
     "seismic_dataset_name,native_uid"
@@ -58,16 +62,16 @@ seismic_datasets = list(client.execute_query(query, cast=True, max_pages=1))
 if seismic_datasets:
     seismic = seismic_datasets[0]
     print(f"Seismic Dataset: {seismic.seismic_dataset_name}")
-    print(f"Streaming binary data in 10MB chunks (DSIS recommended)...")
+    print("Streaming binary data in 10MB chunks (DSIS recommended)...")
 
     chunks = []
     total_bytes = 0
     chunk_count = 0
 
     # Stream data with progress tracking
-    for chunk in client.get_entity_data_stream(
-        entity=seismic,
+    for chunk in client.get_bulk_data_stream(
         schema=SeismicDataSet3D,  # Type-safe!
+        native_uid=seismic,  # Pass entity directly
         query=query,
         chunk_size=10 * 1024 * 1024,  # 10MB chunks (DSIS recommended)
     ):
@@ -82,7 +86,6 @@ if seismic_datasets:
         # Combine and decode
         print("Decoding protobuf data...")
         binary_data = b"".join(chunks)
-        from dsis_model_sdk.protobuf import decode_seismic_float_data
 
         decoded = decode_seismic_float_data(binary_data)
         print(f"✓ Decoded successfully: {decoded.length.i} x {decoded.length.j} x {decoded.length.k}")
@@ -111,9 +114,9 @@ if horizons:
     total_bytes = 0
 
     with open(output_file, "wb") as f:
-        for chunk in client.get_entity_data_stream(
-            entity=horizon,
+        for chunk in client.get_bulk_data_stream(
             schema=HorizonData3D,  # Type-safe!
+            native_uid=horizon,  # Pass entity directly
             query=query,
             chunk_size=10 * 1024 * 1024,  # 10MB chunks (DSIS recommended)
         ):
@@ -128,8 +131,6 @@ if horizons:
         with open(output_file, "rb") as f:
             binary_data = f.read()
 
-        from dsis_model_sdk.protobuf import decode_horizon_data
-
         decoded = decode_horizon_data(binary_data)
         print(f"✓ Decoded: {decoded.numberOfRows} x {decoded.numberOfColumns} grid")
     else:
@@ -139,8 +140,6 @@ if horizons:
 # Example 3: Conditional Streaming (Early Termination)
 print("\n\nExample 3: Conditional Streaming with Size Limit")
 print("-" * 80)
-
-from dsis_model_sdk.models.common import LogCurve
 
 query = QueryBuilder(district_id=district_id, field=field).schema(LogCurve).select(
     "log_curve_name,native_uid"
@@ -158,8 +157,11 @@ if log_curves:
 
     print(f"Streaming with {max_size / 1024 / 1024:.1f}MB size limit...")
 
-    for chunk in client.get_entity_data_stream(
-        entity=log_curve, schema=LogCurve, query=query, chunk_size=10 * 1024 * 1024  # Type-safe! 10MB chunks (DSIS recommended)
+    for chunk in client.get_bulk_data_stream(
+        schema=LogCurve,  # Type-safe!
+        native_uid=log_curve,  # Pass entity directly
+        query=query,
+        chunk_size=10 * 1024 * 1024,  # 10MB chunks (DSIS recommended)
     ):
         chunks.append(chunk)
         total_bytes += len(chunk)
@@ -173,8 +175,6 @@ if log_curves:
     if chunks and total_bytes <= max_size:
         print(f"✓ Complete download: {total_bytes:,} bytes")
         binary_data = b"".join(chunks)
-
-        from dsis_model_sdk.protobuf import decode_log_curves
 
         decoded = decode_log_curves(binary_data)
         print(f"✓ Decoded: {decoded.index.number_of_index} samples")

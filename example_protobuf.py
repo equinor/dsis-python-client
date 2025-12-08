@@ -21,6 +21,17 @@ import numpy as np
 from dotenv import load_dotenv
 
 from dsis_client import DSISClient, DSISConfig, Environment, QueryBuilder
+from dsis_model_sdk.models.common import HorizonData3D, LogCurve, SeismicDataSet3D
+from dsis_model_sdk.protobuf import (
+    decode_horizon_data,
+    decode_log_curves,
+    decode_seismic_float_data,
+)
+from dsis_model_sdk.utils.protobuf_decoders import (
+    horizon_to_numpy,
+    log_curve_to_dict,
+    seismic_3d_to_numpy,
+)
 
 # Load environment variables
 load_dotenv()
@@ -52,10 +63,6 @@ print("=" * 80)
 print("\n\nExample 1: Horizon Data (3D interpreted surface)")
 print("-" * 80)
 
-from dsis_model_sdk.models.common import HorizonData3D
-from dsis_model_sdk.protobuf import decode_horizon_data
-from dsis_model_sdk.utils.protobuf_decoders import horizon_to_numpy
-
 # Step 1: Query for horizon metadata (exclude binary data field for efficiency)
 print("Step 1: Querying for horizon metadata...")
 query = QueryBuilder(district_id=district_id, field=field).schema(HorizonData3D).select(
@@ -71,11 +78,11 @@ if horizons:
     print(f"Mean depth: {horizon.horizon_mean} {horizon.horizon_mean_unit}")
     print(f"Depth range: {horizon.horizon_min} - {horizon.horizon_max}")
 
-    # Step 2: Fetch binary data separately using get_entity_data()
+    # Step 2: Fetch binary data separately using get_bulk_data()
     print("\nStep 2: Fetching binary bulk data...")
-    binary_data = client.get_entity_data(
-        entity=horizon,
+    binary_data = client.get_bulk_data(
         schema=HorizonData3D,  # Type-safe!
+        native_uid=horizon,  # Pass entity directly
         query=query
     )
 
@@ -88,7 +95,7 @@ if horizons:
     # Step 3: Decode protobuf data
     print("\nStep 3: Decoding protobuf data...")
     decoded = decode_horizon_data(binary_data)
-    print(f"✓ Decoded successfully")
+    print("✓ Decoded successfully")
     print(f"  Mode: {'FULL' if decoded.mode == decoded.FULL else 'SAMPLES'}")
     print(f"  Grid dimensions: {decoded.numberOfRows} x {decoded.numberOfColumns}")
 
@@ -114,10 +121,6 @@ if horizons:
 print("\n\nExample 2: Log Curve Data (well log measurements)")
 print("-" * 80)
 
-from dsis_model_sdk.models.common import LogCurve
-from dsis_model_sdk.protobuf import decode_log_curves
-from dsis_model_sdk.utils.protobuf_decoders import log_curve_to_dict
-
 # Step 1: Query for log curve metadata
 print("Step 1: Querying for log curve metadata...")
 query = QueryBuilder(district_id=district_id, field=field).schema(LogCurve).select(
@@ -131,11 +134,11 @@ if log_curves:
     log_curve = log_curves[0]
     print(f"\nLog Curve: {log_curve.log_curve_name}")
 
-    # Step 2: Fetch binary data using get_entity_data()
+    # Step 2: Fetch binary data using get_bulk_data()
     print("\nStep 2: Fetching binary bulk data...")
-    binary_data = client.get_entity_data(
-        entity=log_curve,
+    binary_data = client.get_bulk_data(
         schema=LogCurve,  # Type-safe!
+        native_uid=log_curve,  # Pass entity directly
         query=query
     )
 
@@ -147,7 +150,7 @@ if log_curves:
         # Step 3: Decode and analyze
         print("\nStep 3: Decoding protobuf data...")
         decoded = decode_log_curves(binary_data)
-        print(f"✓ Decoded successfully")
+        print("✓ Decoded successfully")
         print(f"  Curve type: {'DEPTH' if decoded.curve_type == decoded.DEPTH else 'TIME'}")
         print(f"  Index start: {decoded.index.start_index}")
         print(f"  Index increment: {decoded.index.increment}")
@@ -172,10 +175,6 @@ if log_curves:
 print("\n\nExample 3: Seismic Data (3D seismic amplitude volume)")
 print("-" * 80)
 
-from dsis_model_sdk.models.common import SeismicDataSet3D
-from dsis_model_sdk.protobuf import decode_seismic_float_data
-from dsis_model_sdk.utils.protobuf_decoders import seismic_3d_to_numpy
-
 # Step 1: Query for seismic metadata
 print("Step 1: Querying for seismic dataset metadata...")
 query = QueryBuilder(district_id=district_id, field=field).schema(SeismicDataSet3D).select(
@@ -189,11 +188,11 @@ if seismic_datasets:
     seismic = seismic_datasets[0]
     print(f"\nSeismic Dataset: {seismic.seismic_dataset_name}")
 
-    # Step 2: Fetch binary data using get_entity_data() (WARNING: Can be very large!)
-    print("\nStep 2: Fetching binary bulk data (this may take a while)...")
-    binary_data = client.get_entity_data(
-        entity=seismic,
+    # Step 2: Fetch binary data using get_bulk_data() (WARNING: Can be very large!)
+    print(\"\\nStep 2: Fetching binary bulk data (this may take a while)...\")
+    binary_data = client.get_bulk_data(
         schema=SeismicDataSet3D,  # Type-safe!
+        native_uid=seismic,  # Pass entity directly
         query=query
     )
 
@@ -205,7 +204,7 @@ if seismic_datasets:
         # Step 3: Decode protobuf data
         print("\nStep 3: Decoding protobuf data...")
         decoded = decode_seismic_float_data(binary_data)
-        print(f"✓ Decoded successfully")
+        print("✓ Decoded successfully")
         print(f"  Dimensions: i={decoded.length.i}, j={decoded.length.j}, k={decoded.length.k}")
 
         # Step 4: Convert to NumPy array
