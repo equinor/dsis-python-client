@@ -4,7 +4,7 @@ Handles HTTP requests, session management, and connection testing.
 """
 
 import logging
-from typing import Any, Dict, Iterator, Optional, Union
+from typing import Any, Dict, Optional, Union
 from urllib.parse import urljoin
 
 import requests
