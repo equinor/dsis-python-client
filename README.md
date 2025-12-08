@@ -304,12 +304,11 @@ horizons = list(client.execute_query(query, cast=True))
 horizon = horizons[0]
 print(f"Horizon: {horizon.horizon_name}")
 
-# Fetch binary data using dedicated endpoint
+# Fetch binary data - pass entity object directly!
 binary_data = client.get_bulk_data(
-    schema="HorizonData3D",
-    native_uid=horizon.native_uid,
-    district_id=district_id,
-    field=field
+    schema=HorizonData3D,
+    native_uid=horizon,  # Pass entity object directly
+    query=query  # Automatically extracts district_id and field
 )
 
 # Step 3: Decode binary bulk data
@@ -336,9 +335,13 @@ from dsis_model_sdk.utils.protobuf_decoders import log_curve_to_dict
 query = QueryBuilder(district_id=district_id, field=field).schema("LogCurve").select("log_curve_name,native_uid")
 log_curves = list(client.execute_query(query, max_pages=1))
 
-# Fetch binary data for specific log curve (pass query to reuse context)
+# Fetch binary data for specific log curve - pass entity object directly!
 log_curve = log_curves[0]
-binary_data = client.get_entity_data(log_curve, schema="LogCurve", query=query)
+binary_data = client.get_bulk_data(
+    schema="LogCurve",
+    native_uid=log_curve,  # Pass entity object directly
+    query=query  # Automatically extracts district_id and field
+)
 
 # Decode log curve binary data
 decoded = decode_log_curves(binary_data)
@@ -371,14 +374,19 @@ seismic_datasets = list(client.execute_query(query, cast=True))
 seismic = seismic_datasets[0]
 print(f"Fetching seismic data for: {seismic.seismic_dataset_name}")
 
-binary_data = client.get_bulk_data(
-    schema="SeismicDataSet3D",
-    native_uid=seismic.native_uid,
-    district_id=district_id,
-    field=field
-)
+# For large datasets, use streaming to avoid loading everything into memory at once
+chunks = []
+for chunk in client.get_bulk_data_stream(
+    schema=SeismicDataSet3D,
+    native_uid=seismic,  # Pass entity object directly
+    query=query,  # Automatically extracts district_id and field
+    chunk_size=10*1024*1024  # 10MB chunks (DSIS recommended)
+):
+    chunks.append(chunk)
+    print(f"Downloaded {len(chunk):,} bytes")
 
-# Decode 3D seismic volume
+# Combine chunks and decode
+binary_data = b''.join(chunks)
 decoded = decode_seismic_float_data(binary_data)
 array, metadata = seismic_3d_to_numpy(decoded)
 

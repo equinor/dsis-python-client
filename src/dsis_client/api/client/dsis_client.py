@@ -125,10 +125,11 @@ class DSISClient(BaseClient):
     def get_bulk_data(
         self,
         schema: Union[str, Type],
-        native_uid: str,
+        native_uid: Union[str, Dict[str, Any], Any],
         district_id: str = None,
         field: str = None,
         data_field: str = "data",
+        query: Optional["QueryBuilder"] = None,
     ) -> Optional[bytes]:
         """Fetch binary bulk data (protobuf) for a specific entity.
 
@@ -142,40 +143,70 @@ class DSISClient(BaseClient):
         Args:
             schema: Schema name string (e.g., "HorizonData3D") or model class
                 (e.g., HorizonData3D from dsis_model_sdk.models.common)
-            native_uid: The native_uid of the entity (e.g., "46075" for LogCurve)
-            district_id: Optional district ID (if required by API)
-            field: Optional field name (if required by API)
+            native_uid: Either:
+                - A native_uid string (e.g., "46075")
+                - An entity dict with 'native_uid' key
+                - An entity model instance with 'native_uid' attribute
+            district_id: Optional district ID (if required by API). Ignored if query is provided.
+            field: Optional field name (if required by API). Ignored if query is provided.
             data_field: Name of the binary data field (default: "data")
+            query: Optional QueryBuilder instance to extract district_id and field from.
+                   If provided, district_id and field parameters are ignored.
 
         Returns:
             Binary protobuf data as bytes, or None if the entity has no bulk data
 
         Raises:
+            ValueError: If native_uid is an entity object without a 'native_uid' attribute
             DSISAPIError: If the API request fails (other than 404 for missing data)
 
         Example:
             >>> from dsis_model_sdk.models.common import LogCurve
-            >>> # Step 1: Query for entities to get native_uid
-            >>> query = QueryBuilder(district_id=123, field="SNORRE").schema(LogCurve).select("native_uid,log_curve_name")
-            >>> curves = list(client.execute_query(query, cast=True, max_pages=1))
-            >>>
-            >>> # Step 2: Fetch binary protobuf data using schema class
+            >>> # Option 1: Pass native_uid string directly
             >>> binary_data = client.get_bulk_data(
-            ...     schema=LogCurve,  # Type-safe!
-            ...     native_uid=curves[0].native_uid,
-            ...     district_id=123,
+            ...     schema=LogCurve,
+            ...     native_uid="46075",
+            ...     district_id="123",
             ...     field="SNORRE"
+            ... )
+            >>>
+            >>> # Option 2: Pass entity object directly (extracts native_uid automatically)
+            >>> query = QueryBuilder(district_id="123", field="SNORRE").schema(LogCurve)
+            >>> curves = list(client.execute_query(query, cast=True, max_pages=1))
+            >>> binary_data = client.get_bulk_data(
+            ...     schema=LogCurve,
+            ...     native_uid=curves[0],  # Pass entity directly!
+            ...     query=query  # Extracts district_id and field
             ... )
             >>>
             >>> # Step 3: Check if data exists and decode
             >>> if binary_data:
             ...     from dsis_model_sdk.protobuf import decode_log_curves
-            ...     from dsis_model_sdk.utils.protobuf_decoders import log_curve_to_dict
             ...     decoded = decode_log_curves(binary_data)
-            ...     data_dict = log_curve_to_dict(decoded)
             ... else:
             ...     print("No bulk data available for this entity")
         """
+        # Extract native_uid from entity if needed
+        if isinstance(native_uid, str):
+            uid = native_uid
+        elif isinstance(native_uid, dict):
+            uid = native_uid.get("native_uid")
+            if not uid:
+                raise ValueError(
+                    "Entity dict must have a 'native_uid' key to fetch binary data"
+                )
+        else:
+            uid = getattr(native_uid, "native_uid", None)
+            if not uid:
+                raise ValueError(
+                    "Entity must have a 'native_uid' attribute to fetch binary data"
+                )
+
+        # Extract district_id and field from query if provided
+        if query is not None:
+            district_id = query.district_id
+            field = query.field
+
         # Extract schema name if class is provided
         schema_name = schema.__name__ if isinstance(schema, type) else schema
 
@@ -188,7 +219,7 @@ class DSISClient(BaseClient):
 
         # Add the OData entity key and data field path
         # Note: No /$value suffix - the API endpoint is just /{schema}('{native_uid}')/data
-        segments.append(f"{schema_name}('{native_uid}')/{data_field}")
+        segments.append(f"{schema_name}('{uid}')/{data_field}")
 
         endpoint = "/".join(segments)
 
@@ -198,11 +229,12 @@ class DSISClient(BaseClient):
     def get_bulk_data_stream(
         self,
         schema: Union[str, Type],
-        native_uid: str,
+        native_uid: Union[str, Dict[str, Any], Any],
         district_id: str = None,
         field: str = None,
         data_field: str = "data",
         chunk_size: int = 10 * 1024 * 1024,
+        query: Optional["QueryBuilder"] = None,
     ):
         """Stream binary bulk data (protobuf) in chunks for memory-efficient processing.
 
@@ -219,31 +251,46 @@ class DSISClient(BaseClient):
         Args:
             schema: Schema name string (e.g., "HorizonData3D") or model class
                 (e.g., HorizonData3D from dsis_model_sdk.models.common)
-            native_uid: The native_uid of the entity (e.g., "46075" for LogCurve)
-            district_id: Optional district ID (if required by API)
-            field: Optional field name (if required by API)
+            native_uid: Either:
+                - A native_uid string (e.g., "46075")
+                - An entity dict with 'native_uid' key
+                - An entity model instance with 'native_uid' attribute
+            district_id: Optional district ID (if required by API). Ignored if query is provided.
+            field: Optional field name (if required by API). Ignored if query is provided.
             data_field: Name of the binary data field (default: "data")
             chunk_size: Size of chunks to yield in bytes (default: 10MB, recommended by DSIS)
+            query: Optional QueryBuilder instance to extract district_id and field from.
+                   If provided, district_id and field parameters are ignored.
 
         Yields:
             Binary data chunks as bytes. Returns immediately if no bulk data available (404).
 
         Raises:
+            ValueError: If native_uid is an entity object without a 'native_uid' attribute
             DSISAPIError: If the API request fails (other than 404 for missing data)
 
         Example:
             >>> from dsis_model_sdk.models.common import SeismicDataSet3D
-            >>> # Stream large dataset in chunks using schema class
-            >>> chunks = []
+            >>> # Option 1: Pass native_uid string directly
             >>> for chunk in client.get_bulk_data_stream(
             ...     schema=SeismicDataSet3D,
             ...     native_uid="12345",
-            ...     district_id=123,
+            ...     district_id="123",
             ...     field="SNORRE",
-            ...     chunk_size=10*1024*1024  # 10MB chunks (DSIS recommended)
+            ...     chunk_size=10*1024*1024
+            ... ):
+            ...     print(f"Received {len(chunk)} bytes")
+            >>>
+            >>> # Option 2: Pass entity object directly (extracts native_uid automatically)
+            >>> query = QueryBuilder(district_id="123", field="SNORRE").schema(SeismicDataSet3D)
+            >>> datasets = list(client.execute_query(query, cast=True, max_pages=1))
+            >>> chunks = []
+            >>> for chunk in client.get_bulk_data_stream(
+            ...     schema=SeismicDataSet3D,
+            ...     native_uid=datasets[0],  # Pass entity directly!
+            ...     query=query  # Extracts district_id and field
             ... ):
             ...     chunks.append(chunk)
-            ...     print(f"Received {len(chunk)} bytes")
             >>>
             >>> # Combine chunks and decode
             >>> if chunks:
@@ -251,6 +298,27 @@ class DSISClient(BaseClient):
             ...     from dsis_model_sdk.protobuf import decode_seismic_float_data
             ...     decoded = decode_seismic_float_data(binary_data)
         """
+        # Extract native_uid from entity if needed
+        if isinstance(native_uid, str):
+            uid = native_uid
+        elif isinstance(native_uid, dict):
+            uid = native_uid.get("native_uid")
+            if not uid:
+                raise ValueError(
+                    "Entity dict must have a 'native_uid' key to fetch binary data"
+                )
+        else:
+            uid = getattr(native_uid, "native_uid", None)
+            if not uid:
+                raise ValueError(
+                    "Entity must have a 'native_uid' attribute to fetch binary data"
+                )
+
+        # Extract district_id and field from query if provided
+        if query is not None:
+            district_id = query.district_id
+            field = query.field
+
         # Extract schema name if class is provided
         schema_name = schema.__name__ if isinstance(schema, type) else schema
 
@@ -262,7 +330,7 @@ class DSISClient(BaseClient):
             segments.append(field)
 
         # Add the OData entity key and data field path
-        segments.append(f"{schema_name}('{native_uid}')/{data_field}")
+        segments.append(f"{schema_name}('{uid}')/{data_field}")
 
         endpoint = "/".join(segments)
 
@@ -334,6 +402,10 @@ class DSISClient(BaseClient):
     ) -> Optional[bytes]:
         """Fetch binary bulk data for an entity result.
 
+        .. deprecated:: 0.5.0
+            Use :meth:`get_bulk_data` instead, which now accepts entity objects directly.
+            This method will be removed in version 1.0.0.
+
         This is a convenience method that extracts the native_uid from an entity
         (either a dict or model instance) and fetches its binary data.
 
@@ -372,28 +444,22 @@ class DSISClient(BaseClient):
             ... else:
             ...     print("No bulk data available for this entity")
         """
-        # Extract native_uid from entity (works for both dict and model instance)
-        if isinstance(entity, dict):
-            native_uid = entity.get("native_uid")
-        else:
-            native_uid = getattr(entity, "native_uid", None)
+        import warnings
+        warnings.warn(
+            "get_entity_data() is deprecated and will be removed in version 1.0.0. "
+            "Use get_bulk_data() instead, which now accepts entity objects directly.",
+            DeprecationWarning,
+            stacklevel=2
+        )
 
-        if not native_uid:
-            raise ValueError(
-                "Entity must have a 'native_uid' field/attribute to fetch binary data"
-            )
-
-        # Extract district_id and field from query if provided
-        if query is not None:
-            district_id = query.district_id
-            field = query.field
-
+        # Simply delegate to get_bulk_data which now handles entities
         return self.get_bulk_data(
             schema=schema,
-            native_uid=native_uid,
+            native_uid=entity,
             district_id=district_id,
             field=field,
             data_field=data_field,
+            query=query,
         )
 
     def get_entity_data_stream(
@@ -407,6 +473,10 @@ class DSISClient(BaseClient):
         chunk_size: int = 10 * 1024 * 1024,
     ):
         """Stream binary bulk data for an entity in chunks for memory-efficient processing.
+
+        .. deprecated:: 0.5.0
+            Use :meth:`get_bulk_data_stream` instead, which now accepts entity objects directly.
+            This method will be removed in version 1.0.0.
 
         This is a convenience method that extracts the native_uid from an entity
         (either a dict or model instance) and streams its binary data in chunks.
@@ -453,27 +523,21 @@ class DSISClient(BaseClient):
             ...     from dsis_model_sdk.protobuf import decode_seismic_float_data
             ...     decoded = decode_seismic_float_data(binary_data)
         """
-        # Extract native_uid from entity (works for both dict and model instance)
-        if isinstance(entity, dict):
-            native_uid = entity.get("native_uid")
-        else:
-            native_uid = getattr(entity, "native_uid", None)
+        import warnings
+        warnings.warn(
+            "get_entity_data_stream() is deprecated and will be removed in version 1.0.0. "
+            "Use get_bulk_data_stream() instead, which now accepts entity objects directly.",
+            DeprecationWarning,
+            stacklevel=2
+        )
 
-        if not native_uid:
-            raise ValueError(
-                "Entity must have a 'native_uid' field/attribute to fetch binary data"
-            )
-
-        # Extract district_id and field from query if provided
-        if query is not None:
-            district_id = query.district_id
-            field = query.field
-
+        # Simply delegate to get_bulk_data_stream which now handles entities
         yield from self.get_bulk_data_stream(
             schema=schema,
-            native_uid=native_uid,
+            native_uid=entity,
             district_id=district_id,
             field=field,
             data_field=data_field,
             chunk_size=chunk_size,
+            query=query,
         )

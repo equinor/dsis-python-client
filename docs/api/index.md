@@ -94,10 +94,78 @@ Treat non-200 responses as exceptions; inspect message for status cues (401/403/
 
 Headers assembled internally include both tokens + subscription key; pass only endpoint/table info.
 
+## Binary Data Methods
+
+### `get_bulk_data(schema, native_uid, district_id=None, field=None, query=None)`
+
+Fetch binary bulk data (protobuf) for an entity. Loads entire response into memory.
+
+**Parameters:**
+- `schema`: Schema name string or model class
+- `native_uid`: String native_uid, entity dict, or entity model instance
+- `district_id`: Optional district ID (or use `query`)
+- `field`: Optional field name (or use `query`)
+- `query`: Optional QueryBuilder to auto-extract district_id and field
+
+**Returns:** `Optional[bytes]` - Binary protobuf data or None if no data
+
+**Use for:** Small to medium datasets (< 100MB)
+
+```python
+from dsis_model_sdk.models.common import HorizonData3D
+
+# Option 1: Pass native_uid string
+binary_data = client.get_bulk_data(
+    schema=HorizonData3D,
+    native_uid="46075",
+    district_id="123",
+    field="SNORRE"
+)
+
+# Option 2: Pass entity object (auto-extracts native_uid)
+query = QueryBuilder(district_id="123", field="SNORRE").schema(HorizonData3D)
+horizons = list(client.execute_query(query, cast=True))
+binary_data = client.get_bulk_data(
+    schema=HorizonData3D,
+    native_uid=horizons[0],  # Entity object
+    query=query  # Auto-extracts district_id and field
+)
+```
+
+### `get_bulk_data_stream(schema, native_uid, district_id=None, field=None, query=None, chunk_size=10*1024*1024)`
+
+Stream binary bulk data in chunks for memory-efficient processing.
+
+**Parameters:** Same as `get_bulk_data()` plus:
+- `chunk_size`: Size of chunks to yield (default: 10MB, DSIS recommended)
+
+**Yields:** Binary data chunks as bytes
+
+**Use for:** Large datasets (> 100MB), memory-constrained environments
+
+```python
+from dsis_model_sdk.models.common import SeismicDataSet3D
+
+query = QueryBuilder(district_id="123", field="SNORRE").schema(SeismicDataSet3D)
+datasets = list(client.execute_query(query, cast=True))
+
+chunks = []
+for chunk in client.get_bulk_data_stream(
+    schema=SeismicDataSet3D,
+    native_uid=datasets[0],  # Entity object
+    query=query,
+    chunk_size=10*1024*1024
+):
+    chunks.append(chunk)
+
+binary_data = b''.join(chunks)
+```
+
 ## Notes
 
 - No secrets or IDs should appear in committed code or documentation.
 - Extend functionality by wrapping `DSISClient` rather than modifying internals.
+- For binary data usage, see [Working with Binary Data](../guides/working-with-binary-data.md) guide.
 
 For extended patterns refer to guides.
 
