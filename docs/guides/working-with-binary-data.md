@@ -275,19 +275,19 @@ Missing or no-data values in arrays are often represented as:
 - `-99999.0` for float/double types
 - Check data documentation for specific sentinel values
 
-## Deprecated Methods
+## Migration from Older Versions
 
-Prior to version 0.5.0, there were separate `get_entity_data()` and `get_entity_data_stream()` methods. These are now deprecated:
+Prior to version 0.5.0, there were separate `get_entity_data()` and `get_entity_data_stream()` methods. These have been removed in favor of the more flexible `get_bulk_data()` and `get_bulk_data_stream()` methods:
 
 ```python
-# OLD (deprecated):
+# OLD (removed in v0.5.0):
 binary_data = client.get_entity_data(horizon, schema=HorizonData3D, query=query)
 
-# NEW (preferred):
+# NEW:
 binary_data = client.get_bulk_data(schema=HorizonData3D, native_uid=horizon, query=query)
 ```
 
-The new methods automatically detect whether you're passing a string or entity object, eliminating the need for separate methods.
+The new methods automatically detect whether you're passing a string, dict, or entity object for the `native_uid` parameter, eliminating the need for separate methods.
 
 ## See Also
 
