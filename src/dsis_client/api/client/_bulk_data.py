@@ -20,6 +20,84 @@ class BulkDataMixin:
     Requires subclasses to provide: config, _request_binary, _request_binary_stream.
     """
 
+    def _extract_native_uid(
+        self, native_uid: Union[str, Dict[str, Any], Any]
+    ) -> str:
+        """Extract native_uid from string, dict, or model instance.
+
+        Args:
+            native_uid: Either:
+                - A native_uid string (e.g., "46075")
+                - An entity dict with 'native_uid' key
+                - An entity model instance with 'native_uid' attribute
+
+        Returns:
+            The extracted native_uid string
+
+        Raises:
+            ValueError: If native_uid cannot be extracted
+        """
+        if isinstance(native_uid, str):
+            return native_uid
+        elif isinstance(native_uid, dict):
+            uid = native_uid.get("native_uid")
+            if not uid:
+                raise ValueError(
+                    f"Entity dict must have a 'native_uid' key to fetch binary data. "
+                    f"Got keys: {list(native_uid.keys())}"
+                )
+            return uid
+        else:
+            uid = getattr(native_uid, "native_uid", None)
+            if not uid:
+                raise ValueError(
+                    f"Entity must have a 'native_uid' attribute to fetch binary data. "
+                    f"Got type: {type(native_uid).__name__}"
+                )
+            return uid
+
+    def _build_bulk_data_endpoint(
+        self,
+        schema: Union[str, Type],
+        native_uid: str,
+        district_id: Optional[str],
+        field: Optional[str],
+        data_field: str,
+        query: Optional["QueryBuilder"],
+    ) -> str:
+        """Build endpoint path for bulk data requests.
+
+        Args:
+            schema: Schema name string or model class
+            native_uid: The native_uid string
+            district_id: Optional district ID (ignored if query provided)
+            field: Optional field name (ignored if query provided)
+            data_field: Name of the binary data field
+            query: Optional QueryBuilder to extract district_id and field from
+
+        Returns:
+            The constructed endpoint path
+        """
+        # Extract district_id and field from query if provided
+        if query is not None:
+            district_id = query.district_id
+            field = query.field
+
+        # Extract schema name if class is provided
+        schema_name = schema.__name__ if isinstance(schema, type) else schema
+
+        # Build endpoint path segments
+        segments = [self.config.model_name, self.config.model_version]
+        if district_id is not None:
+            segments.append(str(district_id))
+        if field is not None:
+            segments.append(field)
+
+        # Add the OData entity key and data field path
+        segments.append(f"{schema_name}('{native_uid}')/{data_field}")
+
+        return "/".join(segments)
+
     def get_bulk_data(
         self,
         schema: Union[str, Type],
@@ -86,42 +164,18 @@ class BulkDataMixin:
             ... else:
             ...     print("No bulk data available for this entity")
         """
-        # Extract native_uid from entity if needed
-        if isinstance(native_uid, str):
-            uid = native_uid
-        elif isinstance(native_uid, dict):
-            uid = native_uid.get("native_uid")
-            if not uid:
-                raise ValueError(
-                    "Entity dict must have a 'native_uid' key to fetch binary data"
-                )
-        else:
-            uid = getattr(native_uid, "native_uid", None)
-            if not uid:
-                raise ValueError(
-                    "Entity must have a 'native_uid' attribute to fetch binary data"
-                )
+        # Extract native_uid using helper method
+        uid = self._extract_native_uid(native_uid)
 
-        # Extract district_id and field from query if provided
-        if query is not None:
-            district_id = query.district_id
-            field = query.field
-
-        # Extract schema name if class is provided
-        schema_name = schema.__name__ if isinstance(schema, type) else schema
-
-        # Build endpoint path segments
-        segments = [self.config.model_name, self.config.model_version]
-        if district_id is not None:
-            segments.append(str(district_id))
-        if field is not None:
-            segments.append(field)
-
-        # Add the OData entity key and data field path
-        # Note: No /$value suffix - the API endpoint is /{schema}('{native_uid}')/data
-        segments.append(f"{schema_name}('{uid}')/{data_field}")
-
-        endpoint = "/".join(segments)
+        # Build endpoint using helper method
+        endpoint = self._build_bulk_data_endpoint(
+            schema=schema,
+            native_uid=uid,
+            district_id=district_id,
+            field=field,
+            data_field=data_field,
+            query=query,
+        )
 
         logger.info(f"Fetching bulk data from: {endpoint}")
         return self._request_binary(endpoint)
@@ -201,41 +255,18 @@ class BulkDataMixin:
             ...     from dsis_model_sdk.protobuf import decode_seismic_float_data
             ...     decoded = decode_seismic_float_data(binary_data)
         """
-        # Extract native_uid from entity if needed
-        if isinstance(native_uid, str):
-            uid = native_uid
-        elif isinstance(native_uid, dict):
-            uid = native_uid.get("native_uid")
-            if not uid:
-                raise ValueError(
-                    "Entity dict must have a 'native_uid' key to fetch binary data"
-                )
-        else:
-            uid = getattr(native_uid, "native_uid", None)
-            if not uid:
-                raise ValueError(
-                    "Entity must have a 'native_uid' attribute to fetch binary data"
-                )
+        # Extract native_uid using helper method
+        uid = self._extract_native_uid(native_uid)
 
-        # Extract district_id and field from query if provided
-        if query is not None:
-            district_id = query.district_id
-            field = query.field
-
-        # Extract schema name if class is provided
-        schema_name = schema.__name__ if isinstance(schema, type) else schema
-
-        # Build endpoint path segments
-        segments = [self.config.model_name, self.config.model_version]
-        if district_id is not None:
-            segments.append(str(district_id))
-        if field is not None:
-            segments.append(field)
-
-        # Add the OData entity key and data field path
-        segments.append(f"{schema_name}('{uid}')/{data_field}")
-
-        endpoint = "/".join(segments)
+        # Build endpoint using helper method
+        endpoint = self._build_bulk_data_endpoint(
+            schema=schema,
+            native_uid=uid,
+            district_id=district_id,
+            field=field,
+            data_field=data_field,
+            query=query,
+        )
 
         logger.info(f"Streaming bulk data from: {endpoint} (chunk_size={chunk_size})")
         yield from self._request_binary_stream(endpoint, chunk_size=chunk_size)
