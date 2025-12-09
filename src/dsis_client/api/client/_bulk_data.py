@@ -19,9 +19,7 @@ class BulkDataMixin:
     Requires subclasses to provide: config, _request_binary, _request_binary_stream.
     """
 
-    def _extract_native_uid(
-        self, native_uid: Union[str, Dict[str, Any], Any]
-    ) -> str:
+    def _extract_native_uid(self, native_uid: Union[str, Dict[str, Any], Any]) -> str:
         """Extract native_uid from string, dict, or model instance.
 
         Args:
