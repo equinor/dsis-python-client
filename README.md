@@ -115,6 +115,22 @@ client.refresh_authentication()
 
 The client provides built-in support for the `dsis-schemas` package, which provides Pydantic models for DSIS data structures.
 
+### Installation
+
+```bash
+# Basic installation (metadata/OData support only)
+pip install dsis-client
+
+# With protobuf support for bulk data decoding
+pip install dsis-client dsis-schemas[protobuf]
+```
+
+**Note:** The DSIS API serves data in two formats:
+- **Metadata**: Via OData (JSON) - entity properties, relationships, statistics
+- **Bulk Data**: Via Protocol Buffers (binary) - large arrays like horizon z-values, log curves, seismic amplitudes
+
+Install `dsis-schemas[protobuf]` to decode binary bulk data fields.
+
 ### QueryBuilder: Build OData Queries
 
 The `QueryBuilder` provides a fluent interface for building OData queries. QueryBuilder IS the query object - no need to call `.build()`.
@@ -214,6 +230,259 @@ print(well.depth)      # Automatic validation
 Common models include: `Well`, `Wellbore`, `WellLog`, `Basin`, `Horizon`, `Fault`, `Seismic2D`, `Seismic3D`, and many more.
 
 For a complete list, see the [dsis-schemas documentation](https://github.com/equinor/dsis-schemas).
+
+### Working with Binary Bulk Data (Protobuf)
+
+Some DSIS entities contain large binary data fields (e.g., horizon z-values, log curves, seismic amplitudes) that are served as Protocol Buffers. The `dsis-schemas` package provides decoders to work with this data.
+
+#### Installation for Protobuf Support
+
+```bash
+# Install with protobuf support for bulk data decoding
+pip install dsis-schemas[protobuf]
+```
+
+**Note:** The DSIS API serves data in two formats:
+- **Metadata**: Via OData (JSON) - entity properties, relationships, statistics
+- **Bulk Data**: Via Protocol Buffers (binary) - large arrays like horizon z-values, log curves, seismic amplitudes
+
+#### Supported Bulk Data Types
+
+- **Horizon 3D** (`HorizonData3D`) - Interpreted surface z-values
+- **Log Curves** (`LogCurve`) - Well log measurements vs depth/time
+- **Seismic 3D** (`SeismicDataSet3D`) - 3D seismic amplitude volume
+- **Seismic 2D** (`SeismicDataSet2D`) - 2D seismic trace data
+- **Tabular** - Generic tabular structures
+
+#### Example: Decoding Horizon Data
+
+**Option 1: Query metadata and binary data together (includes data in response)**
+
+```python
+import numpy as np
+from dsis_model_sdk.models.common import HorizonData3D
+from dsis_model_sdk.protobuf import decode_horizon_data
+from dsis_model_sdk.utils.protobuf_decoders import horizon_to_numpy
+
+# Step 1: Query for horizon metadata (including binary data field)
+query = QueryBuilder(district_id=district_id, field=field).schema(HorizonData3D).select("horizon_name,horizon_mean,horizon_mean_unit,data,native_uid")
+response = client.executeQuery(query)
+
+# Step 2: Cast to model and decode binary data field
+horizon = HorizonData3D.from_dict(response['value'][0])
+print(f"Horizon: {horizon.horizon_name}")
+print(f"Mean depth: {horizon.horizon_mean} {horizon.horizon_mean_unit}")
+
+# Step 3: Decode binary bulk data field
+if horizon.data:
+    decoded = decode_horizon_data(horizon.data)
+
+    # Step 4: Convert to NumPy array for analysis
+    array, metadata = horizon_to_numpy(decoded)
+
+    print(f"Grid shape: {array.shape}")
+    print(f"Data coverage: {(~np.isnan(array)).sum() / array.size * 100:.1f}%")
+
+    # Use the data
+    valid_data = array[~np.isnan(array)]
+    print(f"Depth range: {np.min(valid_data):.2f} - {np.max(valid_data):.2f}")
+```
+
+**Option 2: Fetch binary data separately (more efficient for large data)**
+
+```python
+import numpy as np
+from dsis_model_sdk.models.common import HorizonData3D
+from dsis_model_sdk.protobuf import decode_horizon_data
+from dsis_model_sdk.utils.protobuf_decoders import horizon_to_numpy
+
+# Step 1: Query for horizon metadata only (exclude large binary data field)
+query = QueryBuilder(district_id=district_id, field=field).schema(HorizonData3D).select("horizon_name,horizon_mean,horizon_mean_unit,native_uid")
+horizons = list(client.execute_query(query, cast=True))
+
+# Step 2: Fetch binary data separately for specific horizon
+horizon = horizons[0]
+print(f"Horizon: {horizon.horizon_name}")
+
+# Fetch binary data - pass entity object directly!
+binary_data = client.get_bulk_data(
+    schema=HorizonData3D,
+    native_uid=horizon,  # Pass entity object directly
+    query=query  # Automatically extracts district_id and field
+)
+
+# Step 3: Decode binary bulk data
+decoded = decode_horizon_data(binary_data)
+
+# Step 4: Convert to NumPy array for analysis
+array, metadata = horizon_to_numpy(decoded)
+
+print(f"Grid shape: {array.shape}")
+print(f"Data coverage: {(~np.isnan(array)).sum() / array.size * 100:.1f}%")
+
+# Use the data
+valid_data = array[~np.isnan(array)]
+print(f"Depth range: {np.min(valid_data):.2f} - {np.max(valid_data):.2f}")
+```
+
+#### Example: Decoding Log Curve Data
+
+```python
+from dsis_model_sdk.protobuf import decode_log_curves
+from dsis_model_sdk.utils.protobuf_decoders import log_curve_to_dict
+
+# Query for log curve metadata (exclude binary data for efficiency)
+query = QueryBuilder(district_id=district_id, field=field).schema("LogCurve").select("log_curve_name,native_uid")
+log_curves = list(client.execute_query(query, max_pages=1))
+
+# Fetch binary data for specific log curve - pass entity object directly!
+log_curve = log_curves[0]
+binary_data = client.get_bulk_data(
+    schema="LogCurve",
+    native_uid=log_curve,  # Pass entity object directly
+    query=query  # Automatically extracts district_id and field
+)
+
+# Decode log curve binary data
+decoded = decode_log_curves(binary_data)
+
+print(f"Curve type: {'DEPTH' if decoded.curve_type == decoded.DEPTH else 'TIME'}")
+print(f"Index range: {decoded.index.start_index} to {decoded.index.start_index + decoded.index.number_of_index * decoded.index.increment}")
+
+# Convert to dict for easier access
+data = log_curve_to_dict(decoded)
+
+for curve_name, curve_data in data['curves'].items():
+    print(f"Curve: {curve_name}")
+    print(f"  Unit: {curve_data['unit']}")
+    print(f"  Values: {len(curve_data['values'])} samples")
+```
+
+#### Example: Decoding Seismic Data
+
+```python
+import numpy as np
+from dsis_model_sdk.models.common import SeismicDataSet3D
+from dsis_model_sdk.protobuf import decode_seismic_float_data
+from dsis_model_sdk.utils.protobuf_decoders import seismic_3d_to_numpy
+
+# Query for seismic dataset metadata (exclude binary data - it's very large!)
+query = QueryBuilder(district_id=district_id, field=field).schema(SeismicDataSet3D).select("seismic_dataset_name,native_uid")
+seismic_datasets = list(client.execute_query(query, cast=True))
+
+# Fetch binary data separately for specific seismic dataset
+seismic = seismic_datasets[0]
+print(f"Fetching seismic data for: {seismic.seismic_dataset_name}")
+
+# For large datasets, use streaming to avoid loading everything into memory at once
+chunks = []
+for chunk in client.get_bulk_data_stream(
+    schema=SeismicDataSet3D,
+    native_uid=seismic,  # Pass entity object directly
+    query=query,  # Automatically extracts district_id and field
+    chunk_size=10*1024*1024  # 10MB chunks (DSIS recommended)
+):
+    chunks.append(chunk)
+    print(f"Downloaded {len(chunk):,} bytes")
+
+# Combine chunks and decode
+binary_data = b''.join(chunks)
+decoded = decode_seismic_float_data(binary_data)
+array, metadata = seismic_3d_to_numpy(decoded)
+
+print(f"Volume shape: {array.shape}")  # (traces_i, traces_j, samples_k)
+print(f"Memory size: {array.nbytes / 1024 / 1024:.2f} MB")
+print(f"Amplitude range: {np.min(array):.2f} to {np.max(array):.2f}")
+
+# Extract a single trace
+trace = array[100, 100, :]
+print(f"Trace samples: {len(trace)}")
+```
+
+#### Example: Decoding Surface Grid Data
+
+Surface grids (e.g., `SurfaceGrid` in OpenWorksCommonModel) use the LGCStructure protobuf format, which is a generic tabular data structure from Landmark Graphics Corporation. Each grid is represented as a collection of elements (columns), where each element contains an array of values.
+
+```python
+from io import BytesIO
+from dsis_model_sdk.protobuf import decode_lgc_structure, LGCStructure_pb2
+
+# Query for surface grid metadata
+query = QueryBuilder(district_id=district_id, field=field).schema("SurfaceGrid").select("native_uid,grid_name")
+grids = list(client.execute_query(query, cast=True, max_pages=1))
+
+# Fetch binary data for a specific grid
+grid = grids[0]
+print(f"Downloading grid: {grid.grid_name or grid.native_uid}")
+
+# Build the endpoint URL (SurfaceGrid uses /$value suffix)
+endpoint_path = f"{config.model_name}/{config.model_version}/{district_id}/{field}/SurfaceGrid('{grid.native_uid}')/$value"
+full_url = f"{config.data_endpoint}/{endpoint_path}"
+
+# Get the binary data
+headers = client.auth.get_auth_headers()
+headers["Accept"] = "application/json"
+response = client._session.get(full_url, headers=headers)
+data = response.content
+
+print(f"Downloaded {len(data):,} bytes")
+
+# LGCStructure data is length-prefixed with varint encoding
+def read_varint(stream):
+    """Read a varint length prefix from stream."""
+    shift = 0
+    result = 0
+    while True:
+        byte_data = stream.read(1)
+        if not byte_data:
+            return 0
+        byte = byte_data[0]
+        result |= (byte & 0x7F) << shift
+        if not (byte & 0x80):
+            return result
+        shift += 7
+
+# Parse the length-prefixed message
+stream = BytesIO(data)
+size = read_varint(stream)
+message_data = stream.read(size)
+
+# Decode the LGCStructure
+lgc = decode_lgc_structure(message_data)
+
+print(f"Structure name: {lgc.structName}")
+print(f"Number of elements: {len(lgc.elements)}")
+
+# Process grid elements (columns)
+for i, el in enumerate(lgc.elements[:5]):  # Show first 5 elements
+    data_type = LGCStructure_pb2.LGCStructure.LGCElement.DataType.Name(el.dataType)
+    
+    if el.dataType == LGCStructure_pb2.LGCStructure.LGCElement.DataType.FLOAT:
+        values = el.data_float
+    elif el.dataType == LGCStructure_pb2.LGCStructure.LGCElement.DataType.DOUBLE:
+        values = el.data_double
+    elif el.dataType == LGCStructure_pb2.LGCStructure.LGCElement.DataType.INT:
+        values = el.data_int
+    else:
+        values = []
+    
+    print(f"Element {i}: '{el.elementName}', Type: {data_type}, Values: {len(values):,}")
+
+# For a typical surface grid:
+# - Each element represents a row or column in the grid
+# - Values are typically FLOAT type representing Z-values (elevation/depth)
+# - Missing/null values are often represented as -99999.0 or similar sentinel values
+```
+
+**Important Notes:**
+- Binary bulk data fields are typically large. Make sure to:
+  - Select only the entities you need with appropriate filters
+  - Consider memory constraints when working with seismic volumes
+  - Use NumPy for efficient array operations
+- The `data` field in models like `HorizonData3D`, `LogCurve`, and `SeismicDataSet3D` contains the binary protobuf data
+- Always check if the `data` field exists before attempting to decode it
+- **API Endpoint Format**: The binary data endpoint is `/{Schema}('{native_uid}')/data` (no `/$value` suffix)
+- **Accept Header**: The API returns binary protobuf data with `Accept: application/json` header (not `application/octet-stream`)
 
 ## Configuration
 
@@ -364,17 +633,17 @@ data = client.get_odata("123", "wells", data_table="Well", filter="depth gt 1000
 data = client.get_odata("123", "wells", data_table="Well", expand="logs,completions")
 ```
 
-### `execute_query(query, cast=False)`
+### `execute_query(query, cast=False, max_pages=-1)`
 
 Execute a QueryBuilder query.
 
 **Parameters:**
 - `query`: QueryBuilder instance
 - `cast`: If True and query has a schema class, automatically cast results to model instances (default: False)
+- `max_pages`: Maximum number of pages to fetch. -1 (default) fetches all pages
 
 **Returns:**
-- If `cast=False`: Dictionary containing the parsed API response
-- If `cast=True`: List of model instances (from response["value"])
+- Generator that yields items from the result pages (or model instances if cast=True)
 
 **Raises:**
 - TypeError if query is not a QueryBuilder instance
@@ -387,14 +656,51 @@ from dsis_model_sdk.models.common import Basin
 # Build query with QueryBuilder
 query = QueryBuilder(district_id="123", field="wells").schema(Basin).select("basin_name,basin_id")
 
-# Option 1: Get raw response
-response = client.execute_query(query)
-print(response)
-
-# Option 2: Auto-cast to model instances
-basins = client.execute_query(query, cast=True)
-for basin in basins:
+# Option 1: Iterate over results (memory efficient)
+for basin in client.execute_query(query, cast=True):
     print(basin.basin_name)
+
+# Option 2: Collect all results into a list
+basins = list(client.execute_query(query, cast=True))
+print(f"Total: {len(basins)} basins")
+
+# Option 3: Fetch only first page
+first_page = list(client.execute_query(query, cast=True, max_pages=1))
+```
+
+### `get_bulk_data(schema, native_uid, district_id=None, field=None, data_field="data")`
+
+Fetch binary bulk data (protobuf) for a specific entity.
+
+The DSIS API serves large binary data fields (horizon z-values, log curves, seismic amplitudes) as Protocol Buffers via a special OData endpoint: `/{schema}('{native_uid}')/{data_field}/$value`
+
+**Parameters:**
+- `schema`: Schema name (e.g., "HorizonData3D", "LogCurve", "SeismicDataSet3D")
+- `native_uid`: The native_uid of the entity
+- `district_id`: Optional district ID (if required by API)
+- `field`: Optional field name (if required by API)
+- `data_field`: Name of the binary data field (default: "data")
+
+**Returns:**
+- Binary protobuf data as bytes
+
+**Raises:**
+- DSISAPIError if the API request fails
+
+**Example:**
+```python
+from dsis_model_sdk.protobuf import decode_horizon_data
+
+# Fetch binary data for a specific horizon
+binary_data = client.get_bulk_data(
+    schema="HorizonData3D",
+    native_uid="horizon_123",
+    district_id="123",
+    field="SNORRE"
+)
+
+# Decode the protobuf data
+decoded = decode_horizon_data(binary_data)
 ```
 
 ### `get_model_by_name(model_name, domain="common")`

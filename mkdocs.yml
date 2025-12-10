@@ -16,7 +16,9 @@ nav:
   - Guides:
     - Getting Started: guides/getting-started.md
     - QueryBuilder Guide: guides/query-builder.md
+    - Working with Binary Data: guides/working-with-binary-data.md
     - Advanced Serialization: guides/advanced-serialization.md
+    - Common vs Native Model: guides/common-vs-native-model.md
   - API:
     - Summary: api/index.md
   - Changelog: changelog/index.md

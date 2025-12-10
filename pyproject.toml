@@ -6,10 +6,20 @@ readme = "README.md"
 authors = []
 requires-python = ">=3.11"
 dependencies = [
-	"msal"
+	"msal",
+	"requests>=2.28.0",
+	"dsis-schemas[protobuf]>=0.0.5"
 ]
 license = "MIT"
 license-files = ["LICENSE"]
+
+[project.optional-dependencies]
+dev = [
+	"pytest>=7.0.0",
+	"pytest-cov>=4.0.0",
+	"pytest-mock>=3.10.0",
+	"ruff>=0.8.0",
+]
 
 [project.scripts]
 dsis-client = "dsis_client:main"
