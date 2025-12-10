@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/equinor/dsis-python-client/compare/v0.4.1...v0.5.0) (2025-12-10)
+
+
+### Features
+
+* support ptotobuf in dsis client ([#39](https://github.com/equinor/dsis-python-client/issues/39)) ([1be337a](https://github.com/equinor/dsis-python-client/commit/1be337ab8c43322aa29e55c202500d7b237dd28c))
+
 ## [0.4.1](https://github.com/equinor/dsis-python-client/compare/v0.4.0...v0.4.1) (2025-11-13)
 
 
