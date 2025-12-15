@@ -79,7 +79,9 @@ class BulkDataMixin(_BinaryRequestBase):
         """
         # Extract district_id and field from query if provided
         if query is not None:
-            district_id = str(query.district_id) if query.district_id is not None else None
+            district_id = (
+                str(query.district_id) if query.district_id is not None else None
+            )
             field = query.field
 
         # Extract schema name if class is provided
