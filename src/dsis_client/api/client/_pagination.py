@@ -4,15 +4,14 @@ Provides mixin class for handling OData nextLink pagination.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict
+from typing import Any, Dict
 
-if TYPE_CHECKING:
-    pass
+from ._base import _RequestBase
 
 logger = logging.getLogger(__name__)
 
 
-class PaginationMixin:
+class PaginationMixin(_RequestBase):
     """OData pagination mixin.
 
     Provides methods for following OData nextLink pagination.

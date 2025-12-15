@@ -4,7 +4,9 @@ Provides mixin class for fetching binary protobuf data.
 """
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, Generator, Optional, Type, Union
+
+from ._base import _BinaryRequestBase
 
 if TYPE_CHECKING:
     from ..query import QueryBuilder
@@ -12,7 +14,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class BulkDataMixin:
+class BulkDataMixin(_BinaryRequestBase):
     """Bulk data mixin for binary protobuf operations.
 
     Provides methods for fetching and streaming binary bulk data.
@@ -77,7 +79,7 @@ class BulkDataMixin:
         """
         # Extract district_id and field from query if provided
         if query is not None:
-            district_id = query.district_id
+            district_id = str(query.district_id) if query.district_id is not None else None
             field = query.field
 
         # Extract schema name if class is provided
@@ -99,8 +101,8 @@ class BulkDataMixin:
         self,
         schema: Union[str, Type],
         native_uid: Union[str, Dict[str, Any], Any],
-        district_id: str = None,
-        field: str = None,
+        district_id: Optional[str] = None,
+        field: Optional[str] = None,
         data_field: str = "data",
         query: Optional["QueryBuilder"] = None,
     ) -> Optional[bytes]:
@@ -181,12 +183,12 @@ class BulkDataMixin:
         self,
         schema: Union[str, Type],
         native_uid: Union[str, Dict[str, Any], Any],
-        district_id: str = None,
-        field: str = None,
+        district_id: Optional[str] = None,
+        field: Optional[str] = None,
         data_field: str = "data",
         chunk_size: int = 10 * 1024 * 1024,
         query: Optional["QueryBuilder"] = None,
-    ):
+    ) -> Generator[bytes, None, None]:
         """Stream binary bulk data (protobuf) in chunks for memory-efficient processing.
 
         The DSIS API serves large binary data fields (horizon z-values, log curves,

@@ -7,6 +7,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Dict, List
 
 from ..models import cast_results as _cast_results
+from ._base import _PaginationBase
 
 if TYPE_CHECKING:
     from ..query import QueryBuilder
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class QueryExecutionMixin:
+class QueryExecutionMixin(_PaginationBase):
     """Query execution mixin for DSIS API.
 
     Provides methods for executing QueryBuilder queries and casting results.

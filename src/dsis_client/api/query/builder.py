@@ -206,7 +206,7 @@ class QueryBuilder:
         self._select = []
         self._expand = []
         self._filter = None
-        self._format: Optional[str] = "json"
+        self._format = "json"
         logger.info("Reset builder")
         return self
 
