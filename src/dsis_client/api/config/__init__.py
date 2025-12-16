@@ -11,8 +11,8 @@ from .environment import Environment
 # Attach the classmethod factories to DSISConfig
 from .factory import for_common_model, for_native_model
 
-DSISConfig.for_native_model = classmethod(for_native_model)
-DSISConfig.for_common_model = classmethod(for_common_model)
+DSISConfig.for_native_model = classmethod(for_native_model)  # type: ignore[attr-defined]
+DSISConfig.for_common_model = classmethod(for_common_model)  # type: ignore[attr-defined]
 
 __all__ = [
     "Environment",

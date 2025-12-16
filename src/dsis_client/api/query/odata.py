@@ -4,17 +4,17 @@ Provides utilities for building and formatting OData query strings.
 """
 
 import logging
-from typing import Dict
+from typing import Dict, List, Optional
 from urllib.parse import urlencode
 
 logger = logging.getLogger(__name__)
 
 
 def build_query_params(
-    select: list,
-    expand: list,
-    filter_expr: str,
-    format_type: str = "json",
+    select: List[str],
+    expand: List[str],
+    filter_expr: Optional[str],
+    format_type: Optional[str] = "json",
 ) -> Dict[str, str]:
     """Build OData query parameters dictionary.
 
@@ -45,7 +45,7 @@ def build_query_params(
     return params
 
 
-def build_query_string(schema_name: str, params: Dict[str, str]) -> str:
+def build_query_string(schema_name: Optional[str], params: Dict[str, str]) -> str:
     """Build complete OData query string.
 
     Args:

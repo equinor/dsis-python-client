@@ -12,7 +12,7 @@ Azure AD and DSIS authentication mechanisms.
 import logging
 from typing import Dict, Optional
 
-import msal
+import msal  # type: ignore[import-untyped]
 import requests
 
 from ..config import DSISConfig
@@ -147,7 +147,7 @@ class DSISAuth:
             "Authorization": f"Bearer {self._aad_token}",
             "Ocp-Apim-Subscription-Key": self.config.subscription_key_dsdata,
             "dsis-site": self.config.dsis_site,
-            "dsis-token": self._dsis_token,
+            "dsis-token": self._dsis_token or "",
         }
 
     def refresh_tokens(self) -> None:

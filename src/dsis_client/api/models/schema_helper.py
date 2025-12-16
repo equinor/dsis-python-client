@@ -4,6 +4,7 @@ Provides model validation and schema discovery using dsis_model_sdk.
 """
 
 import logging
+import types
 from typing import Optional, Type
 
 from dsis_model_sdk import models
@@ -48,6 +49,7 @@ def get_schema_by_name(schema_name: str, domain: str = "common") -> Optional[Typ
     """
     logger.info(f"Getting schema: {schema_name} from {domain} domain")
     try:
+        schema_module: types.ModuleType
         if domain == "common":
             schema_module = models.common
         elif domain == "native":
