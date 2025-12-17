@@ -12,7 +12,7 @@ Azure AD and DSIS authentication mechanisms.
 import logging
 from typing import Dict, Optional
 
-import msal
+import msal  # type: ignore[import-untyped]
 import requests
 
 from ..config import DSISConfig
@@ -34,12 +34,32 @@ class DSISAuth:
         self._aad_token: Optional[str] = None
         self._dsis_token: Optional[str] = None
         self._session = requests.Session()
+        self._msal_app: Optional[msal.ConfidentialClientApplication] = None
+
+    def _get_msal_app(self) -> msal.ConfidentialClientApplication:
+        """Get or create the cached MSAL application.
+
+        Caches the MSAL app instance to preserve its internal token cache
+        across multiple token acquisition calls, improving performance
+        during pagination and repeated API calls.
+
+        Returns:
+            Cached MSAL ConfidentialClientApplication instance
+        """
+        if self._msal_app is None:
+            self._msal_app = msal.ConfidentialClientApplication(
+                self.config.client_id,
+                authority=self.config.authority,
+                client_credential=self.config.client_secret,
+            )
+        return self._msal_app
 
     def get_aad_token(self) -> str:
         """Get Azure AD token using client credentials flow.
 
         Acquires an Azure AD token using the configured client credentials.
-        The token is cached for subsequent requests.
+        The token is cached for subsequent requests. Uses a cached MSAL app
+        instance to benefit from MSAL's internal token caching.
 
         Returns:
             Azure AD access token string
@@ -49,12 +69,7 @@ class DSISAuth:
         """
         logger.info("Acquiring Azure AD token")
 
-        app = msal.ConfidentialClientApplication(
-            self.config.client_id,
-            authority=self.config.authority,
-            client_credential=self.config.client_secret,
-        )
-
+        app = self._get_msal_app()
         result = app.acquire_token_for_client(scopes=self.config.scope)
 
         if "access_token" not in result:
@@ -64,9 +79,10 @@ class DSISAuth:
                 f"Failed to acquire Azure AD token: {error_desc}"
             )
 
-        self._aad_token = result["access_token"]
+        token: str = result["access_token"]
+        self._aad_token = token
         logger.info("Azure AD token acquired successfully")
-        return self._aad_token
+        return token
 
     def get_dsis_token(self, aad_token: Optional[str] = None) -> str:
         """Get DSIS token using the acquired Azure AD token.
@@ -119,9 +135,10 @@ class DSISAuth:
             logger.error("DSIS token not found in response")
             raise DSISAuthenticationError("DSIS token not found in response")
 
-        self._dsis_token = token_data["access_token"]
+        token: str = token_data["access_token"]
+        self._dsis_token = token
         logger.info("DSIS token acquired successfully")
-        return self._dsis_token
+        return token
 
     def get_auth_headers(self) -> Dict[str, str]:
         """Get authenticated headers for API requests.
@@ -147,7 +164,7 @@ class DSISAuth:
             "Authorization": f"Bearer {self._aad_token}",
             "Ocp-Apim-Subscription-Key": self.config.subscription_key_dsdata,
             "dsis-site": self.config.dsis_site,
-            "dsis-token": self._dsis_token,
+            "dsis-token": self._dsis_token or "",
         }
 
     def refresh_tokens(self) -> None:
