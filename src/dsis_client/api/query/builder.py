@@ -18,27 +18,27 @@ class QueryBuilder:
     against dsis_model_sdk schemas. This class IS the query object - no need
     to call build().
 
-    district_id and field are required parameters that specify the data location.
+    district_id and project are required parameters that specify the data location.
 
     Example:
         >>> from dsis_model_sdk.models.common import Fault
         >>> query = QueryBuilder(
         ...     district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
-        ...     field="SNORRE"
+        ...     project="SNORRE"
         ... ).schema(Fault).select("id,type").filter("type eq 'NORMAL'")
     >>> response = client.execute_query(query)
     >>> faults = query.cast_results(response["value"])
     """
 
-    def __init__(self, district_id: Union[str, int], field: str):
+    def __init__(self, district_id: Union[str, int], project: str):
         """Initialize the query builder.
 
         Args:
             district_id: District ID for the query (required)
-            field: Field name for the query (required)
+            project: Project name for the query (required)
         """
         self.district_id = district_id
-        self.field = field
+        self.project = project
         self._schema_name: Optional[str] = None
         self._schema_class: Optional[Type] = None
         self._select: List[str] = []
@@ -57,11 +57,11 @@ class QueryBuilder:
 
         Example:
             >>> # Using schema name
-            >>> query = QueryBuilder(district_id="123", field="SNORRE").schema("Fault")
+            >>> query = QueryBuilder(district_id="123", project="SNORRE").schema("Fault")
 
             >>> # Using model class
             >>> from dsis_model_sdk.models.common import Fault
-            >>> query = QueryBuilder(district_id="123", field="SNORRE").schema(Fault)
+            >>> query = QueryBuilder(district_id="123", project="SNORRE").schema(Fault)
         """
         # If schema is a class, extract the name and store the class
         if isinstance(schema, type):
@@ -174,7 +174,7 @@ class QueryBuilder:
 
         Example:
             >>> query = (
-            ...     QueryBuilder(district_id="123", field="SNORRE")
+            ...     QueryBuilder(district_id="123", project="SNORRE")
             ...     .schema("Fault")
             ...     .select("id,type")
             ... )
@@ -196,7 +196,7 @@ class QueryBuilder:
     def reset(self) -> "QueryBuilder":
         """Reset the builder to initial state.
 
-        Note: Does not reset district_id or field set in constructor.
+        Note: Does not reset district_id or project set in constructor.
 
         Returns:
             Self for chaining
@@ -214,7 +214,7 @@ class QueryBuilder:
         """String representation of the builder."""
         return (
             f"QueryBuilder(district_id={self.district_id}, "
-            f"field={self.field}, schema={self._schema_name}, "
+            f"project={self.project}, schema={self._schema_name}, "
             f"select={self._select}, expand={self._expand}, filter={self._filter})"
         )
 
@@ -229,5 +229,5 @@ class QueryBuilder:
         except ValueError:
             return (
                 f"QueryBuilder(district_id={self.district_id}, "
-                f"field={self.field}, schema=None)"
+                f"project={self.project}, schema=None)"
             )

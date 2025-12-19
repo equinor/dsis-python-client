@@ -18,7 +18,7 @@ from dsis_model_sdk.models.common import Basin
 
 # Get data from API
 client = DSISClient(config)
-response = client.get(district_id="123", field="SNORRE", schema="Basin")
+response = client.get(district_id="123", project="SNORRE", schema="Basin")
 
 # Deserialize using dsis-model-sdk directly (recommended - fastest)
 basins = [Basin(**item) for item in response["value"]]
@@ -35,7 +35,7 @@ basins = cast_results(response["value"], Basin)
 ```python
 from dsis_model_sdk.models.common import Well
 
-response = client.get(district_id="123", field="SNORRE", schema="Well")
+response = client.get(district_id="123", project="SNORRE", schema="Well")
 wells = [Well(**item) for item in response["value"]]
 ```
 
@@ -62,7 +62,7 @@ from dsis_model_sdk import deserialize_from_json
 from dsis_model_sdk.models.common import Basin
 import json
 
-response = client.get(district_id="123", field="SNORRE", schema="Basin")
+response = client.get(district_id="123", project="SNORRE", schema="Basin")
 basins = []
 for item in response["value"]:
     json_str = json.dumps(item)  # Convert to JSON string
@@ -76,7 +76,7 @@ for item in response["value"]:
 from dsis_model_sdk.models.common import Fault
 from pydantic import ValidationError
 
-response = client.get(district_id="123", field="SNORRE", schema="Fault")
+response = client.get(district_id="123", project="SNORRE", schema="Fault")
 
 faults = []
 for idx, item in enumerate(response["value"]):
@@ -96,7 +96,7 @@ The easiest approach for most cases:
 from dsis_client import QueryBuilder
 from dsis_model_sdk.models.common import Basin
 
-query = QueryBuilder(district_id="123", field="SNORRE").schema(Basin)
+query = QueryBuilder(district_id="123", project="SNORRE").schema(Basin)
 basins = client.execute_query(query, cast=True)  # Returns list of Basin objects
 ```
 

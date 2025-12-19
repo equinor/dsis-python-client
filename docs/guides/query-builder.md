@@ -31,14 +31,14 @@ config = DSISConfig.for_native_model(
 
 ## QueryBuilder Basics
 
-QueryBuilder requires `district_id` and `field` parameters, then builds the query using method chaining.
+QueryBuilder requires `district_id` and `project` parameters, then builds the query using method chaining.
 
 ### Simple Query with String Schema
 
 ```python
 # Build query - QueryBuilder IS the query object (no .build() needed)
 query = (
-    QueryBuilder(district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA", field="SNORRE")
+    QueryBuilder(district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA", project="SNORRE")
     .schema("Fault")
     .select("fault_id,fault_type,fault_name")
     .filter("fault_type eq 'NORMAL'")
@@ -56,7 +56,7 @@ from dsis_model_sdk.models.common import Basin
 
 # Build query with model class for automatic type safety
 query = (
-    QueryBuilder(district_id="your-district-id", field="your-field")
+    QueryBuilder(district_id="your-district-id", project="your-project")
     .schema(Basin)
     .select("basin_name,basin_id,native_uid")
 )
@@ -77,11 +77,11 @@ Set the data schema (table) to query.
 
 ```python
 # String schema name
-query = QueryBuilder(district_id=dist, field=fld).schema("Well")
+query = QueryBuilder(district_id=dist, project=prj).schema("Well")
 
 # Model class (enables type-safe casting)
 from dsis_model_sdk.models.native import Well
-query = QueryBuilder(district_id=dist, field=fld).schema(Well)
+query = QueryBuilder(district_id=dist, project=prj).schema(Well)
 ```
 
 ### select()
@@ -136,7 +136,7 @@ Set the response format parameter.
 
 ```python
 # Default: json format (included by default)
-query = QueryBuilder(district_id=dist, field=fld).schema("Well").select("well_name")
+query = QueryBuilder(district_id=dist, project=prj).schema("Well").select("well_name")
 # Result: Well?$format=json&$select=well_name
 
 # Explicitly set to json
@@ -152,7 +152,7 @@ query.format("")  # or .format(None)
 Clear query parameters for reuse.
 
 ```python
-query = QueryBuilder(district_id=dist, field=fld)
+query = QueryBuilder(district_id=dist, project=prj)
 
 # First query
 query.schema("Well").select("well_name")
@@ -171,7 +171,7 @@ By default, `execute_query()` automatically follows all `odata.nextLink` referen
 
 ```python
 # Default: Fetch all pages (max_pages=-1)
-query = QueryBuilder(district_id=dist, field=fld).schema("Well")
+query = QueryBuilder(district_id=dist, project=prj).schema("Well")
 
 # Option 1: Process items as they arrive (streaming, memory efficient)
 for well in client.execute_query(query):
@@ -212,18 +212,18 @@ print(f"First two pages: {len(two_pages_items)} wells")
 ```python
 # ✅ Correct: Pass model class for casting
 from dsis_model_sdk.models.common import Basin
-query = QueryBuilder(district_id=dist, field=fld).schema(Basin)
+query = QueryBuilder(district_id=dist, project=prj).schema(Basin)
 results = client.execute_query(query, cast=True)  # Works!
 
 # ❌ Wrong: String schema name won't work with cast=True
-query = QueryBuilder(district_id=dist, field=fld).schema("Basin")
+query = QueryBuilder(district_id=dist, project=prj).schema("Basin")
 results = client.execute_query(query, cast=True)  # Has no effect!
 ```
 
 ### Pattern 1: Basic Execution (Streaming)
 
 ```python
-query = QueryBuilder(district_id=dist, field=fld).schema("Basin")
+query = QueryBuilder(district_id=dist, project=prj).schema("Basin")
 
 # Process items as they arrive (memory efficient)
 for item in client.execute_query(query):
@@ -237,7 +237,7 @@ print(f"Total items: {len(all_items)}")
 ### Pattern 1b: Single Page Execution
 
 ```python
-query = QueryBuilder(district_id=dist, field=fld).schema("Basin")
+query = QueryBuilder(district_id=dist, project=prj).schema("Basin")
 
 # Fetch only first page (max 1000 items)
 first_page_items = list(client.execute_query(query, max_pages=1))
@@ -249,7 +249,7 @@ print(f"Retrieved {len(first_page_items)} items from first page")
 ```python
 from dsis_model_sdk.models.common import Basin
 
-query = QueryBuilder(district_id=dist, field=fld).schema(Basin).select("basin_name,basin_id")
+query = QueryBuilder(district_id=dist, project=prj).schema(Basin).select("basin_name,basin_id")
 
 # Option 1: Stream and cast each item as it arrives (memory efficient)
 for basin in client.execute_query(query, cast=True):
@@ -269,11 +269,11 @@ To use `cast=True`, you **MUST** build your query using a model class imported f
 ```python
 # ✅ CORRECT: Using model class from dsis_model_sdk
 from dsis_model_sdk.models.common import Basin  # or native
-query = QueryBuilder(district_id=dist, field=fld).schema(Basin)
+query = QueryBuilder(district_id=dist, project=prj).schema(Basin)
 basins = list(client.execute_query(query, cast=True))
 
 # ❌ INCORRECT: Using string schema name with cast=True
-query = QueryBuilder(district_id=dist, field=fld).schema("Basin")
+query = QueryBuilder(district_id=dist, project=prj).schema("Basin")
 basins = list(client.execute_query(query, cast=True))  # Will not work!
 ```
 
@@ -288,7 +288,7 @@ If you use a string schema name, `cast=True` will have no effect. Omit `cast=Tru
 
 ```python
 try:
-    query = QueryBuilder(district_id=dist, field=fld).schema("Well")
+    query = QueryBuilder(district_id=dist, project=prj).schema("Well")
     
     # Process items as they arrive
     item_count = 0
@@ -314,7 +314,7 @@ except Exception as e:
 query = (
     QueryBuilder(
         district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
-        field="SNORRE",
+        project="SNORRE",
     )
     .schema("Well")
     .select("well_name,well_uwi,spud_date")
@@ -336,7 +336,7 @@ print(f"Retrieved {len(wells)} producer wells")
 from dsis_model_sdk.models.common import Basin
 
 query = (
-    QueryBuilder(district_id=dist, field=fld)
+    QueryBuilder(district_id=dist, project=prj)
     .schema(Basin)
     .select("basin_name,basin_id,native_uid")  # Include required fields
 )
@@ -358,7 +358,7 @@ except Exception as e:
 
 ```python
 # Create base query builder
-base_query = QueryBuilder(district_id=dist, field=fld)
+base_query = QueryBuilder(district_id=dist, project=prj)
 
 # Query 1: Get all faults
 fault_query = base_query.schema("Fault").select("fault_id,fault_type")
@@ -373,7 +373,7 @@ wells = list(client.execute_query(well_query))
 
 ```python
 # Get first page only (max 1000 items)
-query = QueryBuilder(district_id=dist, field=fld).schema("Well")
+query = QueryBuilder(district_id=dist, project=prj).schema("Well")
 first_page_wells = list(client.execute_query(query, max_pages=1))
 
 print(f"First page: {len(first_page_wells)} wells")

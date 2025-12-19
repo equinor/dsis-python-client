@@ -71,7 +71,7 @@ config = DSISConfig(
 client = DSISClient(config)
 if client.test_connection():
     # Get data - schema refers to data schemas like "Well", "Basin", "Fault"
-    data = client.get(district_id="<district-id>", field="<field-name>", schema="Basin")
+    data = client.get(district_id="<district-id>", project="<project-name>", schema="Basin")
 ```
 
 ## 5. Flow Summary

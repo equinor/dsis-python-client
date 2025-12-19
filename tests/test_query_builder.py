@@ -55,9 +55,9 @@ def test_query_builder_produces_correct_format(
 
     Tests various combinations of query parameters.
     """
-    from dsis_client.api.query import QueryBuilder
+    from dsis_client.api.query import QueryBuilder  # type: ignore[import-untyped]
 
-    builder = QueryBuilder(district_id="TestDist", field="TestField")
+    builder = QueryBuilder(district_id="TestDist", project="TestField")
     builder.schema(schema)
 
     if select:
@@ -73,9 +73,9 @@ def test_query_builder_produces_correct_format(
 
 def test_query_builder_reset_allows_reuse():
     """Test that reset clears all parameters allowing builder reuse."""
-    from dsis_client.api.query import QueryBuilder
+    from dsis_client.api.query import QueryBuilder  # type: ignore[import-untyped]
 
-    builder = QueryBuilder(district_id="123", field="Field")
+    builder = QueryBuilder(district_id="123", project="Field")
     builder.schema("Well").select("name").filter("depth gt 100")
     first_query = builder.get_query_string()
 
@@ -91,9 +91,9 @@ def test_query_builder_reset_allows_reuse():
 
 def test_query_requires_schema():
     """Test that schema must be set before building query string."""
-    from dsis_client.api.query import QueryBuilder
+    from dsis_client.api.query import QueryBuilder  # type: ignore[import-untyped]
 
-    builder = QueryBuilder(district_id="123", field="test")
+    builder = QueryBuilder(district_id="123", project="test")
 
     with pytest.raises(ValueError, match="schema must be set"):
         builder.get_query_string()

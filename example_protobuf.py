@@ -52,7 +52,7 @@ client = DSISClient(config)
 
 # Test parameters
 district_id = os.getenv("DISTRICT_ID")
-field = os.getenv("FIELD")
+project = os.getenv("PROJECT")
 
 print("=" * 80)
 print("DSIS Python Client - Protobuf Binary Data Examples")
@@ -66,7 +66,7 @@ print("-" * 80)
 # Step 1: Query for horizon metadata (exclude binary data field for efficiency)
 print("Step 1: Querying for horizon metadata...")
 query = (
-    QueryBuilder(district_id=district_id, field=field)
+    QueryBuilder(district_id=district_id, project=project)
     .schema(HorizonData3D)
     .select(
         "horizon_name,horizon_mean,horizon_mean_unit,horizon_min,horizon_max,native_uid"
@@ -128,7 +128,7 @@ print("-" * 80)
 # Step 1: Query for log curve metadata
 print("Step 1: Querying for log curve metadata...")
 query = (
-    QueryBuilder(district_id=district_id, field=field)
+    QueryBuilder(district_id=district_id, project=project)
     .schema(LogCurve)
     .select("log_curve_name,native_uid")
 )
@@ -188,7 +188,7 @@ print("-" * 80)
 # Step 1: Query for seismic metadata
 print("Step 1: Querying for seismic dataset metadata...")
 query = (
-    QueryBuilder(district_id=district_id, field=field)
+    QueryBuilder(district_id=district_id, project=project)
     .schema(SeismicDataSet3D)
     .select("seismic_dataset_name,native_uid")
 )

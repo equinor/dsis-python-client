@@ -32,7 +32,7 @@ def make_config():
     )
 
 
-def _make_client_and_patch(monkeypatch, district, field, response):
+def _make_client_and_patch(monkeypatch, district, project, response):
     """Helper to create a DSISClient and monkeypatch its _request to return response.
 
     If response is a list of pages, the _request will return them in order for
@@ -42,12 +42,12 @@ def _make_client_and_patch(monkeypatch, district, field, response):
     to assert call counts or inspect endpoints.
     """
     from dsis_client.api.client import DSISClient
-    from dsis_client.api.query import QueryBuilder
+    from dsis_client.api.query import QueryBuilder  # type: ignore[import-untyped]
 
     cfg = make_config()
     client = DSISClient(cfg)
 
-    qb = QueryBuilder(district_id=district, field=field)
+    qb = QueryBuilder(district_id=district, project=project)
     qb.schema("MySchema")
 
     # Normalize response into pages list
