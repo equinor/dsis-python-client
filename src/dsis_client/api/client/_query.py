@@ -67,8 +67,8 @@ class QueryExecutionMixin(_PaginationBase):
         segments = [self.config.model_name, self.config.model_version]
         if query.district_id is not None:
             segments.append(str(query.district_id))
-        if query.field is not None:
-            segments.append(query.field)
+        if query.project is not None:
+            segments.append(query.project)
 
         # Get schema name from query
         query_string = query.get_query_string()
@@ -112,7 +112,7 @@ class QueryExecutionMixin(_PaginationBase):
 
         Example:
             >>> from dsis_model_sdk.models.common import Fault
-            >>> query = QueryBuilder(district_id="123", field="SNORRE").schema(Fault)
+            >>> query = QueryBuilder(district_id="123", project="SNORRE").schema(Fault)
             >>> response = client.executeQuery(query)
             >>> faults = client.cast_results(response["value"], Fault)
         """

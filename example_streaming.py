@@ -41,7 +41,7 @@ client = DSISClient(config)
 
 # Test parameters
 district_id = os.getenv("DISTRICT_ID")
-field = os.getenv("FIELD")
+project = os.getenv("PROJECT")
 
 print("=" * 80)
 print("DSIS Python Client - Streaming Binary Data")
@@ -54,7 +54,7 @@ print("-" * 80)
 
 # Query for seismic metadata
 query = (
-    QueryBuilder(district_id=district_id, field=field)
+    QueryBuilder(district_id=district_id, project=project)
     .schema(SeismicDataSet3D)
     .select("seismic_dataset_name,native_uid")
 )
@@ -106,7 +106,7 @@ print("\n\nExample 2: Stream Directly to File")
 print("-" * 80)
 
 query = (
-    QueryBuilder(district_id=district_id, field=field)
+    QueryBuilder(district_id=district_id, project=project)
     .schema(HorizonData3D)
     .select("horizon_name,native_uid")
 )
@@ -150,7 +150,7 @@ print("\n\nExample 3: Conditional Streaming with Size Limit")
 print("-" * 80)
 
 query = (
-    QueryBuilder(district_id=district_id, field=field)
+    QueryBuilder(district_id=district_id, project=project)
     .schema(LogCurve)
     .select("log_curve_name,native_uid")
 )

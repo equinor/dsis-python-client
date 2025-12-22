@@ -60,7 +60,7 @@ class BulkDataMixin(_BinaryRequestBase):
         schema: Union[str, Type],
         native_uid: str,
         district_id: Optional[str],
-        field: Optional[str],
+        project: Optional[str],
         data_field: str,
         query: Optional["QueryBuilder"],
     ) -> str:
@@ -70,19 +70,19 @@ class BulkDataMixin(_BinaryRequestBase):
             schema: Schema name string or model class
             native_uid: The native_uid string
             district_id: Optional district ID (ignored if query provided)
-            field: Optional field name (ignored if query provided)
+            project: Optional project name (ignored if query provided)
             data_field: Name of the binary data field
-            query: Optional QueryBuilder to extract district_id and field from
+            query: Optional QueryBuilder to extract district_id and project from
 
         Returns:
             The constructed endpoint path
         """
-        # Extract district_id and field from query if provided
+        # Extract district_id and project from query if provided
         if query is not None:
             district_id = (
                 str(query.district_id) if query.district_id is not None else None
             )
-            field = query.field
+            project = query.project
 
         # Extract schema name if class is provided
         schema_name = schema.__name__ if isinstance(schema, type) else schema
@@ -91,8 +91,8 @@ class BulkDataMixin(_BinaryRequestBase):
         segments = [self.config.model_name, self.config.model_version]
         if district_id is not None:
             segments.append(str(district_id))
-        if field is not None:
-            segments.append(field)
+        if project is not None:
+            segments.append(project)
 
         # Add the OData entity key and data field path
         segments.append(f"{schema_name}('{native_uid}')/{data_field}")
@@ -104,7 +104,7 @@ class BulkDataMixin(_BinaryRequestBase):
         schema: Union[str, Type],
         native_uid: Union[str, Dict[str, Any], Any],
         district_id: Optional[str] = None,
-        field: Optional[str] = None,
+        project: Optional[str] = None,
         data_field: str = "data",
         query: Optional["QueryBuilder"] = None,
     ) -> Optional[bytes]:
@@ -126,11 +126,11 @@ class BulkDataMixin(_BinaryRequestBase):
                 - An entity model instance with 'native_uid' attribute
             district_id: Optional district ID (if required by API).
                 Ignored if query is provided.
-            field: Optional field name (if required by API).
+            project: Optional project name (if required by API).
                 Ignored if query is provided.
             data_field: Name of the binary data field (default: "data")
-            query: Optional QueryBuilder instance to extract district_id and field from.
-                   If provided, district_id and field parameters are ignored.
+            query: Optional QueryBuilder instance to extract district_id and project from.
+                   If provided, district_id and project parameters are ignored.
 
         Returns:
             Binary protobuf data as bytes, or None if the entity has no bulk data
@@ -146,16 +146,16 @@ class BulkDataMixin(_BinaryRequestBase):
             ...     schema=LogCurve,
             ...     native_uid="46075",
             ...     district_id="123",
-            ...     field="SNORRE"
+            ...     project="SNORRE"
             ... )
             >>>
             >>> # Option 2: Pass entity object directly (extracts native_uid automatically)
-            >>> query = QueryBuilder(district_id="123", field="SNORRE").schema(LogCurve)
+            >>> query = QueryBuilder(district_id="123", project="SNORRE").schema(LogCurve)
             >>> curves = list(client.execute_query(query, cast=True, max_pages=1))
             >>> binary_data = client.get_bulk_data(
             ...     schema=LogCurve,
             ...     native_uid=curves[0],  # Pass entity directly!
-            ...     query=query  # Extracts district_id and field
+            ...     query=query  # Extracts district_id and project
             ... )
             >>>
             >>> # Step 3: Check if data exists and decode
@@ -173,7 +173,7 @@ class BulkDataMixin(_BinaryRequestBase):
             schema=schema,
             native_uid=uid,
             district_id=district_id,
-            field=field,
+            project=project,
             data_field=data_field,
             query=query,
         )
@@ -186,7 +186,7 @@ class BulkDataMixin(_BinaryRequestBase):
         schema: Union[str, Type],
         native_uid: Union[str, Dict[str, Any], Any],
         district_id: Optional[str] = None,
-        field: Optional[str] = None,
+        project: Optional[str] = None,
         data_field: str = "data",
         chunk_size: int = 10 * 1024 * 1024,
         query: Optional["QueryBuilder"] = None,
@@ -212,13 +212,13 @@ class BulkDataMixin(_BinaryRequestBase):
                 - An entity model instance with 'native_uid' attribute
             district_id: Optional district ID (if required by API).
                 Ignored if query is provided.
-            field: Optional field name (if required by API).
+            project: Optional project name (if required by API).
                 Ignored if query is provided.
             data_field: Name of the binary data field (default: "data")
             chunk_size: Size of chunks to yield in bytes
                 (default: 10MB, recommended by DSIS)
-            query: Optional QueryBuilder instance to extract district_id and field from.
-                   If provided, district_id and field parameters are ignored.
+            query: Optional QueryBuilder instance to extract district_id and project from.
+                   If provided, district_id and project parameters are ignored.
 
         Yields:
             Binary data chunks as bytes. Returns immediately if no bulk data (404).
@@ -234,19 +234,19 @@ class BulkDataMixin(_BinaryRequestBase):
             ...     schema=SeismicDataSet3D,
             ...     native_uid="12345",
             ...     district_id="123",
-            ...     field="SNORRE",
+            ...     project="SNORRE",
             ...     chunk_size=10*1024*1024
             ... ):
             ...     print(f"Received {len(chunk)} bytes")
             >>>
             >>> # Option 2: Pass entity object directly (extracts native_uid automatically)
-            >>> query = QueryBuilder(district_id="123", field="SNORRE").schema(SeismicDataSet3D)
+            >>> query = QueryBuilder(district_id="123", project="SNORRE").schema(SeismicDataSet3D)
             >>> datasets = list(client.execute_query(query, cast=True, max_pages=1))
             >>> chunks = []
             >>> for chunk in client.get_bulk_data_stream(
             ...     schema=SeismicDataSet3D,
             ...     native_uid=datasets[0],  # Pass entity directly!
-            ...     query=query  # Extracts district_id and field
+            ...     query=query  # Extracts district_id and project
             ... ):
             ...     chunks.append(chunk)
             >>>
@@ -264,7 +264,7 @@ class BulkDataMixin(_BinaryRequestBase):
             schema=schema,
             native_uid=uid,
             district_id=district_id,
-            field=field,
+            project=project,
             data_field=data_field,
             query=query,
         )

@@ -76,17 +76,17 @@ if client.test_connection():
 # Get data using just model and version
 data = client.get_odata()
 
-# Get Basin data for a specific district and field
+# Get Basin data for a specific district and project
 data = client.get_odata(
     district_id="123",
-    field="wells",
+    project="wells",
     data_table="Basin"
 )
 
-# Get Well data with field selection
+# Get Well data with project selection
 data = client.get_odata(
     district_id="123",
-    field="wells",
+    project="wells",
     data_table="Well",
     select="name,depth,status"
 )
@@ -94,7 +94,7 @@ data = client.get_odata(
 # Get Wellbore data with filtering
 data = client.get_odata(
     district_id="123",
-    field="wells",
+    project="wells",
     data_table="Wellbore",
     filter="depth gt 1000"
 )
@@ -102,7 +102,7 @@ data = client.get_odata(
 # Get WellLog data with expand (related data)
 data = client.get_odata(
     district_id="123",
-    field="wells",
+    project="wells",
     data_table="WellLog",
     expand="logs,completions"
 )
@@ -143,7 +143,7 @@ from dsis_client import QueryBuilder, DSISClient, DSISConfig
 # Create a query with required path parameters
 query = QueryBuilder(
     district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
-    field="SNORRE"
+    project="SNORRE"
 ).schema("Well").select("name,depth")
 
 # Execute the query with client
@@ -151,7 +151,7 @@ client = DSISClient(config)
 response = client.execute_query(query)
 
 # Build a complex query with chaining
-query = (QueryBuilder(district_id="123", field="wells")
+query = (QueryBuilder(district_id="123", project="wells")
     .schema("Well")
     .select("name", "depth", "status")
     .filter("depth gt 1000")
@@ -160,7 +160,7 @@ query = (QueryBuilder(district_id="123", field="wells")
 response = client.execute_query(query)
 
 # Reuse builder for multiple queries
-builder = QueryBuilder(district_id="123", field="wells")
+builder = QueryBuilder(district_id="123", project="wells")
 
 # Query 1
 query1 = builder.schema("Well").select("name,depth")
@@ -180,7 +180,7 @@ from dsis_client import QueryBuilder
 from dsis_model_sdk.models.common import Well, Basin, Fault
 
 # Use schema() with model class for type-safe casting
-query = (QueryBuilder(district_id="123", field="wells")
+query = (QueryBuilder(district_id="123", project="wells")
     .schema(Basin)
     .select("basin_name", "basin_id", "native_uid"))
 
@@ -265,7 +265,7 @@ from dsis_model_sdk.protobuf import decode_horizon_data
 from dsis_model_sdk.utils.protobuf_decoders import horizon_to_numpy
 
 # Step 1: Query for horizon metadata (including binary data field)
-query = QueryBuilder(district_id=district_id, field=field).schema(HorizonData3D).select("horizon_name,horizon_mean,horizon_mean_unit,data,native_uid")
+query = QueryBuilder(district_id=district_id, project=project).schema(HorizonData3D).select("horizon_name,horizon_mean,horizon_mean_unit,data,native_uid")
 response = client.executeQuery(query)
 
 # Step 2: Cast to model and decode binary data field
@@ -297,7 +297,7 @@ from dsis_model_sdk.protobuf import decode_horizon_data
 from dsis_model_sdk.utils.protobuf_decoders import horizon_to_numpy
 
 # Step 1: Query for horizon metadata only (exclude large binary data field)
-query = QueryBuilder(district_id=district_id, field=field).schema(HorizonData3D).select("horizon_name,horizon_mean,horizon_mean_unit,native_uid")
+query = QueryBuilder(district_id=district_id, project=project).schema(HorizonData3D).select("horizon_name,horizon_mean,horizon_mean_unit,native_uid")
 horizons = list(client.execute_query(query, cast=True))
 
 # Step 2: Fetch binary data separately for specific horizon
@@ -308,7 +308,7 @@ print(f"Horizon: {horizon.horizon_name}")
 binary_data = client.get_bulk_data(
     schema=HorizonData3D,
     native_uid=horizon,  # Pass entity object directly
-    query=query  # Automatically extracts district_id and field
+    query=query  # Automatically extracts district_id and project
 )
 
 # Step 3: Decode binary bulk data
@@ -332,7 +332,7 @@ from dsis_model_sdk.protobuf import decode_log_curves
 from dsis_model_sdk.utils.protobuf_decoders import log_curve_to_dict
 
 # Query for log curve metadata (exclude binary data for efficiency)
-query = QueryBuilder(district_id=district_id, field=field).schema("LogCurve").select("log_curve_name,native_uid")
+query = QueryBuilder(district_id=district_id, project=project).schema("LogCurve").select("log_curve_name,native_uid")
 log_curves = list(client.execute_query(query, max_pages=1))
 
 # Fetch binary data for specific log curve - pass entity object directly!
@@ -340,7 +340,7 @@ log_curve = log_curves[0]
 binary_data = client.get_bulk_data(
     schema="LogCurve",
     native_uid=log_curve,  # Pass entity object directly
-    query=query  # Automatically extracts district_id and field
+    query=query  # Automatically extracts district_id and project
 )
 
 # Decode log curve binary data
@@ -367,7 +367,7 @@ from dsis_model_sdk.protobuf import decode_seismic_float_data
 from dsis_model_sdk.utils.protobuf_decoders import seismic_3d_to_numpy
 
 # Query for seismic dataset metadata (exclude binary data - it's very large!)
-query = QueryBuilder(district_id=district_id, field=field).schema(SeismicDataSet3D).select("seismic_dataset_name,native_uid")
+query = QueryBuilder(district_id=district_id, project=project).schema(SeismicDataSet3D).select("seismic_dataset_name,native_uid")
 seismic_datasets = list(client.execute_query(query, cast=True))
 
 # Fetch binary data separately for specific seismic dataset
@@ -379,7 +379,7 @@ chunks = []
 for chunk in client.get_bulk_data_stream(
     schema=SeismicDataSet3D,
     native_uid=seismic,  # Pass entity object directly
-    query=query,  # Automatically extracts district_id and field
+    query=query,  # Automatically extracts district_id and project
     chunk_size=10*1024*1024  # 10MB chunks (DSIS recommended)
 ):
     chunks.append(chunk)
@@ -408,7 +408,7 @@ from io import BytesIO
 from dsis_model_sdk.protobuf import decode_lgc_structure, LGCStructure_pb2
 
 # Query for surface grid metadata
-query = QueryBuilder(district_id=district_id, field=field).schema("SurfaceGrid").select("native_uid,grid_name")
+query = QueryBuilder(district_id=district_id, project=project).schema("SurfaceGrid").select("native_uid,grid_name")
 grids = list(client.execute_query(query, cast=True, max_pages=1))
 
 # Fetch binary data for a specific grid
@@ -416,7 +416,7 @@ grid = grids[0]
 print(f"Downloading grid: {grid.grid_name or grid.native_uid}")
 
 # Build the endpoint URL (SurfaceGrid uses /$value suffix)
-endpoint_path = f"{config.model_name}/{config.model_version}/{district_id}/{field}/SurfaceGrid('{grid.native_uid}')/$value"
+endpoint_path = f"{config.model_name}/{config.model_version}/{district_id}/{project}/SurfaceGrid('{grid.native_uid}')/$value"
 full_url = f"{config.data_endpoint}/{endpoint_path}"
 
 # Get the binary data
@@ -560,18 +560,18 @@ data = client.get_odata("OW5000")
 
 ## API Methods
 
-### `get(district_id=None, field=None, data_table=None, format_type="json", select=None, expand=None, filter=None, **extra_query)`
+### `get(district_id=None, project=None, data_table=None, format_type="json", select=None, expand=None, filter=None, **extra_query)`
 
 Make a GET request to the DSIS OData API.
 
 Constructs the OData endpoint URL following the pattern:
-`/<model_name>/<version>[/<district_id>][/<field>][/<data_table>]`
+`/<model_name>/<version>[/<district_id>][/<project>][/<data_table>]`
 
 All path segments are optional and can be omitted. The `data_table` parameter refers to specific data models from dsis-schemas (e.g., "Basin", "Well", "Wellbore", "WellLog", etc.).
 
 **Parameters:**
 - `district_id`: Optional district ID for the query
-- `field`: Optional field name for the query
+- `project`: Optional project name for the query
 - `data_table`: Optional data table/model name (e.g., "Basin", "Well", "Wellbore"). If None, uses configured model_name
 - `format_type`: Response format (default: "json")
 - `select`: OData $select parameter for field selection (comma-separated field names)
@@ -586,26 +586,26 @@ All path segments are optional and can be omitted. The `data_table` parameter re
 # Get using just model and version
 data = client.get()
 
-# Get Basin data for a district and field
-data = client.get("123", "wells", data_table="Basin")
+# Get Basin data for a district and project
+data = client.get("123", "SNORRE", data_table="Basin")
 
 # Get with field selection
-data = client.get("123", "wells", data_table="Well", select="name,depth,status")
+data = client.get("123", "SNORRE", data_table="Well", select="name,depth,status")
 
 # Get with filtering
-data = client.get("123", "wells", data_table="Well", filter="depth gt 1000")
+data = client.get("123", "SNORRE", data_table="Well", filter="depth gt 1000")
 
 # Get with expand (related data)
-data = client.get("123", "wells", data_table="Well", expand="logs,completions")
+data = client.get("123", "SNORRE", data_table="Well", expand="logs,completions")
 ```
 
-### `get_odata(district_id=None, field=None, data_table=None, format_type="json", select=None, expand=None, filter=None, **extra_query)`
+### `get_odata(district_id=None, project=None, data_table=None, format_type="json", select=None, expand=None, filter=None, **extra_query)`
 
 Convenience method for retrieving OData. Delegates to `get()` method.
 
 **Parameters:**
 - `district_id`: Optional district ID for the query
-- `field`: Optional field name for the query
+- `project`: Optional project name for the query
 - `data_table`: Optional data table/model name (e.g., "Basin", "Well", "Wellbore"). If None, uses configured model_name
 - `format_type`: Response format (default: "json")
 - `select`: OData $select parameter for field selection (comma-separated field names)
@@ -620,17 +620,17 @@ Convenience method for retrieving OData. Delegates to `get()` method.
 # Get using just model and version
 data = client.get_odata()
 
-# Get Basin data for a district and field
-data = client.get_odata("123", "wells", data_table="Basin")
+# Get Basin data for a district and project
+data = client.get_odata("123", "SNORRE", data_table="Basin")
 
 # Get with field selection
-data = client.get_odata("123", "wells", data_table="Well", select="name,depth,status")
+data = client.get_odata("123", "SNORRE", data_table="Well", select="name,depth,status")
 
 # Get with filtering
-data = client.get_odata("123", "wells", data_table="Well", filter="depth gt 1000")
+data = client.get_odata("123", "SNORRE", data_table="Well", filter="depth gt 1000")
 
 # Get with expand
-data = client.get_odata("123", "wells", data_table="Well", expand="logs,completions")
+data = client.get_odata("123", "SNORRE", data_table="Well", expand="logs,completions")
 ```
 
 ### `execute_query(query, cast=False, max_pages=-1)`
@@ -654,7 +654,7 @@ Execute a QueryBuilder query.
 from dsis_model_sdk.models.common import Basin
 
 # Build query with QueryBuilder
-query = QueryBuilder(district_id="123", field="wells").schema(Basin).select("basin_name,basin_id")
+query = QueryBuilder(district_id="123", project="SNORRE").schema(Basin).select("basin_name,basin_id")
 
 # Option 1: Iterate over results (memory efficient)
 for basin in client.execute_query(query, cast=True):
@@ -668,7 +668,7 @@ print(f"Total: {len(basins)} basins")
 first_page = list(client.execute_query(query, cast=True, max_pages=1))
 ```
 
-### `get_bulk_data(schema, native_uid, district_id=None, field=None, data_field="data")`
+### `get_bulk_data(schema, native_uid, district_id=None, project=None, data_field="data")`
 
 Fetch binary bulk data (protobuf) for a specific entity.
 
@@ -678,7 +678,7 @@ The DSIS API serves large binary data fields (horizon z-values, log curves, seis
 - `schema`: Schema name (e.g., "HorizonData3D", "LogCurve", "SeismicDataSet3D")
 - `native_uid`: The native_uid of the entity
 - `district_id`: Optional district ID (if required by API)
-- `field`: Optional field name (if required by API)
+- `project`: Optional project name (if required by API)
 - `data_field`: Name of the binary data field (default: "data")
 
 **Returns:**
@@ -696,7 +696,7 @@ binary_data = client.get_bulk_data(
     schema="HorizonData3D",
     native_uid="horizon_123",
     district_id="123",
-    field="SNORRE"
+    project="SNORRE"
 )
 
 # Decode the protobuf data
@@ -761,21 +761,21 @@ print(well.well_name)  # Type-safe access
 
 ## QueryBuilder API
 
-### `QueryBuilder(district_id, field)`
+### `QueryBuilder(district_id, project)`
 
 Create a new query builder instance. QueryBuilder IS the query object - no need to call `.build()`.
 
 **Parameters:**
 - `district_id`: District ID for the query (required)
-- `field`: Field name for the query (required)
+- `project`: Project name for the query (required)
 
 **Example:**
 ```python
 # Create a query builder with required parameters
-query = QueryBuilder(district_id="123", field="wells")
+query = QueryBuilder(district_id="123", project="SNORRE")
 
 # Chain methods to build the query
-query = QueryBuilder(district_id="123", field="wells").schema("Well").select("name,depth")
+query = QueryBuilder(district_id="123", project="SNORRE").schema("Well").select("name,depth")
 ```
 
 ### `schema(schema)`
@@ -790,11 +790,11 @@ Set the schema (data table) using a name or model class.
 **Example:**
 ```python
 # Using schema name
-query = QueryBuilder(district_id="123", field="wells").schema("Well")
+query = QueryBuilder(district_id="123", project="SNORRE").schema("Well")
 
 # Using model class for type-safe casting
 from dsis_model_sdk.models.common import Basin
-query = QueryBuilder(district_id="123", field="wells").schema(Basin)
+query = QueryBuilder(district_id="123", project="SNORRE").schema(Basin)
 ```
 
 ### `select(*fields)`
@@ -852,7 +852,7 @@ Get the full OData query string for this query.
 
 **Example:**
 ```python
-query = QueryBuilder(district_id="123", field="wells").schema("Well").select("name,depth")
+query = QueryBuilder(district_id="123", project="SNORRE").schema("Well").select("name,depth")
 print(query.get_query_string())
 # Returns: "Well?$format=json&$select=name,depth"
 ```
@@ -861,15 +861,15 @@ print(query.get_query_string())
 
 Reset the builder to initial state (clears schema, select, expand, filter, format).
 
-Note: Does not reset district_id or field set in constructor.
+Note: Does not reset district_id or project set in constructor.
 
 **Returns:** Self for chaining
 
 **Example:**
 ```python
-builder = QueryBuilder(district_id="123", field="wells")
+builder = QueryBuilder(district_id="123", project="SNORRE")
 builder.schema("Well").select("name")
-builder.reset()  # Clears schema and select, keeps district_id and field
+builder.reset()  # Clears schema and select, keeps district_id and project
 builder.schema("Basin").select("id")  # Reuse for new query
 ```
 
@@ -891,7 +891,7 @@ Cast API response items to model instances.
 ```python
 from dsis_model_sdk.models.common import Basin
 
-query = QueryBuilder(district_id="123", field="wells").schema(Basin).select("basin_name,basin_id")
+query = QueryBuilder(district_id="123", project="SNORRE").schema(Basin).select("basin_name,basin_id")
 response = client.execute_query(query)
 basins = client.cast_results(response['value'], Basin)
 for basin in basins:
@@ -907,7 +907,7 @@ from dsis_client import QueryBuilder, DSISClient
 from dsis_model_sdk.models.common import Basin
 
 # Set schema with model class
-query = QueryBuilder(district_id="123", field="wells").schema(Basin).select("basin_name,basin_id,native_uid")
+query = QueryBuilder(district_id="123", project="SNORRE").schema(Basin).select("basin_name,basin_id,native_uid")
 
 # Option 1: Auto-cast with executeQuery
 basins = client.executeQuery(query, cast=True)

@@ -80,7 +80,7 @@ class BaseClient(HTTPTransportMixin):
     def get(
         self,
         district_id: Optional[Union[str, int]] = None,
-        field: Optional[str] = None,
+        project: Optional[str] = None,
         schema: Optional[str] = None,
         format_type: str = "json",
         select: Optional[str] = None,
@@ -92,7 +92,7 @@ class BaseClient(HTTPTransportMixin):
         """Make a GET request to the DSIS OData API.
 
         Constructs the OData endpoint URL following the pattern:
-        /<model_name>/<version>[/<district_id>][/<field>][/<schema>]
+        /<model_name>/<version>[/<district_id>][/<project>][/<schema>]
 
         All path segments are optional and can be omitted.
         The schema parameter refers to specific data schemas from dsis-schemas
@@ -100,11 +100,11 @@ class BaseClient(HTTPTransportMixin):
 
         Args:
             district_id: Optional district ID for the query
-            field: Optional field name for the query
+            project: Optional project name for the query
             schema: Optional schema name (e.g., "Basin", "Well", "Wellbore").
                     If None, uses configured model_name
             format_type: Response format (default: "json")
-            select: OData $select parameter for field selection (comma-separated)
+            select: OData $select parameter for column selection (comma-separated)
             expand: OData $expand parameter for related data (comma-separated)
             filter: OData $filter parameter for filtering (OData filter expression)
             validate_schema: If True, validates that schema is a known model
@@ -130,7 +130,7 @@ class BaseClient(HTTPTransportMixin):
         # Determine the schema to use
         if schema is not None:
             schema_to_use = schema
-        elif district_id is not None or field is not None:
+        elif district_id is not None or project is not None:
             schema_to_use = self.config.model_name
             logger.info(f"Using configured model as schema: {self.config.model_name}")
         else:
@@ -148,8 +148,8 @@ class BaseClient(HTTPTransportMixin):
         segments = [self.config.model_name, self.config.model_version]
         if district_id is not None:
             segments.append(str(district_id))
-        if field is not None:
-            segments.append(field)
+        if project is not None:
+            segments.append(project)
         if schema_to_use is not None:
             segments.append(schema_to_use)
 
