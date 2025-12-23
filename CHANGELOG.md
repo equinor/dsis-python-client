@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.0](https://github.com/equinor/dsis-python-client/compare/v0.5.0...v1.0.0) (2025-12-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* **dsis:** rename 'field' parameter to 'project' across API, docs and tests ([#49](https://github.com/equinor/dsis-python-client/issues/49))
+
+### Features
+
+* fix types to follow mypy standards ([#46](https://github.com/equinor/dsis-python-client/issues/46)) ([b7f1889](https://github.com/equinor/dsis-python-client/commit/b7f18898a1f3869ee69f5aea0f5edaf7e1d6cb10))
+
+
+### Code Refactoring
+
+* **dsis:** rename 'field' parameter to 'project' across API, docs and tests ([#49](https://github.com/equinor/dsis-python-client/issues/49)) ([d3791e6](https://github.com/equinor/dsis-python-client/commit/d3791e60db7a0a2a63a5f1734ec9470dfca974f2))
+
 ## [0.5.0](https://github.com/equinor/dsis-python-client/compare/v0.4.1...v0.5.0) (2025-12-10)
 
 
