@@ -31,6 +31,8 @@ class _PaginationBase(_RequestBase):
             self, response: Dict[str, Any], endpoint: str, max_pages: int = -1
         ) -> Generator[Dict[str, Any], None, None]: ...
 
+        def _extract_nextlink_from_text(self, response_text: str) -> Optional[str]: ...
+
 
 class _BinaryRequestBase:
     """Base providing binary request stubs for mixins that fetch protobuf data."""

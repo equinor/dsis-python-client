@@ -36,6 +36,7 @@ from .api import (
     DSISConfig,
     DSISConfigurationError,
     DSISException,
+    DSISJSONParseError,
     Environment,
     QueryBuilder,
 )
@@ -49,5 +50,6 @@ __all__ = [
     "DSISAuthenticationError",
     "DSISAPIError",
     "DSISConfigurationError",
+    "DSISJSONParseError",
     "QueryBuilder",
 ]

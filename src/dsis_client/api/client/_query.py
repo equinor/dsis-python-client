@@ -3,9 +3,11 @@
 Provides mixin class for executing QueryBuilder queries and casting results.
 """
 
+import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from ..exceptions import DSISJSONParseError
 from ..models import cast_results as _cast_results
 from ._base import _PaginationBase
 
@@ -21,6 +23,100 @@ class QueryExecutionMixin(_PaginationBase):
     Provides methods for executing QueryBuilder queries and casting results.
     Requires subclasses to provide: config, _request, _yield_nextlink_pages.
     """
+
+    def _extract_value_array_from_text(
+        self, response_text: str
+    ) -> tuple[list[Dict[str, Any]], Optional[str]]:
+        """Extract value array and nextLink from raw response text.
+
+        Fallback method for when JSON parsing fails due to invalid control characters.
+        Attempts to extract the value array by finding valid JSON objects and the nextLink.
+
+        Args:
+            response_text: The raw response text.
+
+        Returns:
+            A tuple of (items, nextLink). Items may be empty if extraction fails.
+        """
+        items = []
+        next_link = None
+
+        try:
+            # First, try parsing the entire response with strict=False
+            # This allows control characters which is often the issue
+            logger.info(
+                "Attempting to parse entire response with strict=False (allows control characters)"
+            )
+            try:
+                response_dict = json.loads(response_text, strict=False)
+                if isinstance(response_dict, dict):
+                    items = response_dict.get("value", [])
+                    # Try both key formats
+                    next_link = response_dict.get(
+                        "odata.nextLink"
+                    ) or response_dict.get("nextLink")
+                    logger.info(
+                        f"Successfully parsed entire response with strict=False: "
+                        f"{len(items)} items, nextLink={'present' if next_link else 'absent'}"
+                    )
+                    return items, next_link
+            except Exception as e:
+                logger.debug(f"Failed to parse entire response with strict=False: {e}")
+
+            # If that fails, extract nextLink using text search
+            next_link = self._extract_nextlink_from_text(response_text)
+
+            # Try to extract individual items from the value array
+            # Find the "value": [ ... ] section
+            value_start = response_text.find('"value"')
+            if value_start == -1:
+                logger.warning("Could not find 'value' array in response text")
+                return items, next_link
+
+            # Find the opening bracket of the array
+            bracket_start = response_text.find("[", value_start)
+            if bracket_start == -1:
+                return items, next_link
+
+            # Try to parse objects within the array
+            # Look for individual objects between { and }
+            current_pos = bracket_start + 1
+            brace_count = 0
+            obj_start = None
+
+            for i in range(current_pos, len(response_text)):
+                char = response_text[i]
+
+                if char == "{":
+                    if brace_count == 0:
+                        obj_start = i
+                    brace_count += 1
+                elif char == "}":
+                    brace_count -= 1
+                    if brace_count == 0 and obj_start is not None:
+                        # Try to parse this object
+                        obj_text = response_text[obj_start : i + 1]
+                        try:
+                            # Use strict=False to allow control characters
+                            obj = json.loads(obj_text, strict=False)
+                            items.append(obj)
+                        except Exception as parse_err:
+                            logger.debug(
+                                f"Failed to parse object at position {obj_start}: {parse_err}"
+                            )
+                        obj_start = None
+                elif char == "]" and brace_count == 0:
+                    # End of value array
+                    break
+
+            logger.info(
+                f"Extracted {len(items)} items from malformed JSON response using object-by-object fallback"
+            )
+
+        except Exception as e:
+            logger.warning(f"Failed to extract value array from raw text: {e}")
+
+        return items, next_link
 
     def execute_query(
         self, query: "QueryBuilder", cast: bool = False, max_pages: int = -1
@@ -81,7 +177,28 @@ class QueryExecutionMixin(_PaginationBase):
         params = query.build_query_params()
 
         logger.info(f"Making request to endpoint: {endpoint} with params: {params}")
-        response = self._request(endpoint, params)
+
+        # Try to make the request and handle JSON parsing errors
+        try:
+            response = self._request(endpoint, params)
+        except DSISJSONParseError as e:
+            logger.warning(
+                "JSON parsing failed. Attempting fallback: extracting data from raw text."
+            )
+            # Try to extract items and nextLink from the malformed response
+            items, next_link = self._extract_value_array_from_text(e.response_text)
+
+            if items or next_link:
+                # Create a synthetic response dict
+                response = {
+                    "value": items,
+                    "odata.nextLink": next_link,
+                }
+                logger.info(f"Fallback extraction succeeded: {len(items)} items")
+            else:
+                # Fallback failed, re-raise the original error
+                logger.error("Fallback extraction failed. Cannot process response.")
+                raise
 
         # Yield items from all pages (up to max_pages)
         if cast:
