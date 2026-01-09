@@ -148,13 +148,17 @@ class PaginationMixin(_RequestBase):
             fallback_next_link = self._extract_nextlink_from_text(e.response_text)
 
             if fallback_next_link:
-                logger.info(f"Fallback nextLink extraction succeeded: {fallback_next_link}")
+                logger.info(
+                    f"Fallback nextLink extraction succeeded: {fallback_next_link}"
+                )
                 # Return empty items since JSON parsing failed,
                 # but we can continue to the next page
                 return [], fallback_next_link
 
             # Fallback also failed, re-raise the original error
-            logger.error("Fallback nextLink extraction failed. Cannot continue pagination.")
+            logger.error(
+                "Fallback nextLink extraction failed. Cannot continue pagination."
+            )
             raise
 
     def _yield_nextlink_pages(
