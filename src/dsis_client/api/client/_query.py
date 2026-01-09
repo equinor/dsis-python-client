@@ -3,9 +3,11 @@
 Provides mixin class for executing QueryBuilder queries and casting results.
 """
 
+import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+from ..exceptions import DSISJSONParseError
 from ..models import cast_results as _cast_results
 from ._base import _PaginationBase
 
@@ -21,6 +23,83 @@ class QueryExecutionMixin(_PaginationBase):
     Provides methods for executing QueryBuilder queries and casting results.
     Requires subclasses to provide: config, _request, _yield_nextlink_pages.
     """
+
+    def _extract_objects_from_value_array(
+        self, response_text: str
+    ) -> list[Dict[str, Any]]:
+        """Extract individual JSON objects from the value array in response text.
+
+        Args:
+            response_text: The raw response text.
+
+        Returns:
+            List of parsed objects from the value array.
+        """
+        items: list[Dict[str, Any]] = []
+
+        # Find the "value": [ ... ] section
+        value_start = response_text.find('"value"')
+        if value_start == -1:
+            logger.debug("Could not find 'value' array in response text")
+            return items
+
+        bracket_start = response_text.find("[", value_start)
+        if bracket_start == -1:
+            return items
+
+        # Parse objects between { and } within the array
+        current_pos = bracket_start + 1
+        brace_count = 0
+        obj_start = None
+
+        for i in range(current_pos, len(response_text)):
+            char = response_text[i]
+
+            if char == "{":
+                if brace_count == 0:
+                    obj_start = i
+                brace_count += 1
+            elif char == "}":
+                brace_count -= 1
+                if brace_count == 0 and obj_start is not None:
+                    obj_text = response_text[obj_start : i + 1]
+                    try:
+                        obj = json.loads(obj_text, strict=False)
+                        items.append(obj)
+                    except Exception as e:
+                        logger.debug(f"Failed to parse object at {obj_start}: {e}")
+                    obj_start = None
+            elif char == "]" and brace_count == 0:
+                break
+
+        return items
+
+    def _extract_value_array_from_text(
+        self, response_text: str
+    ) -> tuple[list[Dict[str, Any]], Optional[str]]:
+        """Extract value array and nextLink from raw response text.
+
+        Last-resort fallback for when both standard and strict=False JSON parsing fail.
+
+        Args:
+            response_text: The raw response text.
+
+        Returns:
+            A tuple of (items, nextLink). Items may be empty if extraction fails.
+        """
+        try:
+            next_link = self._extract_nextlink_from_text(response_text)
+            items = self._extract_objects_from_value_array(response_text)
+
+            if items:
+                logger.info(
+                    f"Extracted {len(items)} items using object-by-object fallback"
+                )
+
+            return items, next_link
+        except Exception as e:
+            logger.warning(f"Failed to extract data from raw text: {e}")
+            return [], None
 
     def execute_query(
         self, query: "QueryBuilder", cast: bool = False, max_pages: int = -1
@@ -81,7 +160,28 @@ class QueryExecutionMixin(_PaginationBase):
         params = query.build_query_params()
 
         logger.info(f"Making request to endpoint: {endpoint} with params: {params}")
-        response = self._request(endpoint, params)
+
+        # Try to make the request and handle JSON parsing errors
+        try:
+            response = self._request(endpoint, params)
+        except DSISJSONParseError as e:
+            logger.warning(
+                "JSON parsing failed. Attempting fallback: extracting data from raw text."
+            )
+            # Try to extract items and nextLink from the malformed response
+            items, next_link = self._extract_value_array_from_text(e.response_text)
+
+            if items or next_link:
+                # Create a synthetic response dict
+                response = {
+                    "value": items,
+                    "odata.nextLink": next_link,
+                }
+                logger.info(f"Fallback extraction succeeded: {len(items)} items")
+            else:
+                # Fallback failed, re-raise the original error
+                logger.error("Fallback extraction failed. Cannot process response.")
+                raise
 
         # Yield items from all pages (up to max_pages)
         if cast:

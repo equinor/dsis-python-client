@@ -39,6 +39,7 @@ from .exceptions import (
     DSISAuthenticationError,
     DSISConfigurationError,
     DSISException,
+    DSISJSONParseError,
 )
 from .models import (
     cast_results,
@@ -56,6 +57,7 @@ __all__ = [
     "DSISAuthenticationError",
     "DSISAPIError",
     "DSISConfigurationError",
+    "DSISJSONParseError",
     "QueryBuilder",
     # Model utilities - for advanced users
     "cast_results",

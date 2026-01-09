@@ -3,11 +3,12 @@
 Provides mixin class for making authenticated HTTP requests.
 """
 
+import json
 import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional
 from urllib.parse import urljoin
 
-from ..exceptions import DSISAPIError
+from ..exceptions import DSISAPIError, DSISJSONParseError
 
 if TYPE_CHECKING:
     import requests
@@ -64,8 +65,22 @@ class HTTPTransportMixin:
         try:
             return response.json()
         except ValueError as e:
-            logger.warning(f"Failed to parse JSON response: {e}")
-            return {"data": response.text}
+            # Try parsing with strict=False to allow control characters
+            try:
+                logger.info(
+                    "Standard JSON parsing failed, trying with strict=False to allow control characters"
+                )
+                return json.loads(response.text, strict=False)
+            except ValueError:
+                # Both methods failed, raise the custom exception
+                logger.warning(
+                    f"Failed to parse JSON response even with strict=False: {e}"
+                )
+                raise DSISJSONParseError(
+                    f"Failed to parse JSON response: {e}",
+                    response_text=response.text,
+                    original_error=e,
+                )
 
     def _request_binary(
         self, endpoint: str, params: Optional[Dict[str, Any]] = None
