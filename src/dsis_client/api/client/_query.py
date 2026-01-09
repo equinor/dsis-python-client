@@ -24,7 +24,9 @@ class QueryExecutionMixin(_PaginationBase):
     Requires subclasses to provide: config, _request, _yield_nextlink_pages.
     """
 
-    def _extract_objects_from_value_array(self, response_text: str) -> list[Dict[str, Any]]:
+    def _extract_objects_from_value_array(
+        self, response_text: str
+    ) -> list[Dict[str, Any]]:
         """Extract individual JSON objects from the value array in response text.
 
         Args:
@@ -34,7 +36,7 @@ class QueryExecutionMixin(_PaginationBase):
             List of parsed objects from the value array.
         """
         items: list[Dict[str, Any]] = []
-        
+
         # Find the "value": [ ... ] section
         value_start = response_text.find('"value"')
         if value_start == -1:
@@ -88,10 +90,12 @@ class QueryExecutionMixin(_PaginationBase):
         try:
             next_link = self._extract_nextlink_from_text(response_text)
             items = self._extract_objects_from_value_array(response_text)
-            
+
             if items:
-                logger.info(f"Extracted {len(items)} items using object-by-object fallback")
-            
+                logger.info(
+                    f"Extracted {len(items)} items using object-by-object fallback"
+                )
+
             return items, next_link
         except Exception as e:
             logger.warning(f"Failed to extract data from raw text: {e}")
