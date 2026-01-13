@@ -65,7 +65,7 @@ config = DSISConfig(
     subscription_key_dsauth="...",
     subscription_key_dsdata="...",
     model_name="OpenWorksCommonModel",
-    model_version="1000001",
+    model_version="5000107",
 )
 
 client = DSISClient(config)
