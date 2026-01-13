@@ -27,7 +27,7 @@ pip install dsis-client
 from dsis_client import DSISClient, DSISConfig, Environment
 
 # Configure the client for native model (OW5000)
-config = DSISConfig.for_native_model(
+config = DSISConfig(
     environment=Environment.DEV,
     tenant_id="your-tenant-id",
     client_id="your-client-id",
@@ -36,7 +36,9 @@ config = DSISConfig.for_native_model(
     dsis_username="your-username",
     dsis_password="your-password",
     subscription_key_dsauth="your-dsauth-key",
-    subscription_key_dsdata="your-dsdata-key"
+    subscription_key_dsdata="your-dsdata-key",
+    model_name="OW5000",
+    model_version="5000107",
 )
 
 # Create client and retrieve data
@@ -52,8 +54,7 @@ print(data)
 ```python
 from dsis_client import DSISClient, DSISConfig, Environment
 
-# Use factory method for common model
-config = DSISConfig.for_common_model(
+config = DSISConfig(
     environment=Environment.DEV,
     tenant_id="...",
     client_id="...",
@@ -63,8 +64,8 @@ config = DSISConfig.for_common_model(
     dsis_password="...",
     subscription_key_dsauth="...",
     subscription_key_dsdata="...",
-    model_name="OpenWorksCommonModel",  # Optional, defaults to "OpenWorksCommonModel"
-    model_version="1000001"  # Optional, defaults to "5000107"
+    model_name="OpenWorksCommonModel",
+    model_version="1000001",
 )
 
 client = DSISClient(config)
