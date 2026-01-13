@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-config = DSISConfig.for_native_model(
+config = DSISConfig(
     environment=Environment[os.getenv("ENVIRONMENT", "DEV")],
     tenant_id=os.getenv("TENANT_ID"),
     client_id=os.getenv("CLIENT_ID"),
@@ -26,6 +26,8 @@ config = DSISConfig.for_native_model(
     dsis_password=os.getenv("DSIS_PASSWORD"),
     subscription_key_dsauth=os.getenv("SUBSCRIPTION_KEY_DSAUTH"),
     subscription_key_dsdata=os.getenv("SUBSCRIPTION_KEY_DSDATA"),
+    model_name="OW5000",
+    model_version="5000107",
 )
 ```
 
@@ -306,7 +308,7 @@ except Exception as e:
 ### Example 1: Filtered Query with Streaming
 
 ```python
-# Use the `DSISConfig.for_native_model(...)` example from the "Basic Configuration"
+# Use the `DSISConfig(...)` example from the "Basic Configuration"
 # section above to create `config` and `client`. The snippet below assumes
 # `client` is already created and available.
 
