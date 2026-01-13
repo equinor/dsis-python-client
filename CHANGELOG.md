@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/equinor/dsis-python-client/compare/v1.0.0...v1.1.0) (2026-01-13)
+
+
+### Features
+
+* enhance pagination handling with fallback for JSON parsing errors ([#52](https://github.com/equinor/dsis-python-client/issues/52)) ([00b4a48](https://github.com/equinor/dsis-python-client/commit/00b4a4850bf255ba2e286ffcbb794650263dbedb))
+
 ## [1.0.0](https://github.com/equinor/dsis-python-client/compare/v0.5.0...v1.0.0) (2025-12-23)
 
 
