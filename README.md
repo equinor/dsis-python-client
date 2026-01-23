@@ -24,9 +24,9 @@ pip install dsis-client
 ### Basic Usage
 
 ```python
-from dsis_client import DSISClient, DSISConfig, Environment
+from dsis_client import DSISClient, DSISConfig, Environment, QueryBuilder
 
-# Configure the client for native model (OW5000)
+# Configure the client
 config = DSISConfig(
     environment=Environment.DEV,
     tenant_id="your-tenant-id",
@@ -37,22 +37,28 @@ config = DSISConfig(
     dsis_password="your-password",
     subscription_key_dsauth="your-dsauth-key",
     subscription_key_dsdata="your-dsdata-key",
-    model_name="OW5000",
-    model_version="5000107",
 )
 
-# Create client and retrieve data
+# Create client
 client = DSISClient(config)
 
-# Get data using just model and version
-data = client.get_odata()
-print(data)
+# Build a query with model_name and model_version
+query = QueryBuilder(
+    model_name="OW5000",
+    district_id="your-district-id",
+    project="your-project",
+    model_version="5000107",  # optional, defaults to "5000107"
+).schema("Well").select("well_name,well_uwi")
+
+# Execute the query
+for well in client.execute_query(query):
+    print(well)
 ```
 
 ### Advanced Usage
 
 ```python
-from dsis_client import DSISClient, DSISConfig, Environment
+from dsis_client import DSISClient, DSISConfig, Environment, QueryBuilder
 
 config = DSISConfig(
     environment=Environment.DEV,
@@ -64,8 +70,6 @@ config = DSISConfig(
     dsis_password="...",
     subscription_key_dsauth="...",
     subscription_key_dsdata="...",
-    model_name="OpenWorksCommonModel",
-    model_version="5000107",
 )
 
 client = DSISClient(config)
@@ -74,39 +78,45 @@ client = DSISClient(config)
 if client.test_connection():
     print("✓ Connected to DSIS API")
 
-# Get data using just model and version
-data = client.get_odata()
-
-# Get Basin data for a specific district and project
-data = client.get_odata(
+# Build queries with model_name and model_version on QueryBuilder
+query = QueryBuilder(
+    model_name="OpenWorksCommonModel",
     district_id="123",
     project="wells",
-    data_table="Basin"
-)
+).schema("Basin")
 
-# Get Well data with project selection
-data = client.get_odata(
+for basin in client.execute_query(query):
+    print(basin)
+
+# Query with field selection
+query = QueryBuilder(
+    model_name="OW5000",
     district_id="123",
     project="wells",
-    data_table="Well",
-    select="name,depth,status"
-)
+).schema("Well").select("name,depth,status")
 
-# Get Wellbore data with filtering
-data = client.get_odata(
+for well in client.execute_query(query):
+    print(well)
+
+# Query with filtering
+query = QueryBuilder(
+    model_name="OW5000",
     district_id="123",
     project="wells",
-    data_table="Wellbore",
-    filter="depth gt 1000"
-)
+).schema("Wellbore").filter("depth gt 1000")
 
-# Get WellLog data with expand (related data)
-data = client.get_odata(
+for wellbore in client.execute_query(query):
+    print(wellbore)
+
+# Query with expand (related data)
+query = QueryBuilder(
+    model_name="OW5000",
     district_id="123",
     project="wells",
-    data_table="WellLog",
-    expand="logs,completions"
-)
+).schema("WellLog").expand("logs,completions")
+
+for log in client.execute_query(query):
+    print(log)
 
 # Refresh tokens if needed
 client.refresh_authentication()
@@ -141,35 +151,48 @@ The `QueryBuilder` provides a fluent interface for building OData queries. Query
 ```python
 from dsis_client import QueryBuilder, DSISClient, DSISConfig
 
-# Create a query with required path parameters
+# Create a query with model_name, district_id, and project
 query = QueryBuilder(
+    model_name="OW5000",
     district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
-    project="SNORRE"
+    project="SNORRE",
 ).schema("Well").select("name,depth")
 
 # Execute the query with client
 client = DSISClient(config)
-response = client.execute_query(query)
+for well in client.execute_query(query):
+    print(well)
 
 # Build a complex query with chaining
-query = (QueryBuilder(district_id="123", project="wells")
+query = (
+    QueryBuilder(
+        model_name="OW5000",
+        district_id="123",
+        project="wells",
+    )
     .schema("Well")
     .select("name", "depth", "status")
     .filter("depth gt 1000")
-    .expand("wellbores"))
+    .expand("wellbores")
+)
 
-response = client.execute_query(query)
+for well in client.execute_query(query):
+    print(well)
 
 # Reuse builder for multiple queries
-builder = QueryBuilder(district_id="123", project="wells")
+builder = QueryBuilder(
+    model_name="OW5000",
+    district_id="123",
+    project="wells",
+)
 
 # Query 1
 query1 = builder.schema("Well").select("name,depth")
-response1 = client.execute_query(query1)
+wells = list(client.execute_query(query1))
 
 # Query 2 (reset builder for new query)
 query2 = builder.reset().schema("Basin").select("id,name")
-response2 = client.execute_query(query2)
+basins = list(client.execute_query(query2))
 ```
 
 #### Using Model Classes with Auto-Casting
@@ -181,18 +204,23 @@ from dsis_client import QueryBuilder
 from dsis_model_sdk.models.common import Well, Basin, Fault
 
 # Use schema() with model class for type-safe casting
-query = (QueryBuilder(district_id="123", project="wells")
+query = (
+    QueryBuilder(
+        model_name="OW5000",
+        district_id="123",
+        project="wells",
+    )
     .schema(Basin)
-    .select("basin_name", "basin_id", "native_uid"))
+    .select("basin_name", "basin_id", "native_uid")
+)
 
 # Option 1: Auto-cast results with execute_query
-basins = client.execute_query(query, cast=True)
-for basin in basins:
+for basin in client.execute_query(query, cast=True):
     print(f"Basin: {basin.basin_name}")  # Type-safe access with IDE autocomplete
 
 # Option 2: Manual cast with client.cast_results()
-response = client.execute_query(query)
-basins = client.cast_results(response['value'], Basin)
+all_items = list(client.execute_query(query))
+basins = client.cast_results(all_items, Basin)
 
 # Import models directly from dsis_model_sdk
 from dsis_model_sdk.models.common import Well, Fault
@@ -266,11 +294,15 @@ from dsis_model_sdk.protobuf import decode_horizon_data
 from dsis_model_sdk.utils.protobuf_decoders import horizon_to_numpy
 
 # Step 1: Query for horizon metadata (including binary data field)
-query = QueryBuilder(district_id=district_id, project=project).schema(HorizonData3D).select("horizon_name,horizon_mean,horizon_mean_unit,data,native_uid")
-response = client.executeQuery(query)
+query = QueryBuilder(
+    model_name="OW5000",
+    district_id=district_id,
+    project=project,
+).schema(HorizonData3D).select("horizon_name,horizon_mean,horizon_mean_unit,data,native_uid")
+horizons = list(client.execute_query(query, cast=True, max_pages=1))
 
 # Step 2: Cast to model and decode binary data field
-horizon = HorizonData3D.from_dict(response['value'][0])
+horizon = horizons[0]
 print(f"Horizon: {horizon.horizon_name}")
 print(f"Mean depth: {horizon.horizon_mean} {horizon.horizon_mean_unit}")
 
@@ -298,7 +330,11 @@ from dsis_model_sdk.protobuf import decode_horizon_data
 from dsis_model_sdk.utils.protobuf_decoders import horizon_to_numpy
 
 # Step 1: Query for horizon metadata only (exclude large binary data field)
-query = QueryBuilder(district_id=district_id, project=project).schema(HorizonData3D).select("horizon_name,horizon_mean,horizon_mean_unit,native_uid")
+query = QueryBuilder(
+    model_name="OW5000",
+    district_id=district_id,
+    project=project,
+).schema(HorizonData3D).select("horizon_name,horizon_mean,horizon_mean_unit,native_uid")
 horizons = list(client.execute_query(query, cast=True))
 
 # Step 2: Fetch binary data separately for specific horizon
@@ -333,7 +369,11 @@ from dsis_model_sdk.protobuf import decode_log_curves
 from dsis_model_sdk.utils.protobuf_decoders import log_curve_to_dict
 
 # Query for log curve metadata (exclude binary data for efficiency)
-query = QueryBuilder(district_id=district_id, project=project).schema("LogCurve").select("log_curve_name,native_uid")
+query = QueryBuilder(
+    model_name="OW5000",
+    district_id=district_id,
+    project=project,
+).schema("LogCurve").select("log_curve_name,native_uid")
 log_curves = list(client.execute_query(query, max_pages=1))
 
 # Fetch binary data for specific log curve - pass entity object directly!
@@ -368,7 +408,11 @@ from dsis_model_sdk.protobuf import decode_seismic_float_data
 from dsis_model_sdk.utils.protobuf_decoders import seismic_3d_to_numpy
 
 # Query for seismic dataset metadata (exclude binary data - it's very large!)
-query = QueryBuilder(district_id=district_id, project=project).schema(SeismicDataSet3D).select("seismic_dataset_name,native_uid")
+query = QueryBuilder(
+    model_name="OW5000",
+    district_id=district_id,
+    project=project,
+).schema(SeismicDataSet3D).select("seismic_dataset_name,native_uid")
 seismic_datasets = list(client.execute_query(query, cast=True))
 
 # Fetch binary data separately for specific seismic dataset
@@ -409,20 +453,24 @@ from io import BytesIO
 from dsis_model_sdk.protobuf import decode_lgc_structure, LGCStructure_pb2
 
 # Query for surface grid metadata
-query = QueryBuilder(district_id=district_id, project=project).schema("SurfaceGrid").select("native_uid,grid_name")
+query = QueryBuilder(
+    model_name=\"OpenWorksCommonModel\",
+    district_id=district_id,
+    project=project,
+).schema(\"SurfaceGrid\").select(\"native_uid,grid_name\")
 grids = list(client.execute_query(query, cast=True, max_pages=1))
 
 # Fetch binary data for a specific grid
 grid = grids[0]
-print(f"Downloading grid: {grid.grid_name or grid.native_uid}")
+print(f\"Downloading grid: {grid.grid_name or grid.native_uid}\")
 
 # Build the endpoint URL (SurfaceGrid uses /$value suffix)
-endpoint_path = f"{config.model_name}/{config.model_version}/{district_id}/{project}/SurfaceGrid('{grid.native_uid}')/$value"
-full_url = f"{config.data_endpoint}/{endpoint_path}"
+endpoint_path = f\"{query.model_name}/{query.model_version}/{district_id}/{project}/SurfaceGrid('{grid.native_uid}')/$value\"
+full_url = f\"{config.data_endpoint}/{endpoint_path}\"
 
 # Get the binary data
 headers = client.auth.get_auth_headers()
-headers["Accept"] = "application/json"
+headers[\"Accept\"] = \"application/json\"
 response = client._session.get(full_url, headers=headers)
 data = response.content
 
@@ -508,8 +556,6 @@ The client supports three environments:
 | `dsis_password` | Yes | - | DSIS password for authentication |
 | `subscription_key_dsauth` | Yes | - | APIM subscription key for dsauth endpoint |
 | `subscription_key_dsdata` | Yes | - | APIM subscription key for dsdata endpoint |
-| `model_name` | Yes | - | DSIS model name (e.g., "OW5000" or "OpenWorksCommonModel") |
-| `model_version` | No | "5000107" | Model version |
 | `dsis_site` | No | "qa" | DSIS site header |
 
 ## Error Handling
@@ -762,21 +808,31 @@ print(well.well_name)  # Type-safe access
 
 ## QueryBuilder API
 
-### `QueryBuilder(district_id, project)`
+### `QueryBuilder(model_name, district_id, project, model_version="5000107")`
 
 Create a new query builder instance. QueryBuilder IS the query object - no need to call `.build()`.
 
 **Parameters:**
+- `model_name`: DSIS model name (e.g., "OW5000" or "OpenWorksCommonModel") (required)
 - `district_id`: District ID for the query (required)
 - `project`: Project name for the query (required)
+- `model_version`: Model version (default: "5000107")
 
 **Example:**
 ```python
 # Create a query builder with required parameters
-query = QueryBuilder(district_id="123", project="SNORRE")
+query = QueryBuilder(
+    model_name="OW5000",
+    district_id="123",
+    project="SNORRE",
+)
 
 # Chain methods to build the query
-query = QueryBuilder(district_id="123", project="SNORRE").schema("Well").select("name,depth")
+query = QueryBuilder(
+    model_name="OW5000",
+    district_id="123",
+    project="SNORRE",
+).schema("Well").select("name,depth")
 ```
 
 ### `schema(schema)`
@@ -791,11 +847,19 @@ Set the schema (data table) using a name or model class.
 **Example:**
 ```python
 # Using schema name
-query = QueryBuilder(district_id="123", project="SNORRE").schema("Well")
+query = QueryBuilder(
+    model_name="OW5000",
+    district_id="123",
+    project="SNORRE",
+).schema("Well")
 
 # Using model class for type-safe casting
 from dsis_model_sdk.models.common import Basin
-query = QueryBuilder(district_id="123", project="SNORRE").schema(Basin)
+query = QueryBuilder(
+    model_name="OW5000",
+    district_id="123",
+    project="SNORRE",
+).schema(Basin)
 ```
 
 ### `select(*fields)`
@@ -868,9 +932,13 @@ Note: Does not reset district_id or project set in constructor.
 
 **Example:**
 ```python
-builder = QueryBuilder(district_id="123", project="SNORRE")
+builder = QueryBuilder(
+    model_name="OW5000",
+    district_id="123",
+    project="SNORRE",
+)
 builder.schema("Well").select("name")
-builder.reset()  # Clears schema and select, keeps district_id and project
+builder.reset()  # Clears schema and select, keeps model_name, district_id and project
 builder.schema("Basin").select("id")  # Reuse for new query
 ```
 
@@ -892,9 +960,14 @@ Cast API response items to model instances.
 ```python
 from dsis_model_sdk.models.common import Basin
 
-query = QueryBuilder(district_id="123", project="SNORRE").schema(Basin).select("basin_name,basin_id")
-response = client.execute_query(query)
-basins = client.cast_results(response['value'], Basin)
+query = QueryBuilder(
+    model_name="OW5000",
+    district_id="123",
+    project="SNORRE",
+).schema(Basin).select("basin_name,basin_id")
+
+all_items = list(client.execute_query(query))
+basins = client.cast_results(all_items, Basin)
 for basin in basins:
     print(f"Basin: {basin.basin_name}")
 ```
