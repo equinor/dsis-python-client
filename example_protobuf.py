@@ -17,10 +17,9 @@ This example shows:
 """
 
 import os
+
 import numpy as np
 from dotenv import load_dotenv
-
-from dsis_client import DSISClient, DSISConfig, Environment, QueryBuilder
 from dsis_model_sdk.models.common import HorizonData3D, LogCurve, SeismicDataSet3D
 from dsis_model_sdk.protobuf import (
     decode_horizon_data,
@@ -32,6 +31,8 @@ from dsis_model_sdk.utils.protobuf_decoders import (
     log_curve_to_dict,
     seismic_3d_to_numpy,
 )
+
+from dsis_client import DSISClient, DSISConfig, Environment, QueryBuilder
 
 # Load environment variables
 load_dotenv()

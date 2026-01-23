@@ -12,15 +12,16 @@ Key Benefits:
 """
 
 import os
-from dotenv import load_dotenv
 
-from dsis_client import DSISClient, DSISConfig, Environment, QueryBuilder
-from dsis_model_sdk.models.common import SeismicDataSet3D, HorizonData3D, LogCurve
+from dotenv import load_dotenv
+from dsis_model_sdk.models.common import HorizonData3D, LogCurve, SeismicDataSet3D
 from dsis_model_sdk.protobuf import (
-    decode_seismic_float_data,
     decode_horizon_data,
     decode_log_curves,
+    decode_seismic_float_data,
 )
+
+from dsis_client import DSISClient, DSISConfig, Environment, QueryBuilder
 
 # Load environment variables
 load_dotenv()
