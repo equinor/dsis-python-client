@@ -18,11 +18,13 @@ class QueryBuilder:
     against dsis_model_sdk schemas. This class IS the query object - no need
     to call build().
 
-    district_id and project are required parameters that specify the data location.
+    model_name, model_version, district_id and project are required parameters
+    that specify the data model and location.
 
     Example:
         >>> from dsis_model_sdk.models.common import Fault
         >>> query = QueryBuilder(
+        ...     model_name="OW5000",
         ...     district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA",
         ...     project="SNORRE"
         ... ).schema(Fault).select("id,type").filter("type eq 'NORMAL'")
@@ -30,13 +32,23 @@ class QueryBuilder:
     >>> faults = query.cast_results(response["value"])
     """
 
-    def __init__(self, district_id: Union[str, int], project: str):
+    def __init__(
+        self,
+        model_name: str,
+        district_id: Union[str, int],
+        project: str,
+        model_version: str = "5000107",
+    ):
         """Initialize the query builder.
 
         Args:
+            model_name: DSIS model name (e.g., "OW5000" or "OpenWorksCommonModel")
             district_id: District ID for the query (required)
             project: Project name for the query (required)
+            model_version: Model version (default: "5000107")
         """
+        self.model_name = model_name
+        self.model_version = model_version
         self.district_id = district_id
         self.project = project
         self._schema_name: Optional[str] = None
@@ -213,8 +225,8 @@ class QueryBuilder:
     def __repr__(self) -> str:
         """String representation of the builder."""
         return (
-            f"QueryBuilder(district_id={self.district_id}, "
-            f"project={self.project}, schema={self._schema_name}, "
+            f"QueryBuilder(model_name={self.model_name}, model_version={self.model_version}, "
+            f"district_id={self.district_id}, project={self.project}, schema={self._schema_name}, "
             f"select={self._select}, expand={self._expand}, filter={self._filter})"
         )
 
@@ -228,6 +240,6 @@ class QueryBuilder:
             return self.get_query_string()
         except ValueError:
             return (
-                f"QueryBuilder(district_id={self.district_id}, "
-                f"project={self.project}, schema=None)"
+                f"QueryBuilder(model_name={self.model_name}, "
+                f"district_id={self.district_id}, project={self.project}, schema=None)"
             )

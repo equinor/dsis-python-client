@@ -25,8 +25,6 @@ def make_config():
         dsis_password="p",
         subscription_key_dsauth="k1",
         subscription_key_dsdata="k2",
-        model_name="Model",
-        model_version="1",
         dsis_site="qa",
         data_endpoint="https://example.org",
     )
@@ -47,7 +45,12 @@ def _make_client_and_patch(monkeypatch, district, project, response):
     cfg = make_config()
     client = DSISClient(cfg)
 
-    qb = QueryBuilder(district_id=district, project=project)
+    qb = QueryBuilder(
+        model_name="Model",
+        district_id=district,
+        project=project,
+        model_version="1",
+    )
     qb.schema("MySchema")
 
     # Normalize response into pages list
