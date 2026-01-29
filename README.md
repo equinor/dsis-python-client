@@ -39,6 +39,7 @@ config = DSISConfig(
     subscription_key_dsdata="your-dsdata-key",
     model_name="OW5000",
     model_version="5000107",
+    dsis_site="", # It should be "dev", "qa" for test, or "prod"
 )
 
 # Create client and retrieve data
@@ -66,6 +67,7 @@ config = DSISConfig(
     subscription_key_dsdata="...",
     model_name="OpenWorksCommonModel",
     model_version="5000107",
+    dsis_site="", # It should be "dev", "qa" for test, or "prod"
 )
 
 client = DSISClient(config)
