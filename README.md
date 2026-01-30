@@ -37,6 +37,7 @@ config = DSISConfig(
     dsis_password="your-password",
     subscription_key_dsauth="your-dsauth-key",
     subscription_key_dsdata="your-dsdata-key",
+    dsis_site="", # It should be "dev", "qa" for test, or "prod"
 )
 
 # Create client
@@ -70,6 +71,8 @@ config = DSISConfig(
     dsis_password="...",
     subscription_key_dsauth="...",
     subscription_key_dsdata="...",
+    dsis_site="", # It should be "dev", "qa" for test, or "prod"
+
 )
 
 client = DSISClient(config)
