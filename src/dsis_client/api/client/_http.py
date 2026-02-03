@@ -5,7 +5,7 @@ Provides mixin class for making authenticated HTTP requests.
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Generator, Optional
 from urllib.parse import urljoin
 
 from ..exceptions import DSISAPIError, DSISJSONParseError
@@ -17,6 +17,9 @@ if TYPE_CHECKING:
     from ..config import DSISConfig
 
 logger = logging.getLogger(__name__)
+
+# Status codes that trigger automatic token refresh and retry
+_RETRY_STATUS_CODES = {401, 500}
 
 
 class HTTPTransportMixin:
@@ -30,13 +33,60 @@ class HTTPTransportMixin:
     auth: "DSISAuth"
     _session: "requests.Session"
 
+    def _make_request_with_retry(
+        self,
+        url: str,
+        params: Optional[Dict[str, Any]] = None,
+        extra_headers: Optional[Dict[str, str]] = None,
+        stream: bool = False,
+        request_type: str = "request",
+    ) -> "requests.Response":
+        """Make an HTTP GET request with automatic token refresh retry.
+
+        Handles the common pattern of making a request, checking for auth-related
+        errors (401 or 500), refreshing tokens, and retrying once.
+
+        Args:
+            url: Full URL to request
+            params: Query parameters
+            extra_headers: Additional headers to merge with auth headers
+            stream: Whether to stream the response
+            request_type: Description for logging (e.g., "binary", "streaming")
+
+        Returns:
+            The HTTP response object (after potential retry)
+        """
+        headers = self.auth.get_auth_headers()
+        if extra_headers:
+            headers.update(extra_headers)
+
+        response = self._session.get(url, headers=headers, params=params, stream=stream)
+
+        if response.status_code in _RETRY_STATUS_CODES:
+            logger.warning(
+                f"{request_type.capitalize()} request failed with {response.status_code}, "
+                "refreshing tokens and retrying"
+            )
+            if stream:
+                response.close()
+            self.auth.refresh_tokens()
+            headers = self.auth.get_auth_headers()
+            if extra_headers:
+                headers.update(extra_headers)
+            response = self._session.get(
+                url, headers=headers, params=params, stream=stream
+            )
+
+        return response
+
     def _request(
         self, endpoint: str, params: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Make an authenticated GET request to the DSIS API.
 
         Internal method that constructs the full URL, adds authentication
-        headers, and makes the request.
+        headers, and makes the request. Automatically retries once with
+        refreshed tokens on 401 or 500 errors.
 
         Args:
             endpoint: API endpoint path
@@ -49,10 +99,8 @@ class HTTPTransportMixin:
             DSISAPIError: If the request fails or returns non-200 status
         """
         url = urljoin(f"{self.config.data_endpoint}/", endpoint)
-        headers = self.auth.get_auth_headers()
-
         logger.info(f"Making request to {url}")
-        response = self._session.get(url, headers=headers, params=params)
+        response = self._make_request_with_retry(url, params)
 
         if response.status_code != 200:
             error_msg = (
@@ -88,6 +136,7 @@ class HTTPTransportMixin:
         """Make an authenticated GET request for binary data.
 
         Internal method for fetching binary protobuf data from the DSIS API.
+        Automatically retries once with refreshed tokens on 401 or 500 errors.
 
         Note: The DSIS API returns binary protobuf data with Accept: application/json,
         not application/octet-stream. This is the actual behavior observed in the API.
@@ -103,12 +152,13 @@ class HTTPTransportMixin:
             DSISAPIError: If the request fails with an error other than 404
         """
         url = urljoin(f"{self.config.data_endpoint}/", endpoint)
-        headers = self.auth.get_auth_headers()
-        # Use application/json - the API returns binary data with this Accept header
-        headers["Accept"] = "application/json"
-
         logger.info(f"Making binary request to {url}")
-        response = self._session.get(url, headers=headers, params=params)
+        response = self._make_request_with_retry(
+            url,
+            params,
+            extra_headers={"Accept": "application/json"},
+            request_type="binary",
+        )
 
         if response.status_code == 404:
             # Entity exists but has no bulk data field
@@ -129,10 +179,11 @@ class HTTPTransportMixin:
         endpoint: str,
         params: Optional[Dict[str, Any]] = None,
         chunk_size: int = 10 * 1024 * 1024,
-    ):
+    ) -> Generator[bytes, None, None]:
         """Stream binary data in chunks to avoid loading large datasets into memory.
 
         Internal method for streaming binary protobuf data from the DSIS API.
+        Automatically retries once with refreshed tokens on 401 or 500 errors.
 
         Note: The DSIS API returns binary protobuf data with Accept: application/json,
         not application/octet-stream. This is the actual behavior observed in the API.
@@ -150,12 +201,14 @@ class HTTPTransportMixin:
             StopIteration: If the entity has no bulk data (404)
         """
         url = urljoin(f"{self.config.data_endpoint}/", endpoint)
-        headers = self.auth.get_auth_headers()
-        # Use application/json - the API returns binary data with this Accept header
-        headers["Accept"] = "application/json"
-
         logger.info(f"Making streaming binary request to {url}")
-        response = self._session.get(url, headers=headers, params=params, stream=True)
+        response = self._make_request_with_retry(
+            url,
+            params,
+            extra_headers={"Accept": "application/json"},
+            stream=True,
+            request_type="streaming",
+        )
 
         if response.status_code == 404:
             # Entity exists but has no bulk data field
