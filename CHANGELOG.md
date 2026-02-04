@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/equinor/dsis-python-client/compare/v1.1.0...v1.2.0) (2026-02-04)
+
+
+### Features
+
+* implement retry logic for HTTP requests on token expiry ([#61](https://github.com/equinor/dsis-python-client/issues/61)) ([1c4ff14](https://github.com/equinor/dsis-python-client/commit/1c4ff147e43d534dea91b40d19867e4b4531595c))
+
 ## [1.1.0](https://github.com/equinor/dsis-python-client/compare/v1.0.0...v1.1.0) (2026-01-13)
 
 
