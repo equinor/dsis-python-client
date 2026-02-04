@@ -39,7 +39,7 @@ class HTTPTransportMixin:
         params: Optional[Dict[str, Any]] = None,
         extra_headers: Optional[Dict[str, str]] = None,
         stream: bool = False,
-        request_type: str = "request",
+        request_type: str = "standard",
     ) -> "requests.Response":
         """Make an HTTP GET request with automatic token refresh retry.
 
