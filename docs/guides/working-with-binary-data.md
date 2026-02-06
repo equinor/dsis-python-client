@@ -137,8 +137,8 @@ Some entities expose bulk content via *media* endpoints. In metadata responses y
 The suffix is not always the same (it can be `/$value`, `/data`, `/data_values`, etc.), and the
 required `Accept` header may vary between `application/octet-stream` and `application/json`.
 
-When the built-in bulk helpers do not match the entity’s media endpoint, use the read-link value
-and fetch it explicitly. For large payloads, use `stream=True` and iterate in chunks.
+When the built-in bulk helpers do not match the entity’s media endpoint, check the read-link value
+and to be sure you use the correct data_field. For large payloads, use `stream=True` and iterate in chunks.
 
 ```python
 from urllib.parse import urljoin
