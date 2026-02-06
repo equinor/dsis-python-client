@@ -32,23 +32,10 @@ DSIS_USERNAME=<dsis-user>
 DSIS_PASSWORD=<dsis-password>
 DSIS_SUBSCRIPTION_KEY_DSAUTH=<subscription-key-for-dsauth>
 DSIS_SUBSCRIPTION_KEY_DSDATA=<subscription-key-for-dsdata>
+DSIS_SITE=<dsis-env>
 ```
 
 Load via your platform (shell export, CI variables, secret manager). Avoid committing real values.
-
-### Optional Validation Snippet
-
-```python
-import os
-required = [
-    "DSIS_TENANT_ID", "DSIS_CLIENT_ID", "DSIS_CLIENT_SECRET",
-    "DSIS_ACCESS_APP_ID", "DSIS_USERNAME", "DSIS_PASSWORD",
-    "DSIS_SUBSCRIPTION_KEY_DSAUTH", "DSIS_SUBSCRIPTION_KEY_DSDATA"
-]
-missing = [v for v in required if not os.getenv(v)]
-if missing:
-    raise SystemExit(f"Missing variables: {', '.join(missing)}")
-```
 
 ## 4. Configuration & Usage
 
@@ -65,13 +52,16 @@ config = DSISConfig(
     dsis_username=os.getenv("DSIS_USERNAME"),
     dsis_password=os.getenv("DSIS_PASSWORD"),
     subscription_key_dsauth=os.getenv("DSIS_SUBSCRIPTION_KEY_DSAUTH"),
-    subscription_key_dsdata=os.getenv("DSIS_SUBSCRIPTION_KEY_DSDATA")
+    subscription_key_dsdata=os.getenv("DSIS_SUBSCRIPTION_KEY_DSDATA"),
+    model_name="OpenWorksCommonModel",  # or "OW5000" for native model
+    dsis_site="prod"
 )
 
 client = DSISClient(config)
 if client.test_connection():
     # Get data - schema refers to data schemas like "Well", "Basin", "Fault"
     data = client.get(district_id="<district-id>", project="<project-name>", schema="Basin")
+```
 ```
 
 ## 5. Flow Summary
@@ -92,7 +82,6 @@ if client.test_connection():
 ## 7. Security Reminders
 
 - Never print secrets.
-- Rotate secrets & subscription keys.
 - Separate credentials per environment.
 - Prefer managed secret stores (e.g. Key Vault) over flat files.
 

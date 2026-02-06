@@ -66,7 +66,22 @@ Districts have different naming conventions:
 | Native Model | Common Model |
 |--------------|--------------|
 | `OpenWorks_OW_SV4FROST_SingleSource-OW_SV4FROST` | `OpenWorksCommonModel_OW_SV4FROST-OW_SV4FROST` |
+**Helper function** to build correct district IDs from a database name:
 
+```python
+def build_district_id(database: str, *, model_name: str) -> str:
+    """Build DSIS district_id from OpenWorks database short-name."""
+    if model_name == "OpenWorksCommonModel":
+        return f"OpenWorksCommonModel_OW_{database}-OW_{database}"
+    return f"OpenWorks_OW_{database}_SingleSource-OW_{database}"
+
+# Examples:
+build_district_id("SV4FROST", model_name="OpenWorksCommonModel")
+# => "OpenWorksCommonModel_OW_SV4FROST-OW_SV4FROST"
+
+build_district_id("SV4FROST", model_name="OW5000")
+# => "OpenWorks_OW_SV4FROST_SingleSource-OW_SV4FROST"
+```
 ### 4. Performance & Reliability
 
 | Scenario | Native Model | Common Model |
@@ -80,50 +95,45 @@ The Native Model (OW5000) can fail with large grids due to connection resets in 
 
 ## Code Examples
 
+For full configuration setup, see [Getting Started](getting-started.md).
+
 ### Using Native Model (OW5000)
 
 ```python
-from dsis_client import DSISClient, DSISConfig, Environment
-from urllib.parse import quote
+from dsis_client import DSISClient, QueryBuilder
 
-config = DSISConfig(
-    environment=Environment.DEV,
-    model_name="OW5000",
-    model_version="5000107",
-    # ... other config
+# Assumes client configured with model_name="OW5000"
+dist = build_district_id("SV4FROST", model_name="OW5000")
+
+# Query using OData endpoint (composite key structure)
+# For grid data, prefer using Common Model instead
+query = (
+    QueryBuilder(district_id=dist, project="JS_ALL")
+    .schema("Rgrid")
+    .select("attribute,data_source,geo_name")
 )
-client = DSISClient(config)
 
-# Composite key (must URL-encode special characters)
-key = "attribute='Z',data_source='ALDAV',geo_name='VIKING GP. Top',geo_type='SURFACE',map_data_set_name='D-15-rev1.1CS pinpj2016'"
-encoded_key = quote(key, safe="=,")
-
-district = "OpenWorks_OW_SV4FROST_SingleSource-OW_SV4FROST"
-field = "JS_ALL"
-
-endpoint = f"OW5000/5000107/{district}/{field}/Rgrid({encoded_key})/$value"
+for item in client.execute_query(query):
+    print(item)
 ```
 
 ### Using Common Model (Recommended)
 
 ```python
-from dsis_client import DSISClient, DSISConfig, Environment
+from dsis_client import DSISClient, QueryBuilder
 
-config = DSISConfig(
-    environment=Environment.DEV,
-    model_name="OpenWorksCommonModel",
-    model_version="5000107",
-    # ... other config
+# Assumes client configured with model_name="OpenWorksCommonModel"
+dist = build_district_id("SV4FROST", model_name="OpenWorksCommonModel")
+
+# Simple native_uid-based queries
+query = (
+    QueryBuilder(district_id=dist, project="JS_ALL")
+    .schema("SurfaceGrid")
+    .select("native_uid,grid_name")
 )
-client = DSISClient(config)
 
-# Simple native_uid key
-native_uid = "16621"
-
-district = "OpenWorksCommonModel_OW_SV4FROST-OW_SV4FROST"
-field = "JS_ALL"
-
-endpoint = f"OpenWorksCommonModel/5000107/{district}/{field}/SurfaceGrid('{native_uid}')/$value"
+for grid in client.execute_query(query):
+    print(f"Grid: {grid['grid_name']} (uid: {grid['native_uid']})")
 ```
 
 ## When to Use Which Model

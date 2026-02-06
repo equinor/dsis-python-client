@@ -11,10 +11,10 @@ The DSIS API serves data in two formats:
 
 ## Installation
 
-To work with binary data, install with protobuf support:
+To decode protobuf bulk payloads, install `dsis-model-sdk` with protobuf support:
 
 ```bash
-pip install dsis-schemas[protobuf]
+pip install dsis-model-sdk[protobuf]
 ```
 
 **Note:** Requires Python 3.11+ and protobuf 6.33.0+
@@ -40,8 +40,12 @@ from dsis_client import DSISClient, QueryBuilder
 from dsis_model_sdk.models.common import HorizonData3D
 from dsis_model_sdk.protobuf import decode_horizon_data
 
+# Example district_id for Common Model + SV4TSTA database
+district_id = "OpenWorksCommonModel_OW_SV4TSTA-OW_SV4TSTA"
+project = "SNORRE"
+
 # Query for entity
-query = QueryBuilder(district_id="123", project="SNORRE").schema(HorizonData3D)
+query = QueryBuilder(district_id=district_id, project=project).schema(HorizonData3D)
 horizons = list(client.execute_query(query, cast=True, max_pages=1))
 
 # Fetch binary data - pass entity object directly!
@@ -65,8 +69,12 @@ Use for large datasets (> 100MB) to avoid memory issues:
 from dsis_model_sdk.models.common import SeismicDataSet3D
 from dsis_model_sdk.protobuf import decode_seismic_float_data
 
+# Example district_id for Common Model + SV4TSTA database
+district_id = "OpenWorksCommonModel_OW_SV4TSTA-OW_SV4TSTA"
+project = "SNORRE"
+
 # Query for entity
-query = QueryBuilder(district_id="123", project="SNORRE").schema(SeismicDataSet3D)
+query = QueryBuilder(district_id=district_id, project=project).schema(SeismicDataSet3D)
 datasets = list(client.execute_query(query, cast=True, max_pages=1))
 
 # Stream large dataset in chunks
@@ -92,11 +100,14 @@ Both `get_bulk_data()` and `get_bulk_data_stream()` accept three formats:
 
 ```python
 # Option 1: String native_uid
+district_id = "OpenWorksCommonModel_OW_SV4TSTA-OW_SV4TSTA"
+project = "SNORRE"
+
 binary_data = client.get_bulk_data(
     schema=HorizonData3D,
     native_uid="46075",  # String
-    district_id="123",
-    project="SNORRE"
+    district_id=district_id,
+    project=project
 )
 
 # Option 2: Entity object (automatically extracts native_uid)
@@ -110,147 +121,106 @@ binary_data = client.get_bulk_data(
 binary_data = client.get_bulk_data(
     schema=HorizonData3D,
     native_uid={"native_uid": "46075", "name": "..."},  # Dict
-    district_id="123",
-    project="SNORRE"
+    district_id=district_id,
+    project=project
 )
 ```
 
-## Complete Examples
+## Media read-links (`/$value`, `/data`, `/data_values`, ...)
 
-### Example 1: Horizon Data
+Some entities expose bulk content via *media* endpoints. In metadata responses you may see:
+
+- `odata.mediaReadLink`
+- `data@odata.mediaReadLink`
+- `data_values@odata.mediaReadLink`
+
+The suffix is not always the same (it can be `/$value`, `/data`, `/data_values`, etc.), and the
+required `Accept` header may vary between `application/octet-stream` and `application/json`.
+
+When the built-in bulk helpers do not match the entity’s media endpoint, use the read-link value
+and fetch it explicitly. For large payloads, use `stream=True` and iterate in chunks.
 
 ```python
-import numpy as np
-from dsis_client import DSISClient, QueryBuilder
-from dsis_model_sdk.models.common import HorizonData3D
-from dsis_model_sdk.protobuf import decode_horizon_data
-from dsis_model_sdk.utils.protobuf_decoders import horizon_to_numpy
+from urllib.parse import urljoin
 
-# Query for horizons (exclude binary data field for efficiency)
-query = QueryBuilder(district_id="123", project="SNORRE").schema(HorizonData3D).select("horizon_name,native_uid")
-horizons = list(client.execute_query(query, cast=True))
+from dsis_client import QueryBuilder
 
-# Fetch binary data for specific horizon
-horizon = horizons[0]
-binary_data = client.get_bulk_data(
-    schema=HorizonData3D,
-    native_uid=horizon,
-    query=query
+district_id = "OpenWorksCommonModel_OW_SV4TSTA-OW_SV4TSTA"
+project = "SNORRE"
+
+query = QueryBuilder(district_id=district_id, project=project).schema("SurfaceGrid")
+entity = next(client.execute_query(query))
+
+read_link = (
+    entity.get("odata.mediaReadLink")
+    or entity.get("data@odata.mediaReadLink")
+    or entity.get("data_values@odata.mediaReadLink")
 )
+if not read_link:
+    raise ValueError("No @odata mediaReadLink found on entity")
 
-if binary_data:
-    # Decode protobuf
-    decoded = decode_horizon_data(binary_data)
-    
-    # Convert to NumPy array
-    array, metadata = horizon_to_numpy(decoded)
-    
-    print(f"Horizon: {horizon.horizon_name}")
-    print(f"Grid shape: {array.shape}")
-    print(f"Data coverage: {(~np.isnan(array)).sum() / array.size * 100:.1f}%")
-    
-    # Analyze valid data
-    valid_data = array[~np.isnan(array)]
-    print(f"Depth range: {np.min(valid_data):.2f} - {np.max(valid_data):.2f}")
+base = f"{client.config.model_name}/{client.config.model_version}/{district_id}/{project}/"
+url = urljoin(client.config.data_endpoint.rstrip("/") + "/", base + read_link.lstrip("/"))
+
+chunk_size = 10 * 1024 * 1024  # 10MB
+for attempt in range(2):
+    headers = client.auth.get_auth_headers()
+    headers["Accept"] = "application/octet-stream, application/json"
+
+    with client._session.get(url, headers=headers, stream=True) as resp:
+        if resp.status_code == 401 and attempt == 0:
+            client.refresh_authentication()
+            continue
+        resp.raise_for_status()
+        bulk_bytes = b"".join(resp.iter_content(chunk_size=chunk_size))
+        break
 ```
 
-### Example 2: Log Curves
+## Decoding SurfaceGrid (LGCStructure)
+
+SurfaceGrid payloads are often encoded as an LGCStructure protobuf. In many cases the payload is
+length-prefixed; `decode_lgc_structure(..., skip_length_prefix=True)` handles that.
 
 ```python
-from dsis_model_sdk.models.common import LogCurve
-from dsis_model_sdk.protobuf import decode_log_curves
-from dsis_model_sdk.utils.protobuf_decoders import log_curve_to_dict
+from typing import Any
 
-# Query for log curves
-query = QueryBuilder(district_id="123", project="SNORRE").schema(LogCurve).select("log_curve_name,native_uid")
-curves = list(client.execute_query(query, max_pages=1))
+from dsis_model_sdk.protobuf import LGCStructure_pb2, decode_lgc_structure
 
-# Fetch binary data
-curve = curves[0]
-binary_data = client.get_bulk_data(
-    schema=LogCurve,
-    native_uid=curve,
-    query=query
-)
 
-if binary_data:
-    # Decode
-    decoded = decode_log_curves(binary_data)
-    
-    print(f"Curve type: {'DEPTH' if decoded.curve_type == decoded.DEPTH else 'TIME'}")
-    print(f"Index range: {decoded.index.start_index} to {decoded.index.start_index + decoded.index.number_of_index * decoded.index.increment}")
-    
-    # Convert to dict for easier access
-    data = log_curve_to_dict(decoded)
-    
-    for curve_name, curve_data in data['curves'].items():
-        print(f"Curve: {curve_name}")
-        print(f"  Unit: {curve_data['unit']}")
-        print(f"  Values: {len(curve_data['values'])} samples")
-```
+def _element_to_dict(element: Any) -> dict[str, Any]:
+    DataType = LGCStructure_pb2.LGCStructure.LGCElement.DataType
+    data_type = DataType.Name(element.dataType)
 
-### Example 3: Surface Grid Data
-
-Surface grids use the LGCStructure format (Landmark Graphics Corporation tabular structure):
-
-```python
-from io import BytesIO
-from dsis_model_sdk.protobuf import decode_lgc_structure, LGCStructure_pb2
-
-# Query for grids
-query = QueryBuilder(district_id="123", project="SNORRE").schema("SurfaceGrid").select("native_uid,grid_name")
-grids = list(client.execute_query(query, cast=True, max_pages=1))
-
-# Fetch binary data (note: SurfaceGrid uses /$value endpoint, not /data)
-grid = grids[0]
-endpoint_path = f"OpenWorksCommonModel/5000107/{query.district_id}/{query.project}/SurfaceGrid('{grid.native_uid}')/$value"
-full_url = f"{client.config.data_endpoint}/{endpoint_path}"
-
-headers = client.auth.get_auth_headers()
-headers["Accept"] = "application/json"
-response = client._session.get(full_url, headers=headers)
-data = response.content
-
-print(f"Downloaded {len(data):,} bytes")
-
-# LGCStructure uses varint length prefix
-def read_varint(stream):
-    """Read a varint length prefix from stream."""
-    shift = 0
-    result = 0
-    while True:
-        byte_data = stream.read(1)
-        if not byte_data:
-            return 0
-        byte = byte_data[0]
-        result |= (byte & 0x7F) << shift
-        if not (byte & 0x80):
-            return result
-        shift += 7
-
-# Parse length-prefixed message
-stream = BytesIO(data)
-size = read_varint(stream)
-message_data = stream.read(size)
-
-# Decode
-lgc = decode_lgc_structure(message_data)
-
-print(f"Structure name: {lgc.structName}")
-print(f"Number of elements: {len(lgc.elements)}")
-
-# Process grid elements (columns/rows)
-for i, el in enumerate(lgc.elements[:5]):  # Show first 5
-    data_type = LGCStructure_pb2.LGCStructure.LGCElement.DataType.Name(el.dataType)
-    
-    if el.dataType == LGCStructure_pb2.LGCStructure.LGCElement.DataType.FLOAT:
-        values = el.data_float
-    elif el.dataType == LGCStructure_pb2.LGCStructure.LGCElement.DataType.DOUBLE:
-        values = el.data_double
+    if element.dataType == DataType.FLOAT:
+        values = list(element.data_float)
+    elif element.dataType == DataType.DOUBLE:
+        values = list(element.data_double)
+    elif element.dataType == DataType.INT:
+        values = list(element.data_int)
+    elif element.dataType == DataType.LONG:
+        values = list(element.data_long)
+    elif element.dataType == DataType.STRING:
+        values = list(element.data_string)
+    elif element.dataType == DataType.BOOL:
+        values = list(element.data_bool)
     else:
         values = []
-    
-    print(f"Element {i}: '{el.elementName}', Type: {data_type}, Values: {len(values):,}")
+
+    return {
+        "name": element.elementName,
+        "type": data_type,
+        "count": len(values),
+        "values": values,
+    }
+
+
+def decode_surfacegrid_to_dict(raw_bytes: bytes) -> dict[str, Any]:
+    lgc = decode_lgc_structure(raw_bytes, skip_length_prefix=True)
+    return {
+        "struct_name": lgc.structName,
+        "element_count": len(lgc.elements),
+        "elements": [_element_to_dict(el) for el in lgc.elements],
+    }
 ```
 
 ## Important Notes
@@ -260,14 +230,12 @@ for i, el in enumerate(lgc.elements[:5]):  # Show first 5
 - **Small data (< 100MB)**: Use `get_bulk_data()` - simpler, loads everything at once
 - **Large data (> 100MB)**: Use `get_bulk_data_stream()` - streams in chunks, memory-efficient
 
-### API Endpoints
+### API endpoints and headers
 
-- **Standard bulk data**: `/{Schema}('{native_uid}')/data` (no `/$value` suffix)
-- **Surface grids**: `/{Schema}('{native_uid}')/$value` (uses `/$value` suffix)
-
-### Accept Header
-
-The DSIS API returns binary protobuf data with `Accept: application/json` header (not `application/octet-stream`).
+- Bulk endpoints can vary by entity and binary field.
+- Use `get_bulk_data(..., data_field=...)` when the payload is exposed as a field (often `data`).
+- Use `...@odata.mediaReadLink` when the payload is exposed as a media endpoint (often `/$value`, but not always).
+- `Accept` can vary; when in doubt include both: `application/octet-stream, application/json`.
 
 ### Null Values
 
@@ -292,4 +260,5 @@ The new methods automatically detect whether you're passing a string, dict, or e
 ## See Also
 
 - [Query Builder Guide](query-builder.md) - Building OData queries
-- [dsis-schemas Documentation](https://github.com/equinor/dsis-schemas) - Complete protobuf decoder reference
+- [Advanced Serialization](advanced-serialization.md) - Casting JSON responses to model instances
+- [dsis-model-sdk](https://github.com/equinor/dsis-model-sdk) - Models and protobuf decoders

@@ -2,6 +2,11 @@
 
 This guide shows how to deserialize DSIS API responses using `dsis-model-sdk` directly.
 
+For most data access patterns, prefer `QueryBuilder` + `DSISClient.execute_query()` and then:
+
+- Instantiate models directly (`Well(**item)`) for best performance, or
+- Use `cast_results()` for convenience when you already have a list of dict items.
+
 ## Installation
 
 ```bash
@@ -16,16 +21,21 @@ The client provides `cast_results()` for convenience, but you can also use `dsis
 from dsis_client import DSISClient, DSISConfig, QueryBuilder
 from dsis_model_sdk.models.common import Basin
 
+# Example district_id for Common Model + SV4TSTA database
+district_id = "OpenWorksCommonModel_OW_SV4TSTA-OW_SV4TSTA"
+project = "SNORRE"
+
 # Get data from API
 client = DSISClient(config)
-response = client.get(district_id="123", project="SNORRE", schema="Basin")
+query = QueryBuilder(district_id=district_id, project=project).schema(Basin)
+items = list(client.execute_query(query))
 
 # Deserialize using dsis-model-sdk directly (recommended - fastest)
-basins = [Basin(**item) for item in response["value"]]
+basins = [Basin(**item) for item in items]
 
 # Or use client's helper
 from dsis_client.api.models import cast_results
-basins = cast_results(response["value"], Basin)
+basins = cast_results(items, Basin)
 ```
 
 ## Three Ways to Deserialize
@@ -35,8 +45,8 @@ basins = cast_results(response["value"], Basin)
 ```python
 from dsis_model_sdk.models.common import Well
 
-response = client.get(district_id="123", project="SNORRE", schema="Well")
-wells = [Well(**item) for item in response["value"]]
+query = QueryBuilder(district_id=district_id, project=project).schema(Well)
+wells = [Well(**item) for item in client.execute_query(query)]
 ```
 
 ### 2. Using Client's cast_results Helper
@@ -46,11 +56,14 @@ from dsis_client.api.models import cast_results, get_schema_by_name
 
 # Option A: Import schema class directly
 from dsis_model_sdk.models.common import Well
-wells = cast_results(response["value"], Well)
+
+query = QueryBuilder(district_id=district_id, project=project).schema(Well)
+items = list(client.execute_query(query))
+wells = cast_results(items, Well)
 
 # Option B: Get schema dynamically
 Well = get_schema_by_name("Well")
-wells = cast_results(response["value"], Well)
+wells = cast_results(items, Well)
 ```
 
 ### 3. Using dsis-model-sdk's deserialize_from_json
@@ -62,9 +75,11 @@ from dsis_model_sdk import deserialize_from_json
 from dsis_model_sdk.models.common import Basin
 import json
 
-response = client.get(district_id="123", project="SNORRE", schema="Basin")
+query = QueryBuilder(district_id=district_id, project=project).schema(Basin)
+items = list(client.execute_query(query))
+
 basins = []
-for item in response["value"]:
+for item in items:
     json_str = json.dumps(item)  # Convert to JSON string
     basin = deserialize_from_json(json_str, Basin)
     basins.append(basin)
@@ -76,10 +91,11 @@ for item in response["value"]:
 from dsis_model_sdk.models.common import Fault
 from pydantic import ValidationError
 
-response = client.get(district_id="123", project="SNORRE", schema="Fault")
+query = QueryBuilder(district_id=district_id, project=project).schema(Fault)
+items = list(client.execute_query(query))
 
 faults = []
-for idx, item in enumerate(response["value"]):
+for idx, item in enumerate(items):
     try:
         faults.append(Fault(**item))
     except ValidationError as e:
@@ -96,18 +112,24 @@ The easiest approach for most cases:
 from dsis_client import QueryBuilder
 from dsis_model_sdk.models.common import Basin
 
-query = QueryBuilder(district_id="123", project="SNORRE").schema(Basin)
-basins = client.execute_query(query, cast=True)  # Returns list of Basin objects
+query = QueryBuilder(district_id=district_id, project="SNORRE").schema(Basin)
+for basin in client.execute_query(query, cast=True):
+    print(basin)
 ```
+
+## Bulk/protobuf payloads
+
+Bulk payload decoding (including SurfaceGrid/LGCStructure and media read-links like `/$value`) is
+documented in [Working with Binary Data](working-with-binary-data.md).
 
 ## Performance Comparison
 
 | Method | Speed | Use When |
 |--------|-------|----------|
-| `Basin(**item)` | ⚡ Fastest | Production, large datasets |
-| `cast_results(items, Basin)` | ⚡ Fast | You want convenience |
-| `deserialize_from_json(json_str, Basin)` | 🐌 Slower | You have JSON strings |
-| QueryBuilder with `cast=True` | ⚡ Fast | Building queries |
+| `Basin(**item)` | Fastest | Production, large datasets |
+| `cast_results(items, Basin)` | Fast | You want convenience |
+| `deserialize_from_json(json_str, Basin)` | Slower | You have JSON strings |
+| QueryBuilder with `cast=True` | Fast | You want model instances |
 
 **Recommendation**: Use direct instantiation (`Basin(**item)`) for best performance.
 

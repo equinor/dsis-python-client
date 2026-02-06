@@ -6,29 +6,19 @@ Complete guide to using QueryBuilder for flexible DSIS data queries.
 
 `QueryBuilder` provides a fluent API for constructing OData queries with type safety and automatic result casting when used with `dsis_model_sdk`.
 
-## Basic Configuration
+## Prerequisites
 
-Use environment variables for configuration (recommended). Set these in your CI/infra or a local `.env` file and load them with `python-dotenv`.
+This guide assumes you have a configured `DSISClient`. For setup, see [Getting Started](getting-started.md).
+
+For building `district_id` values and choosing between Common Model vs Native Model, see [Common vs Native Model](common-vs-native-model.md).
 
 ```python
-import os
-from dotenv import load_dotenv
+from dsis_client import DSISClient, QueryBuilder
 
-load_dotenv()
-
-config = DSISConfig(
-    environment=Environment[os.getenv("ENVIRONMENT", "DEV")],
-    tenant_id=os.getenv("TENANT_ID"),
-    client_id=os.getenv("CLIENT_ID"),
-    client_secret=os.getenv("CLIENT_SECRET"),
-    access_app_id=os.getenv("ACCESS_APP_ID"),
-    dsis_username=os.getenv("DSIS_USERNAME"),
-    dsis_password=os.getenv("DSIS_PASSWORD"),
-    subscription_key_dsauth=os.getenv("SUBSCRIPTION_KEY_DSAUTH"),
-    subscription_key_dsdata=os.getenv("SUBSCRIPTION_KEY_DSDATA"),
-    model_name="OW5000",
-    model_version="5000107",
-)
+# Assumes client is already configured (see Getting Started)
+# For district_id construction, see Common vs Native Model guide
+dist = "OpenWorksCommonModel_OW_SV4TSTA-OW_SV4TSTA"
+prj = "SNORRE"
 ```
 
 ## QueryBuilder Basics
@@ -40,15 +30,18 @@ QueryBuilder requires `district_id` and `project` parameters, then builds the qu
 ```python
 # Build query - QueryBuilder IS the query object (no .build() needed)
 query = (
-    QueryBuilder(district_id="OpenWorks_OW_SV4TSTA_SingleSource-OW_SV4TSTA", project="SNORRE")
+    QueryBuilder(district_id=dist, project=prj)
     .schema("Fault")
     .select("fault_id,fault_type,fault_name")
     .filter("fault_type eq 'NORMAL'")
 )
 
-# Execute query
-response = client.execute_query(query)
-items = response.get("value", [])
+# Execute query - returns a generator that yields items
+for item in client.execute_query(query):
+    print(item)
+
+# Or collect all items into a list
+items = list(client.execute_query(query))
 ```
 
 ### Type-Safe Query with Model Class
@@ -58,7 +51,7 @@ from dsis_model_sdk.models.common import Basin
 
 # Build query with model class for automatic type safety
 query = (
-    QueryBuilder(district_id="your-district-id", project="your-project")
+    QueryBuilder(district_id=dist, project=prj)
     .schema(Basin)
     .select("basin_name,basin_id,native_uid")
 )

@@ -1,184 +1,106 @@
 # API Summary
 
-Concise overview of public surface.
+Concise overview of the public surface. For most read workflows, prefer `QueryBuilder` + `execute_query()`.
 
-## Classes
+## Core types
 
-### DSISClient
-Methods (essentials only):
-### `get(*path_segments, format_type="json", select=None, expand=None, filter=None, **extra_query)`
+### `DSISConfig`
 
-Unified flexible path GET helper. Use positional path segments to build the endpoint.
+`DSISConfig` is a dataclass holding auth + environment + model settings. Notably, `model_name` is required.
 
-Examples:
+### `DSISClient`
 
-```python
-# Get using just model and version
-data = client.get()
+Commonly used methods:
 
-# Get Basin data for a district and field
-data = client.get("123", "wells", "Basin")
+- `execute_query(query, cast=False, ...)` - executes a `QueryBuilder` and yields items across pages.
+- `get(*path_segments, ...)` - low-level escape hatch for custom paths.
+- `get_bulk_data(...)` / `get_bulk_data_stream(...)` - fetch/stream binary payloads for entities.
 
-# Get with field selection
-data = client.get("123", "wells", "Well", select="name,depth,status")
+### `Environment`
 
-# Get with filtering
-data = client.get("123", "wells", "Well", filter="depth gt 1000")
+Enum: `DEV`, `QA`, `PROD`.
 
-# Get with expand
-data = client.get("123", "wells", "Well", expand="logs,completions")
-```
+## Minimal usage (recommended)
 
 ```python
-required = [
-    'tenant_id','client_id','client_secret','access_app_id',
-    'dsis_username','dsis_password','subscription_key'
-]
-missing = [f for f in required if not getattr(cfg, f)]
-if missing:
-    raise ValueError(f"Missing config fields: {missing}")
-```
-
-Flexible path usage example:
-
-```python
-data = client.get(
-    "OW5000", "5000107",
-    "OpenWorks_OW_BG4FROST_SingleSource-OW_BG4FROST",
-    "FD_GRANE", "Rgrid",
-    format_type="json",
-    select="attribute,grid_id,no_cols,no_rows"
-)
-```
-
-Produces:
-
-```text
-/OW5000/5000107/OpenWorks_OW_BG4FROST_SingleSource-OW_BG4FROST/FD_GRANE/Rgrid?$format=json&$select=attribute,grid_id,no_cols,no_rows
-```
-
-### DSISAuth (internal)
-
-Obtains Azure AD token then DSIS token; exposed only via `DSISClient`.
-
-### Environment
-
-Enum: `DEV`, `QA`, `PROD`. This is important as 'dsis-site' variable in the header of the token endpoint is dependent on it. It also defines what base_url we are using.
-
-## Minimal Usage
-
-```python
-from dsis_client import DSISClient, DSISConfig, Environment
+from dsis_client import DSISClient, DSISConfig, Environment, QueryBuilder
 import os
 
 cfg = DSISConfig(
     environment=Environment.DEV,
-    tenant_id=os.getenv("DSIS_TENANT_ID"),
-    client_id=os.getenv("DSIS_CLIENT_ID"),
-    client_secret=os.getenv("DSIS_CLIENT_SECRET"),
-    access_app_id=os.getenv("DSIS_ACCESS_APP_ID"),
-    dsis_username=os.getenv("DSIS_USERNAME"),
-    dsis_password=os.getenv("DSIS_PASSWORD"),
-    subscription_key_dsauth=os.getenv("DSIS_SUBSCRIPTION_KEY_DSAUTH"),
-    subscription_key_dsdata=os.getenv("DSIS_SUBSCRIPTION_KEY_DSDATA")
+    tenant_id=os.environ["DSIS_TENANT_ID"],
+    client_id=os.environ["DSIS_CLIENT_ID"],
+    client_secret=os.environ["DSIS_CLIENT_SECRET"],
+    access_app_id=os.environ["DSIS_ACCESS_APP_ID"],
+    dsis_username=os.environ["DSIS_USERNAME"],
+    dsis_password=os.environ["DSIS_PASSWORD"],
+    subscription_key_dsauth=os.environ["DSIS_SUBSCRIPTION_KEY_DSAUTH"],
+    subscription_key_dsdata=os.environ["DSIS_SUBSCRIPTION_KEY_DSDATA"],
+    model_name="OpenWorksCommonModel",
+    dsis_site="dev"
 )
+
 client = DSISClient(cfg)
-data = client.get("OW5000", "<record-id>")
+
+district_id = "OpenWorksCommonModel_OW_SV4TSTA-OW_SV4TSTA"
+project = "SNORRE"
+
+query = QueryBuilder(district_id=district_id, project=project).schema("Well")
+for item in client.execute_query(query):
+    print(item.get("native_uid"))
 ```
 
-## Error Handling Hint
+## Low-level `get()` (escape hatch)
 
-Treat non-200 responses as exceptions; inspect message for status cues (401/403/404). Refresh tokens on auth failures.
+`get()` builds a DSIS path from positional segments and adds OData query options.
 
-## Request Essentials
+```python
+data = client.get(
+    "OpenWorksCommonModel",
+    "5000107",
+    "OpenWorksCommonModel_OW_SV4TSTA-OW_SV4TSTA",
+    "SNORRE",
+    "Well",
+    format_type="json",
+    select="native_uid,name",
+)
+```
 
-Headers assembled internally include both tokens + subscription key; pass only endpoint/table info.
+## Bulk / binary data
 
-## Binary Data Methods
+### `get_bulk_data(schema, native_uid, district_id=None, project=None, data_field="data", query=None)`
 
-### `get_bulk_data(schema, native_uid, district_id=None, project=None, query=None)`
+Fetches a binary field for an entity using the “bulk field” endpoint:
 
-Fetch binary bulk data (protobuf) for an entity. Loads entire response into memory.
+`/{Schema}('{native_uid}')/{data_field}`
 
-**Parameters:**
-- `schema`: Schema name string or model class
-- `native_uid`: String native_uid, entity dict, or entity model instance
-- `district_id`: Optional district ID (or use `query`)
-- `project`: Optional project name (or use `query`)
-- `query`: Optional QueryBuilder to auto-extract district_id and project
+Important nuances:
 
-**Returns:** `Optional[bytes]` - Binary protobuf data or None if no data
-
-**Use for:** Small to medium datasets (< 100MB)
+- The field name can vary (`data`, `data_values`, ...). Use `data_field=...` when needed.
+- Some entities expose *media* endpoints via `odata.mediaReadLink` / `...@odata.mediaReadLink` and these may end in `/$value`, `/data`, `/data_values`, etc.
+- The required `Accept` header may vary between `application/json` and `application/octet-stream` depending on the entity and endpoint.
 
 ```python
 from dsis_model_sdk.models.common import HorizonData3D
 
-# Option 1: Pass native_uid string
+district_id = "OpenWorksCommonModel_OW_SV4TSTA-OW_SV4TSTA"
+project = "SNORRE"
+
 binary_data = client.get_bulk_data(
     schema=HorizonData3D,
     native_uid="46075",
-    district_id="123",
-    project="SNORRE"
-)
-
-# Option 2: Pass entity object (auto-extracts native_uid)
-query = QueryBuilder(district_id="123", project="SNORRE").schema(HorizonData3D)
-horizons = list(client.execute_query(query, cast=True))
-binary_data = client.get_bulk_data(
-    schema=HorizonData3D,
-    native_uid=horizons[0],  # Entity object
-    query=query  # Auto-extracts district_id and project
+    district_id=district_id,
+    project=project,
+    data_field="data",
 )
 ```
 
-### `get_bulk_data_stream(schema, native_uid, district_id=None, project=None, query=None, chunk_size=10*1024*1024)` 
-
-Stream binary bulk data in chunks for memory-efficient processing.
-
-**Parameters:** Same as `get_bulk_data()` plus:
-- `chunk_size`: Size of chunks to yield (default: 10MB, DSIS recommended)
-
-**Yields:** Binary data chunks as bytes
-
-**Use for:** Large datasets (> 100MB), memory-constrained environments
-
-```python
-from dsis_model_sdk.models.common import SeismicDataSet3D
-
-query = QueryBuilder(district_id="123", project="SNORRE").schema(SeismicDataSet3D)
-datasets = list(client.execute_query(query, cast=True))
-
-chunks = []
-for chunk in client.get_bulk_data_stream(
-    schema=SeismicDataSet3D,
-    native_uid=datasets[0],  # Entity object
-    query=query,
-    chunk_size=10*1024*1024
-):
-    chunks.append(chunk)
-
-binary_data = b''.join(chunks)
-```
+For the media read-link (`...@odata.mediaReadLink`) workaround, streaming downloads, and protobuf
+decoding examples (including SurfaceGrid/LGCStructure), see
+[Working with Binary Data](../guides/working-with-binary-data.md).
 
 ## Notes
 
-- No secrets or IDs should appear in committed code or documentation.
-- Extend functionality by wrapping `DSISClient` rather than modifying internals.
-- For binary data usage, see [Working with Binary Data](../guides/working-with-binary-data.md) guide.
-
-For extended patterns refer to guides.
-
-```python
-from typing import Dict, Any, Optional, Union
-from dsis_client import DSISClient, DSISConfig, Environment
-
-def process_data(client: DSISClient, table: str, record_id: Optional[str] = None) -> Dict[str, Any]:
-    """Process data with proper type hints."""
-    return client.get(table, record_id, format_type="json")
-
-# Usage with type checking
-config: DSISConfig = DSISConfig(...)
-client: DSISClient = DSISClient(config)
-data: Dict[str, Any] = client.get("OW5000", "5000107")
-```
+- Treat non-2xx responses as exceptions; refresh tokens on `401`.
+- Avoid committing secrets or internal IDs.
+- For more details, see [Working with Binary Data](../guides/working-with-binary-data.md).
