@@ -41,8 +41,15 @@ def _make_client_and_patch(monkeypatch, district, project, response):
     Returns (client, qb, collector) where collector is a small object used by tests
     to assert call counts or inspect endpoints.
     """
+    from dsis_client.api.auth import DSISAuth
     from dsis_client.api.client import DSISClient
     from dsis_client.api.query import QueryBuilder  # type: ignore[import-untyped]
+
+    # Stub out token acquisition so the eager get_auth_headers() in __init__
+    # doesn't attempt real HTTP calls.
+    monkeypatch.setattr(
+        DSISAuth, "get_auth_headers", lambda self: {"Authorization": "Bearer fake"}
+    )
 
     cfg = make_config()
     client = DSISClient(cfg)

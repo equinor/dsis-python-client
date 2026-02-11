@@ -34,6 +34,10 @@ class BaseClient(HTTPTransportMixin):
         self.config = config
         self.auth = DSISAuth(config)
         self._session = requests.Session()
+
+        # Eagerly acquire tokens to avoid 500 cold start errors on first request
+        self.auth.get_auth_headers()
+
         logger.info(
             f"Base client initialized for {config.environment.value} environment"
         )
