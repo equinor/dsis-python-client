@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/equinor/dsis-python-client/compare/v1.2.0...v1.3.0) (2026-02-11)
+
+
+### Features
+
+* eagerly acquire authentication tokens to prevent cold-start errors ([#65](https://github.com/equinor/dsis-python-client/issues/65)) ([41568d0](https://github.com/equinor/dsis-python-client/commit/41568d0fa9654821c01e30910c414df08c0eac13))
+* update query handling to require model_name and model_version parameters ([#55](https://github.com/equinor/dsis-python-client/issues/55)) ([59c4bcf](https://github.com/equinor/dsis-python-client/commit/59c4bcf9e75a7e53a527c4dda79f5461a7956b7a))
+
 ## [1.2.0](https://github.com/equinor/dsis-python-client/compare/v1.1.0...v1.2.0) (2026-02-04)
 
 
