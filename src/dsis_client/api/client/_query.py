@@ -143,7 +143,7 @@ class QueryExecutionMixin(_PaginationBase):
         logger.info(f"Executing query: {query} (max_pages={max_pages})")
 
         # Build endpoint path segments
-        segments = [self.config.model_name, self.config.model_version]
+        segments = [query.model_name, query.model_version]
         if query.district_id is not None:
             segments.append(str(query.district_id))
         if query.project is not None:

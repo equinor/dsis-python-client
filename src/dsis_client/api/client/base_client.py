@@ -34,6 +34,10 @@ class BaseClient(HTTPTransportMixin):
         self.config = config
         self.auth = DSISAuth(config)
         self._session = requests.Session()
+
+        # Eagerly acquire tokens to avoid 500 cold start errors on first request
+        self.auth.get_auth_headers()
+
         logger.info(
             f"Base client initialized for {config.environment.value} environment"
         )
@@ -79,6 +83,8 @@ class BaseClient(HTTPTransportMixin):
 
     def get(
         self,
+        model_name: str,
+        model_version: str,
         district_id: Optional[Union[str, int]] = None,
         project: Optional[str] = None,
         schema: Optional[str] = None,
@@ -94,15 +100,15 @@ class BaseClient(HTTPTransportMixin):
         Constructs the OData endpoint URL following the pattern:
         /<model_name>/<version>[/<district_id>][/<project>][/<schema>]
 
-        All path segments are optional and can be omitted.
         The schema parameter refers to specific data schemas from dsis-schemas
         (e.g., "Basin", "Well", "Wellbore", "WellLog", etc.).
 
         Args:
+            model_name: DSIS model name (e.g., "OW5000" or "OpenWorksCommonModel")
+            model_version: Model version (e.g., "5000107")
             district_id: Optional district ID for the query
             project: Optional project name for the query
-            schema: Optional schema name (e.g., "Basin", "Well", "Wellbore").
-                    If None, uses configured model_name
+            schema: Optional schema name (e.g., "Basin", "Well", "Wellbore")
             format_type: Response format (default: "json")
             select: OData $select parameter for column selection (comma-separated)
             expand: OData $expand parameter for related data (comma-separated)
@@ -119,39 +125,30 @@ class BaseClient(HTTPTransportMixin):
             ValueError: If validate_schema=True and schema is not a known model
 
         Example:
-            >>> client.get()  # Just model and version
-            >>> client.get("123", "wells", schema="Basin")
-            >>> client.get("123", "wells", schema="Well", select="name,depth")
-            >>> client.get("123", "wells", schema="Well", filter="depth gt 1000")
+            >>> client.get("OW5000", "5000107")  # Just model and version
+            >>> client.get("OW5000", "5000107", "123", "wells", schema="Basin")
+            >>> client.get("OW5000", "5000107", "123", "wells", schema="Well", select="name,depth")
+            >>> client.get("OW5000", "5000107", "123", "wells", schema="Well", filter="depth gt 1000")
         """
         # Import here to avoid circular imports
         from ..models import is_valid_schema
 
-        # Determine the schema to use
-        if schema is not None:
-            schema_to_use = schema
-        elif district_id is not None or project is not None:
-            schema_to_use = self.config.model_name
-            logger.info(f"Using configured model as schema: {self.config.model_name}")
-        else:
-            schema_to_use = None
-
         # Validate schema if provided and validation is enabled
-        if validate_schema and schema_to_use is not None:
-            if not is_valid_schema(schema_to_use):
+        if validate_schema and schema is not None:
+            if not is_valid_schema(schema):
                 raise ValueError(
-                    f"Unknown schema: '{schema_to_use}'. Use "
+                    f"Unknown schema: '{schema}'. Use "
                     "get_schema_by_name() to discover available schemas."
                 )
 
         # Build endpoint path segments
-        segments = [self.config.model_name, self.config.model_version]
+        segments = [model_name, model_version]
         if district_id is not None:
             segments.append(str(district_id))
         if project is not None:
             segments.append(project)
-        if schema_to_use is not None:
-            segments.append(schema_to_use)
+        if schema is not None:
+            segments.append(schema)
 
         endpoint = "/".join(segments)
 
