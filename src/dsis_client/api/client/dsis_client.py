@@ -42,7 +42,6 @@ class DSISClient(
         ...     dsis_password="...",
         ...     subscription_key_dsauth="...",
         ...     subscription_key_dsdata="...",
-        ...     model_name="OW5000",
         ... )
         >>> client = DSISClient(config)
         >>> client.test_connection()

@@ -25,8 +25,6 @@ class DSISConfig:
         dsis_password: DSIS password for authentication
         subscription_key_dsauth: APIM subscription key for dsauth endpoint
         subscription_key_dsdata: APIM subscription key for dsdata endpoint
-        model_name: DSIS model name (e.g., "OW5000" or "OpenWorksCommonModel")
-        model_version: Model version (default: "5000107")
         dsis_site: DSIS site header (default: "qa")
     """
 
@@ -47,12 +45,6 @@ class DSISConfig:
     subscription_key_dsauth: str
     subscription_key_dsdata: str
 
-    # DSIS model configuration
-    model_name: str
-
-    # Optional model configuration (with defaults)
-    model_version: str = "5000107"
-
     # DSIS site header (typically "qa" for DEV endpoint)
     dsis_site: str = "qa"
 
@@ -71,8 +63,6 @@ class DSISConfig:
             "dsis_password": self.dsis_password,
             "subscription_key_dsauth": self.subscription_key_dsauth,
             "subscription_key_dsdata": self.subscription_key_dsdata,
-            "model_name": self.model_name,
-            "model_version": self.model_version,
         }
 
         for field_name, field_value in required_fields.items():

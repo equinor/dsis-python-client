@@ -96,8 +96,14 @@ The easiest approach for most cases:
 from dsis_client import QueryBuilder
 from dsis_model_sdk.models.common import Basin
 
-query = QueryBuilder(district_id="123", project="SNORRE").schema(Basin)
-basins = client.execute_query(query, cast=True)  # Returns list of Basin objects
+query = QueryBuilder(
+    model_name=\"OW5000\",
+    district_id=\"123\",
+    project=\"SNORRE\",
+).schema(Basin)
+
+for basin in client.execute_query(query, cast=True):
+    print(basin.basin_name)  # Returns Basin model instances
 ```
 
 ## Performance Comparison

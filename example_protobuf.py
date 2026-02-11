@@ -17,10 +17,9 @@ This example shows:
 """
 
 import os
+
 import numpy as np
 from dotenv import load_dotenv
-
-from dsis_client import DSISClient, DSISConfig, Environment, QueryBuilder
 from dsis_model_sdk.models.common import HorizonData3D, LogCurve, SeismicDataSet3D
 from dsis_model_sdk.protobuf import (
     decode_horizon_data,
@@ -32,6 +31,8 @@ from dsis_model_sdk.utils.protobuf_decoders import (
     log_curve_to_dict,
     seismic_3d_to_numpy,
 )
+
+from dsis_client import DSISClient, DSISConfig, Environment, QueryBuilder
 
 # Load environment variables
 load_dotenv()
@@ -66,7 +67,11 @@ print("-" * 80)
 # Step 1: Query for horizon metadata (exclude binary data field for efficiency)
 print("Step 1: Querying for horizon metadata...")
 query = (
-    QueryBuilder(district_id=district_id, project=project)
+    QueryBuilder(
+        model_name="OW5000",
+        district_id=district_id,
+        project=project,
+    )
     .schema(HorizonData3D)
     .select(
         "horizon_name,horizon_mean,horizon_mean_unit,horizon_min,horizon_max,native_uid"
@@ -128,7 +133,11 @@ print("-" * 80)
 # Step 1: Query for log curve metadata
 print("Step 1: Querying for log curve metadata...")
 query = (
-    QueryBuilder(district_id=district_id, project=project)
+    QueryBuilder(
+        model_name="OW5000",
+        district_id=district_id,
+        project=project,
+    )
     .schema(LogCurve)
     .select("log_curve_name,native_uid")
 )
@@ -188,7 +197,11 @@ print("-" * 80)
 # Step 1: Query for seismic metadata
 print("Step 1: Querying for seismic dataset metadata...")
 query = (
-    QueryBuilder(district_id=district_id, project=project)
+    QueryBuilder(
+        model_name="OW5000",
+        district_id=district_id,
+        project=project,
+    )
     .schema(SeismicDataSet3D)
     .select("seismic_dataset_name,native_uid")
 )

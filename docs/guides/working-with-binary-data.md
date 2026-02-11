@@ -41,7 +41,11 @@ from dsis_model_sdk.models.common import HorizonData3D
 from dsis_model_sdk.protobuf import decode_horizon_data
 
 # Query for entity
-query = QueryBuilder(district_id="123", project="SNORRE").schema(HorizonData3D)
+query = QueryBuilder(
+    model_name="OW5000",
+    district_id="123",
+    project="SNORRE",
+).schema(HorizonData3D)
 horizons = list(client.execute_query(query, cast=True, max_pages=1))
 
 # Fetch binary data - pass entity object directly!
@@ -66,7 +70,11 @@ from dsis_model_sdk.models.common import SeismicDataSet3D
 from dsis_model_sdk.protobuf import decode_seismic_float_data
 
 # Query for entity
-query = QueryBuilder(district_id="123", project="SNORRE").schema(SeismicDataSet3D)
+query = QueryBuilder(
+    model_name="OW5000",
+    district_id="123",
+    project="SNORRE",
+).schema(SeismicDataSet3D)
 datasets = list(client.execute_query(query, cast=True, max_pages=1))
 
 # Stream large dataset in chunks
@@ -127,7 +135,11 @@ from dsis_model_sdk.protobuf import decode_horizon_data
 from dsis_model_sdk.utils.protobuf_decoders import horizon_to_numpy
 
 # Query for horizons (exclude binary data field for efficiency)
-query = QueryBuilder(district_id="123", project="SNORRE").schema(HorizonData3D).select("horizon_name,native_uid")
+query = QueryBuilder(
+    model_name="OW5000",
+    district_id="123",
+    project="SNORRE",
+).schema(HorizonData3D).select("horizon_name,native_uid")
 horizons = list(client.execute_query(query, cast=True))
 
 # Fetch binary data for specific horizon
@@ -162,7 +174,11 @@ from dsis_model_sdk.protobuf import decode_log_curves
 from dsis_model_sdk.utils.protobuf_decoders import log_curve_to_dict
 
 # Query for log curves
-query = QueryBuilder(district_id="123", project="SNORRE").schema(LogCurve).select("log_curve_name,native_uid")
+query = QueryBuilder(
+    model_name="OW5000",
+    district_id="123",
+    project="SNORRE",
+).schema(LogCurve).select("log_curve_name,native_uid")
 curves = list(client.execute_query(query, max_pages=1))
 
 # Fetch binary data
@@ -198,16 +214,20 @@ from io import BytesIO
 from dsis_model_sdk.protobuf import decode_lgc_structure, LGCStructure_pb2
 
 # Query for grids
-query = QueryBuilder(district_id="123", project="SNORRE").schema("SurfaceGrid").select("native_uid,grid_name")
+query = QueryBuilder(
+    model_name=\"OpenWorksCommonModel\",
+    district_id=\"123\",
+    project=\"SNORRE\",
+).schema(\"SurfaceGrid\").select(\"native_uid,grid_name\")
 grids = list(client.execute_query(query, cast=True, max_pages=1))
 
 # Fetch binary data (note: SurfaceGrid uses /$value endpoint, not /data)
 grid = grids[0]
-endpoint_path = f"OpenWorksCommonModel/5000107/{query.district_id}/{query.project}/SurfaceGrid('{grid.native_uid}')/$value"
-full_url = f"{client.config.data_endpoint}/{endpoint_path}"
+endpoint_path = f\"{query.model_name}/{query.model_version}/{query.district_id}/{query.project}/SurfaceGrid('{grid.native_uid}')/$value\"
+full_url = f\"{client.config.data_endpoint}/{endpoint_path}\"
 
 headers = client.auth.get_auth_headers()
-headers["Accept"] = "application/json"
+headers[\"Accept\"] = \"application/json\"
 response = client._session.get(full_url, headers=headers)
 data = response.content
 

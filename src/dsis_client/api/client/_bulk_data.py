@@ -87,8 +87,14 @@ class BulkDataMixin(_BinaryRequestBase):
         # Extract schema name if class is provided
         schema_name = schema.__name__ if isinstance(schema, type) else schema
 
+        # query is required to get model_name and model_version
+        if query is None:
+            raise ValueError(
+                "query parameter is required to provide model_name and model_version"
+            )
+
         # Build endpoint path segments
-        segments = [self.config.model_name, self.config.model_version]
+        segments = [query.model_name, query.model_version]
         if district_id is not None:
             segments.append(str(district_id))
         if project is not None:
