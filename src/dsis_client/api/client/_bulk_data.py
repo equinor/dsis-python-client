@@ -284,4 +284,6 @@ class BulkDataMixin(_BinaryRequestBase):
         )
 
         logger.info(f"Streaming bulk data from: {endpoint} (chunk_size={chunk_size})")
-        yield from self._request_binary_stream(endpoint, chunk_size=chunk_size, accept=accept)
+        yield from self._request_binary_stream(
+            endpoint, chunk_size=chunk_size, accept=accept
+        )
