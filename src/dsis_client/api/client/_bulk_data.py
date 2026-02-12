@@ -113,6 +113,7 @@ class BulkDataMixin(_BinaryRequestBase):
         project: Optional[str] = None,
         data_field: str = "data",
         query: Optional["QueryBuilder"] = None,
+        accept: str = "application/json",
     ) -> Optional[bytes]:
         """Fetch binary bulk data (protobuf) for a specific entity.
 
@@ -137,6 +138,9 @@ class BulkDataMixin(_BinaryRequestBase):
             data_field: Name of the binary data field (default: "data")
             query: Optional QueryBuilder instance to extract district_id and project from.
                    If provided, district_id and project parameters are ignored.
+            accept: Accept header value for the HTTP request
+                (default: "application/json"). Use "application/octet-stream"
+                for endpoints that serve raw binary data (e.g., SurfaceGrid /$value).
 
         Returns:
             Binary protobuf data as bytes, or None if the entity has no bulk data
@@ -185,7 +189,7 @@ class BulkDataMixin(_BinaryRequestBase):
         )
 
         logger.info(f"Fetching bulk data from: {endpoint}")
-        return self._request_binary(endpoint)
+        return self._request_binary(endpoint, accept=accept)
 
     def get_bulk_data_stream(
         self,
@@ -196,6 +200,7 @@ class BulkDataMixin(_BinaryRequestBase):
         data_field: str = "data",
         chunk_size: int = 10 * 1024 * 1024,
         query: Optional["QueryBuilder"] = None,
+        accept: str = "application/json",
     ) -> Generator[bytes, None, None]:
         """Stream binary bulk data (protobuf) in chunks for memory-efficient processing.
 
@@ -225,6 +230,9 @@ class BulkDataMixin(_BinaryRequestBase):
                 (default: 10MB, recommended by DSIS)
             query: Optional QueryBuilder instance to extract district_id and project from.
                    If provided, district_id and project parameters are ignored.
+            accept: Accept header value for the HTTP request
+                (default: "application/json"). Use "application/octet-stream"
+                for endpoints that serve raw binary data (e.g., SurfaceGrid /$value).
 
         Yields:
             Binary data chunks as bytes. Returns immediately if no bulk data (404).
@@ -276,4 +284,4 @@ class BulkDataMixin(_BinaryRequestBase):
         )
 
         logger.info(f"Streaming bulk data from: {endpoint} (chunk_size={chunk_size})")
-        yield from self._request_binary_stream(endpoint, chunk_size=chunk_size)
+        yield from self._request_binary_stream(endpoint, chunk_size=chunk_size, accept=accept)
