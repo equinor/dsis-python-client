@@ -70,16 +70,3 @@ def build_query_string(schema_name: Optional[str], params: Dict[str, str]) -> st
     logger.info(f"Built query string: {query_str}")
     return query_str
 
-
-def build_query_params_string(params: Dict[str, str]) -> str:
-    """Build just the query parameters part (without schema name).
-
-    Args:
-        params: Query parameters dictionary
-
-    Returns:
-        Query parameters string (e.g., "$format=json&$select=name,depth")
-    """
-    if params:
-        return urlencode(params)
-    return ""

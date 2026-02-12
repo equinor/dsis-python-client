@@ -96,16 +96,13 @@ Headers assembled internally include both tokens + subscription key; pass only e
 
 ## Binary Data Methods
 
-### `get_bulk_data(schema, native_uid, district_id=None, project=None, query=None)`
+### `get_bulk_data(query, *, accept="application/json")`
 
 Fetch binary bulk data (protobuf) for an entity. Loads entire response into memory.
 
 **Parameters:**
-- `schema`: Schema name string or model class
-- `native_uid`: String native_uid, entity dict, or entity model instance
-- `district_id`: Optional district ID (or use `query`)
-- `project`: Optional project name (or use `query`)
-- `query`: Optional QueryBuilder to auto-extract district_id and project
+- `query`: QueryBuilder instance configured with `.schema()` and `.entity()` calls
+- `accept`: Accept header value (default: `"application/json"`). Use `"application/octet-stream"` for raw binary endpoints (e.g., SurfaceGrid/$value)
 
 **Returns:** `Optional[bytes]` - Binary protobuf data or None if no data
 
@@ -114,30 +111,27 @@ Fetch binary bulk data (protobuf) for an entity. Loads entire response into memo
 ```python
 from dsis_model_sdk.models.common import HorizonData3D
 
-# Option 1: Pass native_uid string
-binary_data = client.get_bulk_data(
-    schema=HorizonData3D,
-    native_uid="46075",
-    district_id="123",
-    project="SNORRE"
-)
-
-# Option 2: Pass entity object (auto-extracts native_uid)
+# Option 1: String native_uid
 query = QueryBuilder(district_id="123", project="SNORRE").schema(HorizonData3D)
 horizons = list(client.execute_query(query, cast=True))
-binary_data = client.get_bulk_data(
-    schema=HorizonData3D,
-    native_uid=horizons[0],  # Entity object
-    query=query  # Auto-extracts district_id and project
-)
+bulk_query = query.entity(horizons[0].native_uid)
+binary_data = client.get_bulk_data(bulk_query)
+
+# Option 2: SurfaceGrid with $value endpoint and custom accept header
+query = QueryBuilder(district_id="123", project="SNORRE").schema("SurfaceGrid")
+grids = list(client.execute_query(query))
+bulk_query = query.entity(grids[0]["native_uid"], data_field="$value")
+binary_data = client.get_bulk_data(bulk_query, accept="application/octet-stream")
 ```
 
-### `get_bulk_data_stream(schema, native_uid, district_id=None, project=None, query=None, chunk_size=10*1024*1024)` 
+### `get_bulk_data_stream(query, *, chunk_size=10*1024*1024, accept="application/json")` 
 
 Stream binary bulk data in chunks for memory-efficient processing.
 
-**Parameters:** Same as `get_bulk_data()` plus:
+**Parameters:**
+- `query`: QueryBuilder instance configured with `.schema()` and `.entity()` calls
 - `chunk_size`: Size of chunks to yield (default: 10MB, DSIS recommended)
+- `accept`: Accept header value (default: `"application/json"`)
 
 **Yields:** Binary data chunks as bytes
 
@@ -149,11 +143,10 @@ from dsis_model_sdk.models.common import SeismicDataSet3D
 query = QueryBuilder(district_id="123", project="SNORRE").schema(SeismicDataSet3D)
 datasets = list(client.execute_query(query, cast=True))
 
+bulk_query = query.entity(datasets[0].native_uid)
 chunks = []
 for chunk in client.get_bulk_data_stream(
-    schema=SeismicDataSet3D,
-    native_uid=datasets[0],  # Entity object
-    query=query,
+    bulk_query,
     chunk_size=10*1024*1024
 ):
     chunks.append(chunk)

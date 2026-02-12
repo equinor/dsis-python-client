@@ -41,7 +41,10 @@ class _BinaryRequestBase:
         config: "DSISConfig"
 
         def _request_binary(
-            self, endpoint: str, params: Optional[Dict[str, Any]] = None
+            self,
+            endpoint: str,
+            params: Optional[Dict[str, Any]] = None,
+            accept: str = "application/json",
         ) -> Optional[bytes]: ...
 
         def _request_binary_stream(
@@ -49,4 +52,5 @@ class _BinaryRequestBase:
             endpoint: str,
             params: Optional[Dict[str, Any]] = None,
             chunk_size: int = 10 * 1024 * 1024,
+            accept: str = "application/json",
         ) -> Generator[bytes, None, None]: ...

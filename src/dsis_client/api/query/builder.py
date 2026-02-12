@@ -57,6 +57,8 @@ class QueryBuilder:
         self._expand: List[str] = []
         self._filter: Optional[str] = None
         self._format: Optional[str] = "json"
+        self._native_uid: Optional[str] = None
+        self._data_field: Optional[str] = None
 
     def schema(self, schema: Union[str, Type]) -> "QueryBuilder":
         """Set the schema (data table) using a name or model class.
@@ -162,6 +164,67 @@ class QueryBuilder:
         logger.info(f"Set format: {format_type}")
         return self
 
+    def entity(
+        self, native_uid: str, data_field: str = "data"
+    ) -> "QueryBuilder":
+        """Target a specific entity's binary data field for bulk data retrieval.
+
+        This configures the query to fetch binary data for a specific entity,
+        identified by its native_uid, from the given data field.
+
+        Args:
+            native_uid: The native_uid of the entity (e.g., "46075")
+            data_field: Name of the binary data field (default: "data").
+                Use "$value" for endpoints that serve raw media resources.
+
+        Returns:
+            Self for chaining
+
+        Example:
+            >>> query = (
+            ...     QueryBuilder(model_name="OW5000", district_id="123", project="SNORRE")
+            ...     .schema("SurfaceGrid")
+            ...     .entity("46075", data_field="$value")
+            ... )
+            >>> data = client.get_bulk_data(query)
+        """
+        self._native_uid = native_uid
+        self._data_field = data_field
+        logger.info(f"Set entity: native_uid={native_uid}, data_field={data_field}")
+        return self
+
+    def build_endpoint(self) -> str:
+        """Build the full API endpoint path.
+
+        Constructs the path from model_name, model_version, district_id,
+        project, and schema. If entity() has been called, appends the
+        OData entity key and data field.
+
+        Returns:
+            The endpoint path (e.g., "OW5000/5000107/Dist/Proj/Schema" or
+            "OW5000/5000107/Dist/Proj/Schema('uid')/data")
+
+        Raises:
+            ValueError: If schema is not set
+        """
+        if not self._schema_name:
+            raise ValueError("schema must be set before building endpoint")
+
+        segments = [self.model_name, self.model_version]
+        if self.district_id is not None:
+            segments.append(str(self.district_id))
+        if self.project is not None:
+            segments.append(self.project)
+
+        if self._native_uid is not None:
+            segments.append(
+                f"{self._schema_name}('{self._native_uid}')/{self._data_field}"
+            )
+        else:
+            segments.append(self._schema_name)
+
+        return "/".join(segments)
+
     def build_query_params(self) -> dict:
         """Build the OData query parameters.
 
@@ -196,15 +259,6 @@ class QueryBuilder:
         params = self.build_query_params()
         return odata.build_query_string(self._schema_name, params)
 
-    def get_query_params_string(self) -> str:
-        """Build just the query parameters part (without schema name).
-
-        Returns:
-            Query parameters string (e.g., "$format=json&$select=name,depth")
-        """
-        params = self.build_query_params()
-        return odata.build_query_params_string(params)
-
     def reset(self) -> "QueryBuilder":
         """Reset the builder to initial state.
 
@@ -219,6 +273,8 @@ class QueryBuilder:
         self._expand = []
         self._filter = None
         self._format = "json"
+        self._native_uid = None
+        self._data_field = None
         logger.info("Reset builder")
         return self
 

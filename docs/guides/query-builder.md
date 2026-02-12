@@ -164,9 +164,44 @@ query.format("")  # or .format(None)
 # Result: Well?$select=well_name
 ```
 
+### entity()
+
+Target a specific entity's binary data field for bulk data retrieval. This configures the query so that `build_endpoint()` produces a path ending in `/{Schema}('{native_uid}')/{data_field}`.
+
+```python
+# Standard bulk data (default data_field="data")
+bulk_query = query.entity("46075")
+# build_endpoint() → ".../HorizonData3D('46075')/data"
+
+# SurfaceGrid with $value endpoint
+bulk_query = query.entity("46075", data_field="$value")
+# build_endpoint() → ".../SurfaceGrid('46075')/$value"
+```
+
+### build_endpoint()
+
+Build the full API endpoint path from the query's configuration.
+
+```python
+query = QueryBuilder(
+    model_name="OW5000",
+    district_id="123",
+    project="SNORRE",
+).schema("Well")
+
+# Without entity: returns collection path
+query.build_endpoint()
+# "OW5000/5000107/123/SNORRE/Well"
+
+# With entity: returns entity data path
+query.entity("46075")
+query.build_endpoint()
+# "OW5000/5000107/123/SNORRE/Well('46075')/data"
+```
+
 ### reset()
 
-Clear query parameters for reuse.
+Clear query parameters for reuse (clears schema, select, expand, filter, format, and entity).
 
 ```python
 query = QueryBuilder(
@@ -467,4 +502,5 @@ print(f"First two pages: {len(two_pages_wells)} wells")
 ## See Also
 
 - [Getting Started Guide](getting-started.md) - Basic setup and usage
+- [Working with Binary Data](working-with-binary-data.md) - Using `entity()` for bulk data retrieval
 - [Advanced Serialization](advanced-serialization.md) - Working with model instances
