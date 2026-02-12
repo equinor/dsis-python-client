@@ -69,4 +69,3 @@ def build_query_string(schema_name: Optional[str], params: Dict[str, str]) -> st
     query_str = f"{schema_name}{query_string}"
     logger.info(f"Built query string: {query_str}")
     return query_str
-

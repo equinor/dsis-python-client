@@ -164,9 +164,7 @@ class QueryBuilder:
         logger.info(f"Set format: {format_type}")
         return self
 
-    def entity(
-        self, native_uid: str, data_field: str = "data"
-    ) -> "QueryBuilder":
+    def entity(self, native_uid: str, data_field: str = "data") -> "QueryBuilder":
         """Target a specific entity's binary data field for bulk data retrieval.
 
         This configures the query to fetch binary data for a specific entity,
