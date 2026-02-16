@@ -21,5 +21,10 @@ nav:
     - Common vs Native Model: guides/common-vs-native-model.md
   - API:
     - Summary: api/index.md
+  - Examples:
+    - Fetch Polygons: notebooks/fetch_polygons_with_dsis_client.ipynb
   - Changelog: changelog/index.md
 
+plugins:
+  - mkdocs-jupyter:
+      include_source: true
