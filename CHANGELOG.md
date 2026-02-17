@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.0](https://github.com/equinor/dsis-python-client/compare/v1.3.0...v1.4.0) (2026-02-17)
+
+
+### Features
+
+* add example notebook for fetching polygons ([#66](https://github.com/equinor/dsis-python-client/issues/66)) ([fc9ba29](https://github.com/equinor/dsis-python-client/commit/fc9ba29547c0b9f0f9218a975bd57833ea72158a))
+* **mkdocs:** add mkdocs-jupyter plugin for rendering notebooks ([#72](https://github.com/equinor/dsis-python-client/issues/72)) ([c8c3d53](https://github.com/equinor/dsis-python-client/commit/c8c3d53f1be1e2c6fed7ccd8794c0e9441270b31))
+* refactor bulk data query ([#70](https://github.com/equinor/dsis-python-client/issues/70)) ([8e68a63](https://github.com/equinor/dsis-python-client/commit/8e68a63372f4993069e67767eb4911acdcea5846))
+* simplify README documentation and enhance quick start instructions ([#68](https://github.com/equinor/dsis-python-client/issues/68)) ([c74324a](https://github.com/equinor/dsis-python-client/commit/c74324a8c2512ecf5f9f8366cdee1a96b5ffba10))
+
 ## [1.3.0](https://github.com/equinor/dsis-python-client/compare/v1.2.0...v1.3.0) (2026-02-11)
 
 
