@@ -48,13 +48,10 @@ query = QueryBuilder(
 ).schema(HorizonData3D)
 horizons = list(client.execute_query(query, cast=True, max_pages=1))
 
-# Fetch binary data - pass entity object directly!
+# Target a specific entity and fetch binary data
 horizon = horizons[0]
-binary_data = client.get_bulk_data(
-    schema=HorizonData3D,
-    native_uid=horizon,  # Can pass entity object OR string
-    query=query  # Auto-extracts district_id and project
-)
+bulk_query = query.entity(horizon.native_uid)
+binary_data = client.get_bulk_data(bulk_query)
 
 # Decode
 if binary_data:
@@ -79,11 +76,10 @@ datasets = list(client.execute_query(query, cast=True, max_pages=1))
 
 # Stream large dataset in chunks
 seismic = datasets[0]
+bulk_query = query.entity(seismic.native_uid)
 chunks = []
 for chunk in client.get_bulk_data_stream(
-    schema=SeismicDataSet3D,
-    native_uid=seismic,  # Pass entity object
-    query=query,
+    bulk_query,
     chunk_size=10*1024*1024  # 10MB chunks (DSIS recommended)
 ):
     chunks.append(chunk)
@@ -94,33 +90,18 @@ binary_data = b''.join(chunks)
 decoded = decode_seismic_float_data(binary_data)
 ```
 
-## Flexible native_uid Parameter
+## Using `entity()` to Target Bulk Data
 
-Both `get_bulk_data()` and `get_bulk_data_stream()` accept three formats:
+Use `query.entity(native_uid)` to target a specific entity's binary data field. The `data_field` parameter defaults to `"data"` but can be changed for schemas that use different endpoints:
 
 ```python
-# Option 1: String native_uid
-binary_data = client.get_bulk_data(
-    schema=HorizonData3D,
-    native_uid="46075",  # String
-    district_id="123",
-    project="SNORRE"
-)
+# Standard bulk data (data_field="data" by default)
+bulk_query = query.entity("46075")
+binary_data = client.get_bulk_data(bulk_query)
 
-# Option 2: Entity object (automatically extracts native_uid)
-binary_data = client.get_bulk_data(
-    schema=HorizonData3D,
-    native_uid=horizon,  # Entity object
-    query=query
-)
-
-# Option 3: Entity dict
-binary_data = client.get_bulk_data(
-    schema=HorizonData3D,
-    native_uid={"native_uid": "46075", "name": "..."},  # Dict
-    district_id="123",
-    project="SNORRE"
-)
+# SurfaceGrid uses $value endpoint
+bulk_query = query.entity("46075", data_field="$value")
+binary_data = client.get_bulk_data(bulk_query, accept="application/octet-stream")
 ```
 
 ## Complete Examples
@@ -144,11 +125,8 @@ horizons = list(client.execute_query(query, cast=True))
 
 # Fetch binary data for specific horizon
 horizon = horizons[0]
-binary_data = client.get_bulk_data(
-    schema=HorizonData3D,
-    native_uid=horizon,
-    query=query
-)
+bulk_query = query.entity(horizon.native_uid)
+binary_data = client.get_bulk_data(bulk_query)
 
 if binary_data:
     # Decode protobuf
@@ -183,11 +161,8 @@ curves = list(client.execute_query(query, max_pages=1))
 
 # Fetch binary data
 curve = curves[0]
-binary_data = client.get_bulk_data(
-    schema=LogCurve,
-    native_uid=curve,
-    query=query
-)
+bulk_query = query.entity(curve["native_uid"])
+binary_data = client.get_bulk_data(bulk_query)
 
 if binary_data:
     # Decode
@@ -215,21 +190,16 @@ from dsis_model_sdk.protobuf import decode_lgc_structure, LGCStructure_pb2
 
 # Query for grids
 query = QueryBuilder(
-    model_name=\"OpenWorksCommonModel\",
-    district_id=\"123\",
-    project=\"SNORRE\",
-).schema(\"SurfaceGrid\").select(\"native_uid,grid_name\")
+    model_name="OpenWorksCommonModel",
+    district_id="123",
+    project="SNORRE",
+).schema("SurfaceGrid").select("native_uid,grid_name")
 grids = list(client.execute_query(query, cast=True, max_pages=1))
 
-# Fetch binary data (note: SurfaceGrid uses /$value endpoint, not /data)
+# Fetch binary data (SurfaceGrid uses $value endpoint)
 grid = grids[0]
-endpoint_path = f\"{query.model_name}/{query.model_version}/{query.district_id}/{query.project}/SurfaceGrid('{grid.native_uid}')/$value\"
-full_url = f\"{client.config.data_endpoint}/{endpoint_path}\"
-
-headers = client.auth.get_auth_headers()
-headers[\"Accept\"] = \"application/json\"
-response = client._session.get(full_url, headers=headers)
-data = response.content
+bulk_query = query.entity(grid.native_uid, data_field="$value")
+data = client.get_bulk_data(bulk_query, accept="application/octet-stream")
 
 print(f"Downloaded {len(data):,} bytes")
 
@@ -282,12 +252,12 @@ for i, el in enumerate(lgc.elements[:5]):  # Show first 5
 
 ### API Endpoints
 
-- **Standard bulk data**: `/{Schema}('{native_uid}')/data` (no `/$value` suffix)
-- **Surface grids**: `/{Schema}('{native_uid}')/$value` (uses `/$value` suffix)
+- **Standard bulk data**: `query.entity(native_uid)` → `/{Schema}('{native_uid}')/data`
+- **Surface grids**: `query.entity(native_uid, data_field="$value")` → `/{Schema}('{native_uid}')/$value`
 
 ### Accept Header
 
-The DSIS API returns binary protobuf data with `Accept: application/json` header (not `application/octet-stream`).
+Most endpoints use the default `Accept: application/json` header. SurfaceGrid/$value endpoints require `accept="application/octet-stream"`.
 
 ### Null Values
 
@@ -297,17 +267,21 @@ Missing or no-data values in arrays are often represented as:
 
 ## Migration from Older Versions
 
-Prior to version 0.5.0, there were separate `get_entity_data()` and `get_entity_data_stream()` methods. These have been removed in favor of the more flexible `get_bulk_data()` and `get_bulk_data_stream()` methods:
+Prior to version 0.5.0, there were separate `get_entity_data()` and `get_entity_data_stream()` methods. In version 0.5.0, these were replaced by `get_bulk_data()` and `get_bulk_data_stream()` with keyword arguments. Since then, the API has been further simplified to use `QueryBuilder.entity()`:
 
 ```python
 # OLD (removed in v0.5.0):
 binary_data = client.get_entity_data(horizon, schema=HorizonData3D, query=query)
 
-# NEW:
+# v0.5.0 (deprecated):
 binary_data = client.get_bulk_data(schema=HorizonData3D, native_uid=horizon, query=query)
+
+# NEW (current):
+bulk_query = query.entity(horizon.native_uid)
+binary_data = client.get_bulk_data(bulk_query)
 ```
 
-The new methods automatically detect whether you're passing a string, dict, or entity object for the `native_uid` parameter, eliminating the need for separate methods.
+The new pattern uses `QueryBuilder` to hold all context (model, district, project, schema, entity) in one place, eliminating the need for separate parameters.
 
 ## See Also
 

@@ -142,21 +142,8 @@ class QueryExecutionMixin(_PaginationBase):
 
         logger.info(f"Executing query: {query} (max_pages={max_pages})")
 
-        # Build endpoint path segments
-        segments = [query.model_name, query.model_version]
-        if query.district_id is not None:
-            segments.append(str(query.district_id))
-        if query.project is not None:
-            segments.append(query.project)
-
-        # Get schema name from query
-        query_string = query.get_query_string()
-        schema_name = query_string.split("?")[0]
-        segments.append(schema_name)
-
-        endpoint = "/".join(segments)
-
-        # Get parsed parameters from the query
+        # Build endpoint and params from the query
+        endpoint = query.build_endpoint()
         params = query.build_query_params()
 
         logger.info(f"Making request to endpoint: {endpoint} with params: {params}")
