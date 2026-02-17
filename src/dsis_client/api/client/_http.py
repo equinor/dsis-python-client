@@ -131,19 +131,24 @@ class HTTPTransportMixin:
                 )
 
     def _request_binary(
-        self, endpoint: str, params: Optional[Dict[str, Any]] = None
+        self,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None,
+        accept: str = "application/json",
     ) -> Optional[bytes]:
         """Make an authenticated GET request for binary data.
 
         Internal method for fetching binary protobuf data from the DSIS API.
         Automatically retries once with refreshed tokens on 401 or 500 errors.
 
-        Note: The DSIS API returns binary protobuf data with Accept: application/json,
-        not application/octet-stream. This is the actual behavior observed in the API.
+        Note: The DSIS API typically returns binary protobuf data with
+        Accept: application/json. For some endpoints (e.g., SurfaceGrid /$value),
+        "application/octet-stream" may be required instead.
 
         Args:
             endpoint: API endpoint path
             params: Query parameters
+            accept: Accept header value (default: "application/json")
 
         Returns:
             Binary response content, or None if the entity has no bulk data (404)
@@ -156,7 +161,7 @@ class HTTPTransportMixin:
         response = self._make_request_with_retry(
             url,
             params,
-            extra_headers={"Accept": "application/json"},
+            extra_headers={"Accept": accept},
             request_type="binary",
         )
 
@@ -179,19 +184,22 @@ class HTTPTransportMixin:
         endpoint: str,
         params: Optional[Dict[str, Any]] = None,
         chunk_size: int = 10 * 1024 * 1024,
+        accept: str = "application/json",
     ) -> Generator[bytes, None, None]:
         """Stream binary data in chunks to avoid loading large datasets into memory.
 
         Internal method for streaming binary protobuf data from the DSIS API.
         Automatically retries once with refreshed tokens on 401 or 500 errors.
 
-        Note: The DSIS API returns binary protobuf data with Accept: application/json,
-        not application/octet-stream. This is the actual behavior observed in the API.
+        Note: The DSIS API typically returns binary protobuf data with
+        Accept: application/json. For some endpoints (e.g., SurfaceGrid /$value),
+        "application/octet-stream" may be required instead.
 
         Args:
             endpoint: API endpoint path
             params: Query parameters
             chunk_size: Size of chunks to yield (default: 10MB, recommended by DSIS)
+            accept: Accept header value (default: "application/json")
 
         Yields:
             Binary data chunks as bytes
@@ -205,7 +213,7 @@ class HTTPTransportMixin:
         response = self._make_request_with_retry(
             url,
             params,
-            extra_headers={"Accept": "application/json"},
+            extra_headers={"Accept": accept},
             stream=True,
             request_type="streaming",
         )
