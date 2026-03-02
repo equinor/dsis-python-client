@@ -5,7 +5,7 @@ the host class. Mixins inherit from these bases so mypy can verify attribute
 access without runtime overhead.
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Generator, Optional
+from typing import TYPE_CHECKING, Any, Dict, Generator, Optional, Union
 
 if TYPE_CHECKING:
     from ..config import DSISConfig
@@ -18,7 +18,10 @@ class _RequestBase:
         config: "DSISConfig"
 
         def _request(
-            self, endpoint: str, params: Optional[Dict[str, Any]] = None
+            self,
+            endpoint: str,
+            params: Optional[Dict[str, Any]] = None,
+            timeout: Optional[Union[float, tuple[float, float]]] = None,
         ) -> Dict[str, Any]: ...
 
 
@@ -28,7 +31,11 @@ class _PaginationBase(_RequestBase):
     if TYPE_CHECKING:
 
         def _yield_nextlink_pages(
-            self, response: Dict[str, Any], endpoint: str, max_pages: int = -1
+            self,
+            response: Dict[str, Any],
+            endpoint: str,
+            max_pages: int = -1,
+            timeout: Optional[Union[float, tuple[float, float]]] = None,
         ) -> Generator[Dict[str, Any], None, None]: ...
 
         def _extract_nextlink_from_text(self, response_text: str) -> Optional[str]: ...
@@ -45,6 +52,7 @@ class _BinaryRequestBase:
             endpoint: str,
             params: Optional[Dict[str, Any]] = None,
             accept: str = "application/json",
+            timeout: Optional[Union[float, tuple[float, float]]] = None,
         ) -> Optional[bytes]: ...
 
         def _request_binary_stream(
@@ -53,4 +61,5 @@ class _BinaryRequestBase:
             params: Optional[Dict[str, Any]] = None,
             chunk_size: int = 10 * 1024 * 1024,
             accept: str = "application/json",
+            timeout: Optional[Union[float, tuple[float, float]]] = None,
         ) -> Generator[bytes, None, None]: ...

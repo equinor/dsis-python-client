@@ -5,7 +5,7 @@ Provides mixin class for handling OData nextLink pagination.
 
 import logging
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from ..exceptions import DSISJSONParseError
 from ._base import _RequestBase
@@ -114,7 +114,10 @@ class PaginationMixin(_RequestBase):
         return next_link
 
     def _fetch_next_page(
-        self, endpoint: str, next_key: str
+        self,
+        endpoint: str,
+        next_key: str,
+        timeout: Optional[Union[float, tuple[float, float]]] = None,
     ) -> tuple[list[Any], Optional[str]]:
         """Fetch the next page of results with fallback handling.
 
@@ -124,6 +127,9 @@ class PaginationMixin(_RequestBase):
         Args:
             endpoint: The full endpoint path for the request.
             next_key: The key to look for the next link in the response.
+            timeout: Request timeout in seconds. Can be a single float for both
+                connect and read timeouts, or a (connect, read) tuple.
+                None means no timeout (default).
 
         Returns:
             A tuple of (items, next_link). Items may be empty if JSON parsing
@@ -134,7 +140,7 @@ class PaginationMixin(_RequestBase):
                 also fails.
         """
         try:
-            response = self._request(endpoint, params=None)
+            response = self._request(endpoint, params=None, timeout=timeout)
             items = response.get("value", [])
             next_link = response.get(next_key)
             return items, next_link
@@ -162,7 +168,11 @@ class PaginationMixin(_RequestBase):
             raise
 
     def _yield_nextlink_pages(
-        self, response: Dict[str, Any], endpoint: str, max_pages: int = -1
+        self,
+        response: Dict[str, Any],
+        endpoint: str,
+        max_pages: int = -1,
+        timeout: Optional[Union[float, tuple[float, float]]] = None,
     ):
         """Generator that yields items from pages following OData nextLinks.
 
@@ -172,6 +182,9 @@ class PaginationMixin(_RequestBase):
             response: Initial API response dict
             endpoint: Full endpoint path from initial request (without query params)
             max_pages: Maximum number of pages to yield. -1 means unlimited (all pages).
+            timeout: Request timeout in seconds. Can be a single float for both
+                connect and read timeouts, or a (connect, read) tuple.
+                None means no timeout (default).
 
         Yields:
             Individual items from each page's 'value' array
@@ -196,7 +209,7 @@ class PaginationMixin(_RequestBase):
             logger.info(f"Following nextLink: {next_link}")
 
             temp_endpoint = self._build_nextlink_endpoint(endpoint, next_link)
-            items, next_link = self._fetch_next_page(temp_endpoint, next_key)
+            items, next_link = self._fetch_next_page(temp_endpoint, next_key, timeout=timeout)
 
             for item in items:
                 yield item
