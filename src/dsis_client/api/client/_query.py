@@ -187,10 +187,14 @@ class QueryExecutionMixin(_PaginationBase):
                     "Cannot cast results: query has no schema class. "
                     "Use .schema(ModelClass) when building the query."
                 )
-            for item in self._yield_nextlink_pages(response, endpoint, max_pages, timeout=timeout):
+            for item in self._yield_nextlink_pages(
+                response, endpoint, max_pages, timeout=timeout
+            ):
                 yield query._schema_class(**item)
         else:
-            for item in self._yield_nextlink_pages(response, endpoint, max_pages, timeout=timeout):
+            for item in self._yield_nextlink_pages(
+                response, endpoint, max_pages, timeout=timeout
+            ):
                 yield item
 
     def cast_results(self, results: List[Dict[str, Any]], schema_class) -> List[Any]:

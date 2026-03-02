@@ -209,7 +209,9 @@ class PaginationMixin(_RequestBase):
             logger.info(f"Following nextLink: {next_link}")
 
             temp_endpoint = self._build_nextlink_endpoint(endpoint, next_link)
-            items, next_link = self._fetch_next_page(temp_endpoint, next_key, timeout=timeout)
+            items, next_link = self._fetch_next_page(
+                temp_endpoint, next_key, timeout=timeout
+            )
 
             for item in items:
                 yield item
