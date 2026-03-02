@@ -86,6 +86,25 @@ client = DSISClient(cfg)
 data = client.get("OW5000", "<record-id>")
 ```
 
+## Request Timeout
+
+All request methods (`execute_query()`, `get()`, `get_bulk_data()`, `get_bulk_data_stream()`) accept an optional `timeout` parameter:
+
+```python
+# Single value: both connect and read timeout (seconds)
+items = list(client.execute_query(query, timeout=300))
+
+# Tuple: (connect_timeout, read_timeout)
+items = list(client.execute_query(query, timeout=(5, 300)))
+
+# Also on get()
+data = client.get("OW5000", "5000107", schema="Well", timeout=60)
+```
+
+- `None` (default): no timeout
+- `float`: both connect and read timeout
+- `(float, float)`: separate connect and read timeouts
+
 ## Error Handling Hint
 
 Treat non-200 responses as exceptions; inspect message for status cues (401/403/404). Refresh tokens on auth failures.
@@ -96,13 +115,14 @@ Headers assembled internally include both tokens + subscription key; pass only e
 
 ## Binary Data Methods
 
-### `get_bulk_data(query, *, accept="application/json")`
+### `get_bulk_data(query, *, accept="application/json", timeout=None)`
 
 Fetch binary bulk data (protobuf) for an entity. Loads entire response into memory.
 
 **Parameters:**
 - `query`: QueryBuilder instance configured with `.schema()` and `.entity()` calls
 - `accept`: Accept header value (default: `"application/json"`). Use `"application/octet-stream"` for raw binary endpoints (e.g., SurfaceGrid/$value)
+- `timeout`: Request timeout in seconds. `float` for both connect/read, `(float, float)` tuple for separate connect/read timeouts, or `None` for no timeout (default)
 
 **Returns:** `Optional[bytes]` - Binary protobuf data or None if no data
 
@@ -124,7 +144,7 @@ bulk_query = query.entity(grids[0]["native_uid"], data_field="$value")
 binary_data = client.get_bulk_data(bulk_query, accept="application/octet-stream")
 ```
 
-### `get_bulk_data_stream(query, *, chunk_size=10*1024*1024, accept="application/json")` 
+### `get_bulk_data_stream(query, *, chunk_size=10*1024*1024, accept="application/json", timeout=None)` 
 
 Stream binary bulk data in chunks for memory-efficient processing.
 
@@ -132,6 +152,7 @@ Stream binary bulk data in chunks for memory-efficient processing.
 - `query`: QueryBuilder instance configured with `.schema()` and `.entity()` calls
 - `chunk_size`: Size of chunks to yield (default: 10MB, DSIS recommended)
 - `accept`: Accept header value (default: `"application/json"`)
+- `timeout`: Request timeout in seconds. `float` for both connect/read, `(float, float)` tuple for separate connect/read timeouts, or `None` for no timeout (default)
 
 **Yields:** Binary data chunks as bytes
 

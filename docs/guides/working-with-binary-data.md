@@ -245,6 +245,23 @@ for i, el in enumerate(lgc.elements[:5]):  # Show first 5
 
 ## Important Notes
 
+### Request Timeout
+
+Both `get_bulk_data()` and `get_bulk_data_stream()` accept an optional `timeout` parameter to control how long each HTTP request waits:
+
+```python
+# Set a 10-minute timeout for large binary downloads
+binary_data = client.get_bulk_data(bulk_query, timeout=600)
+
+# Separate connect and read timeouts
+for chunk in client.get_bulk_data_stream(bulk_query, timeout=(5, 600)):
+    chunks.append(chunk)
+```
+
+- `timeout=None` (default): No timeout — wait indefinitely
+- `timeout=600`: Both connect and read timeout set to 600 seconds
+- `timeout=(5, 600)`: Connect timeout of 5s, read timeout of 600s
+
 ### Memory Management
 
 - **Small data (< 100MB)**: Use `get_bulk_data()` - simpler, loads everything at once

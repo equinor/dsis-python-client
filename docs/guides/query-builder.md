@@ -265,6 +265,35 @@ print(f"First two pages: {len(two_pages_items)} wells")
 - `1`: You only need a sample, or want to implement custom pagination
 - `N>1`: You want to process data in page-sized chunks
 
+## Request Timeout
+
+You can set an optional `timeout` parameter on `execute_query()`, `get()`, `get_bulk_data()`, and `get_bulk_data_stream()` to control how long each HTTP request waits before raising an error. By default, no timeout is applied.
+
+```python
+# Single timeout value (seconds) — applies to both connect and read
+for item in client.execute_query(query, timeout=300):
+    process(item)
+
+# Tuple timeout — (connect_timeout, read_timeout) in seconds
+for item in client.execute_query(query, timeout=(5, 300)):
+    process(item)
+
+# Also works with get(), get_bulk_data(), and get_bulk_data_stream()
+data = client.get("OW5000", "5000107", "123", "SNORRE", schema="Well", timeout=60)
+binary = client.get_bulk_data(bulk_query, timeout=600)
+```
+
+**timeout Parameter:**
+
+- `timeout=None` (default): No timeout — wait indefinitely
+- `timeout=300`: Both connect and read timeout set to 300 seconds
+- `timeout=(5, 300)`: Connect timeout of 5 seconds, read timeout of 300 seconds
+
+The timeout applies to **each individual HTTP request**, including pagination requests. If a query fetches multiple pages, each page request uses the same timeout.
+
+!!! tip
+    For large paginated queries, use a generous read timeout (e.g., `timeout=(5, 300)`) to allow time for the server to process each page while still failing fast on connection issues.
+
 ## Execution Patterns
 
 ### ⚠️ Critical: Schema Requirement for `cast=True`
@@ -498,6 +527,7 @@ print(f"First two pages: {len(two_pages_wells)} wells")
 4. **Reuse QueryBuilder**: Use `.reset()` to clear and rebuild queries instead of creating new instances
 5. **Enable auto-casting**: Use `cast=True` with model classes for type-safe results
 6. **Test connection first**: Call `client.test_connection()` when setting up to see if credentials are correct
+7. **Set timeouts for production**: Use `timeout` to prevent requests from hanging indefinitely (e.g., `timeout=300` for 5 minutes)
 
 ## See Also
 
