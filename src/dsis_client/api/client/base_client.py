@@ -93,6 +93,7 @@ class BaseClient(HTTPTransportMixin):
         expand: Optional[str] = None,
         filter: Optional[str] = None,
         validate_schema: bool = True,
+        timeout: Optional[Union[float, tuple[float, float]]] = None,
         **extra_query: Any,
     ) -> Dict[str, Any]:
         """Make a GET request to the DSIS OData API.
@@ -115,6 +116,9 @@ class BaseClient(HTTPTransportMixin):
             filter: OData $filter parameter for filtering (OData filter expression)
             validate_schema: If True, validates that schema is a known model
                 (default: True)
+            timeout: Request timeout in seconds. Can be a single float for both
+                connect and read timeouts, or a (connect, read) tuple.
+                None means no timeout (default).
             **extra_query: Additional OData query parameters
 
         Returns:
@@ -163,4 +167,4 @@ class BaseClient(HTTPTransportMixin):
         if extra_query:
             query.update(extra_query)
 
-        return self._request(endpoint, query)
+        return self._request(endpoint, query, timeout=timeout)

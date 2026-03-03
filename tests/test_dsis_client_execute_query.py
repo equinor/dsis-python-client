@@ -64,7 +64,7 @@ def _make_client_and_patch(monkeypatch, district, project, response):
     pages = response if isinstance(response, list) else [response]
     state = {"idx": 0}
 
-    def fake_request(endpoint, params=None):
+    def fake_request(endpoint, params=None, timeout=None):
         i = state["idx"]
         if i < len(pages):
             page = pages[i]

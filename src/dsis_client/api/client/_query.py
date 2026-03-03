@@ -5,7 +5,7 @@ Provides mixin class for executing QueryBuilder queries and casting results.
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from ..exceptions import DSISJSONParseError
 from ..models import cast_results as _cast_results
@@ -102,7 +102,11 @@ class QueryExecutionMixin(_PaginationBase):
             return [], None
 
     def execute_query(
-        self, query: "QueryBuilder", cast: bool = False, max_pages: int = -1
+        self,
+        query: "QueryBuilder",
+        cast: bool = False,
+        max_pages: int = -1,
+        timeout: Optional[Union[float, tuple[float, float]]] = None,
     ):
         """Execute a DSIS query.
 
@@ -112,6 +116,9 @@ class QueryExecutionMixin(_PaginationBase):
                 to model instances
             max_pages: Maximum number of pages to fetch. -1 (default) fetches all pages.
                 Use 1 for a single page, 2 for two pages, etc.
+            timeout: Request timeout in seconds. Can be a single float for both
+                connect and read timeouts, or a (connect, read) tuple.
+                None means no timeout (default).
 
         Yields:
             Items from the result pages (or model instances if cast=True)
@@ -133,6 +140,9 @@ class QueryExecutionMixin(_PaginationBase):
             >>>
             >>> # Fetch two pages
             >>> two_pages = list(client.execute_query(query, max_pages=2))
+            >>>
+            >>> # With a 5 minute timeout per request
+            >>> items = list(client.execute_query(query, timeout=300))
         """
         # Import here to avoid circular imports
         from ..query import QueryBuilder
@@ -150,7 +160,7 @@ class QueryExecutionMixin(_PaginationBase):
 
         # Try to make the request and handle JSON parsing errors
         try:
-            response = self._request(endpoint, params)
+            response = self._request(endpoint, params, timeout=timeout)
         except DSISJSONParseError as e:
             logger.warning(
                 "JSON parsing failed. Attempting fallback: extracting data from raw text."
@@ -177,10 +187,14 @@ class QueryExecutionMixin(_PaginationBase):
                     "Cannot cast results: query has no schema class. "
                     "Use .schema(ModelClass) when building the query."
                 )
-            for item in self._yield_nextlink_pages(response, endpoint, max_pages):
+            for item in self._yield_nextlink_pages(
+                response, endpoint, max_pages, timeout=timeout
+            ):
                 yield query._schema_class(**item)
         else:
-            for item in self._yield_nextlink_pages(response, endpoint, max_pages):
+            for item in self._yield_nextlink_pages(
+                response, endpoint, max_pages, timeout=timeout
+            ):
                 yield item
 
     def cast_results(self, results: List[Dict[str, Any]], schema_class) -> List[Any]:

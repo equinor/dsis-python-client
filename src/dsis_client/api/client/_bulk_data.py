@@ -4,7 +4,7 @@ Provides mixin class for fetching binary protobuf data.
 """
 
 import logging
-from typing import TYPE_CHECKING, Generator, Optional
+from typing import TYPE_CHECKING, Generator, Optional, Union
 
 from ._base import _BinaryRequestBase
 
@@ -26,6 +26,7 @@ class BulkDataMixin(_BinaryRequestBase):
         query: "QueryBuilder",
         *,
         accept: str = "application/json",
+        timeout: Optional[Union[float, tuple[float, float]]] = None,
     ) -> Optional[bytes]:
         """Fetch binary bulk data (protobuf) for a specific entity.
 
@@ -43,6 +44,9 @@ class BulkDataMixin(_BinaryRequestBase):
             accept: Accept header value for the HTTP request
                 (default: ``"application/json"``). Use ``"application/octet-stream"``
                 for endpoints that serve raw binary data (e.g., SurfaceGrid/$value).
+            timeout: Request timeout in seconds. Can be a single float for both
+                connect and read timeouts, or a (connect, read) tuple.
+                None means no timeout (default).
 
         Returns:
             Binary protobuf data as bytes, or None if the entity has no bulk data
@@ -80,7 +84,7 @@ class BulkDataMixin(_BinaryRequestBase):
 
         endpoint = query.build_endpoint()
         logger.info(f"Fetching bulk data from: {endpoint}")
-        return self._request_binary(endpoint, accept=accept)
+        return self._request_binary(endpoint, accept=accept, timeout=timeout)
 
     def get_bulk_data_stream(
         self,
@@ -88,6 +92,7 @@ class BulkDataMixin(_BinaryRequestBase):
         *,
         chunk_size: int = 10 * 1024 * 1024,
         accept: str = "application/json",
+        timeout: Optional[Union[float, tuple[float, float]]] = None,
     ) -> Generator[bytes, None, None]:
         """Stream binary bulk data (protobuf) in chunks for memory-efficient processing.
 
@@ -106,6 +111,9 @@ class BulkDataMixin(_BinaryRequestBase):
             accept: Accept header value for the HTTP request
                 (default: ``"application/json"``). Use ``"application/octet-stream"``
                 for endpoints that serve raw binary data (e.g., SurfaceGrid/$value).
+            timeout: Request timeout in seconds. Can be a single float for both
+                connect and read timeouts, or a (connect, read) tuple.
+                None means no timeout (default).
 
         Yields:
             Binary data chunks as bytes. Returns immediately if no bulk data (404).
@@ -140,5 +148,5 @@ class BulkDataMixin(_BinaryRequestBase):
         endpoint = query.build_endpoint()
         logger.info(f"Streaming bulk data from: {endpoint} (chunk_size={chunk_size})")
         yield from self._request_binary_stream(
-            endpoint, chunk_size=chunk_size, accept=accept
+            endpoint, chunk_size=chunk_size, accept=accept, timeout=timeout
         )

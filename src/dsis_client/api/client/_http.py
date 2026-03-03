@@ -5,7 +5,7 @@ Provides mixin class for making authenticated HTTP requests.
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Generator, Optional
+from typing import TYPE_CHECKING, Any, Dict, Generator, Optional, Union
 from urllib.parse import urljoin
 
 from ..exceptions import DSISAPIError, DSISJSONParseError
@@ -40,6 +40,7 @@ class HTTPTransportMixin:
         extra_headers: Optional[Dict[str, str]] = None,
         stream: bool = False,
         request_type: str = "standard",
+        timeout: Optional[Union[float, tuple[float, float]]] = None,
     ) -> "requests.Response":
         """Make an HTTP GET request with automatic token refresh retry.
 
@@ -52,6 +53,9 @@ class HTTPTransportMixin:
             extra_headers: Additional headers to merge with auth headers
             stream: Whether to stream the response
             request_type: Description for logging (e.g., "binary", "streaming")
+            timeout: Request timeout in seconds. Can be a single float for both
+                connect and read timeouts, or a (connect, read) tuple.
+                None means no timeout (default).
 
         Returns:
             The HTTP response object (after potential retry)
@@ -60,7 +64,9 @@ class HTTPTransportMixin:
         if extra_headers:
             headers.update(extra_headers)
 
-        response = self._session.get(url, headers=headers, params=params, stream=stream)
+        response = self._session.get(
+            url, headers=headers, params=params, stream=stream, timeout=timeout
+        )
 
         if response.status_code in _RETRY_STATUS_CODES:
             logger.warning(
@@ -74,13 +80,16 @@ class HTTPTransportMixin:
             if extra_headers:
                 headers.update(extra_headers)
             response = self._session.get(
-                url, headers=headers, params=params, stream=stream
+                url, headers=headers, params=params, stream=stream, timeout=timeout
             )
 
         return response
 
     def _request(
-        self, endpoint: str, params: Optional[Dict[str, Any]] = None
+        self,
+        endpoint: str,
+        params: Optional[Dict[str, Any]] = None,
+        timeout: Optional[Union[float, tuple[float, float]]] = None,
     ) -> Dict[str, Any]:
         """Make an authenticated GET request to the DSIS API.
 
@@ -91,6 +100,9 @@ class HTTPTransportMixin:
         Args:
             endpoint: API endpoint path
             params: Query parameters
+            timeout: Request timeout in seconds. Can be a single float for both
+                connect and read timeouts, or a (connect, read) tuple.
+                None means no timeout (default).
 
         Returns:
             Parsed JSON response as dictionary
@@ -100,7 +112,7 @@ class HTTPTransportMixin:
         """
         url = urljoin(f"{self.config.data_endpoint}/", endpoint)
         logger.info(f"Making request to {url}")
-        response = self._make_request_with_retry(url, params)
+        response = self._make_request_with_retry(url, params, timeout=timeout)
 
         if response.status_code != 200:
             error_msg = (
@@ -135,6 +147,7 @@ class HTTPTransportMixin:
         endpoint: str,
         params: Optional[Dict[str, Any]] = None,
         accept: str = "application/json",
+        timeout: Optional[Union[float, tuple[float, float]]] = None,
     ) -> Optional[bytes]:
         """Make an authenticated GET request for binary data.
 
@@ -145,6 +158,9 @@ class HTTPTransportMixin:
             endpoint: API endpoint path
             params: Query parameters
             accept: Accept header value (default: "application/json")
+            timeout: Request timeout in seconds. Can be a single float for both
+                connect and read timeouts, or a (connect, read) tuple.
+                None means no timeout (default).
 
         Returns:
             Binary response content, or None if the entity has no bulk data (404)
@@ -159,6 +175,7 @@ class HTTPTransportMixin:
             params,
             extra_headers={"Accept": accept},
             request_type="binary",
+            timeout=timeout,
         )
 
         if response.status_code == 404:
@@ -181,6 +198,7 @@ class HTTPTransportMixin:
         params: Optional[Dict[str, Any]] = None,
         chunk_size: int = 10 * 1024 * 1024,
         accept: str = "application/json",
+        timeout: Optional[Union[float, tuple[float, float]]] = None,
     ) -> Generator[bytes, None, None]:
         """Stream binary data in chunks to avoid loading large datasets into memory.
 
@@ -192,6 +210,9 @@ class HTTPTransportMixin:
             params: Query parameters
             chunk_size: Size of chunks to yield (default: 10MB, recommended by DSIS)
             accept: Accept header value (default: "application/json")
+            timeout: Request timeout in seconds. Can be a single float for both
+                connect and read timeouts, or a (connect, read) tuple.
+                None means no timeout (default).
 
         Yields:
             Binary data chunks as bytes
@@ -208,6 +229,7 @@ class HTTPTransportMixin:
             extra_headers={"Accept": accept},
             stream=True,
             request_type="streaming",
+            timeout=timeout,
         )
 
         if response.status_code == 404:
