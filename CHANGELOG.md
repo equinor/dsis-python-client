@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/equinor/dsis-python-client/compare/v1.4.0...v1.5.0) (2026-03-03)
+
+
+### Features
+
+* add optional timeout parameter to API request methods ([#79](https://github.com/equinor/dsis-python-client/issues/79)) ([c80f1b9](https://github.com/equinor/dsis-python-client/commit/c80f1b9e8fe83cf5269cf83d8948db802b1ebed5))
+
 ## [1.4.0](https://github.com/equinor/dsis-python-client/compare/v1.3.0...v1.4.0) (2026-02-17)
 
 
