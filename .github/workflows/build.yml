@@ -12,3 +12,5 @@ jobs:
     uses: equinor/ops-actions/.github/workflows/python-package.yml@v9.33.0
     permissions:
       contents: read
+    with:
+      upload_artifact: false
