@@ -11,7 +11,7 @@ pip install dsis-client
 For protobuf bulk data decoding (grids, horizons, seismic):
 
 ```bash
-pip install dsis-model-sdk[protobuf]
+pip install dsis-schemas[protobuf]
 ```
 
 ## Quick Start
