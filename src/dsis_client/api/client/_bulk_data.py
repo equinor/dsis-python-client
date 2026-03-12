@@ -46,7 +46,9 @@ class BulkDataMixin(_BinaryRequestBase):
                 for endpoints that serve raw binary data (e.g., SurfaceGrid/$value).
             timeout: Request timeout in seconds. Can be a single float for both
                 connect and read timeouts, or a (connect, read) tuple.
-                None means no timeout (default).
+                None means no timeout (default). For streamed downloads this
+                applies to connection setup and waiting for the next bytes to
+                arrive, not to the total download duration.
 
         Returns:
             Binary protobuf data as bytes, or None if the entity has no bulk data
@@ -93,6 +95,7 @@ class BulkDataMixin(_BinaryRequestBase):
         chunk_size: int = 10 * 1024 * 1024,
         accept: str = "application/json",
         timeout: Optional[Union[float, tuple[float, float]]] = None,
+        stream_retries: int = 0,
     ) -> Generator[bytes, None, None]:
         """Stream binary bulk data (protobuf) in chunks for memory-efficient processing.
 
@@ -114,6 +117,9 @@ class BulkDataMixin(_BinaryRequestBase):
             timeout: Request timeout in seconds. Can be a single float for both
                 connect and read timeouts, or a (connect, read) tuple.
                 None means no timeout (default).
+            stream_retries: Number of retry attempts for failures while reading
+                streamed chunks. Retries assume the endpoint returns the same
+                bytes when reopened. Default is 0 (no retries).
 
         Yields:
             Binary data chunks as bytes. Returns immediately if no bulk data (404).
@@ -148,5 +154,9 @@ class BulkDataMixin(_BinaryRequestBase):
         endpoint = query.build_endpoint()
         logger.info(f"Streaming bulk data from: {endpoint} (chunk_size={chunk_size})")
         yield from self._request_binary_stream(
-            endpoint, chunk_size=chunk_size, accept=accept, timeout=timeout
+            endpoint,
+            chunk_size=chunk_size,
+            accept=accept,
+            timeout=timeout,
+            stream_retries=stream_retries,
         )

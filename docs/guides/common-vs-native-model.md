@@ -88,8 +88,6 @@ from urllib.parse import quote
 
 config = DSISConfig(
     environment=Environment.DEV,
-    model_name="OW5000",
-    model_version="5000107",
     # ... other config
 )
 client = DSISClient(config)
@@ -111,8 +109,6 @@ from dsis_client import DSISClient, DSISConfig, Environment
 
 config = DSISConfig(
     environment=Environment.DEV,
-    model_name="OpenWorksCommonModel",
-    model_version="5000107",
     # ... other config
 )
 client = DSISClient(config)

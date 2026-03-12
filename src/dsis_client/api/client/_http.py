@@ -5,14 +5,15 @@ Provides mixin class for making authenticated HTTP requests.
 
 import json
 import logging
+import time
 from typing import TYPE_CHECKING, Any, Dict, Generator, Optional, Union
 from urllib.parse import urljoin
+
+import requests
 
 from ..exceptions import DSISAPIError, DSISJSONParseError
 
 if TYPE_CHECKING:
-    import requests
-
     from ..auth import DSISAuth
     from ..config import DSISConfig
 
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Status codes that trigger automatic token refresh and retry
 _RETRY_STATUS_CODES = {401, 500}
+_STREAM_RETRY_EXCEPTIONS = (requests.exceptions.RequestException, OSError)
 
 
 class HTTPTransportMixin:
@@ -199,6 +201,7 @@ class HTTPTransportMixin:
         chunk_size: int = 10 * 1024 * 1024,
         accept: str = "application/json",
         timeout: Optional[Union[float, tuple[float, float]]] = None,
+        stream_retries: int = 0,
     ) -> Generator[bytes, None, None]:
         """Stream binary data in chunks to avoid loading large datasets into memory.
 
@@ -213,6 +216,10 @@ class HTTPTransportMixin:
             timeout: Request timeout in seconds. Can be a single float for both
                 connect and read timeouts, or a (connect, read) tuple.
                 None means no timeout (default).
+            stream_retries: Number of retry attempts for stream-read failures.
+                Retries reopen the stream and resume from the last yielded byte.
+                This assumes the endpoint returns deterministic content across
+                reconnects. Default is 0 (no stream retries).
 
         Yields:
             Binary data chunks as bytes
@@ -222,29 +229,68 @@ class HTTPTransportMixin:
             StopIteration: If the entity has no bulk data (404)
         """
         url = urljoin(f"{self.config.data_endpoint}/", endpoint)
-        logger.info(f"Making streaming binary request to {url}")
-        response = self._make_request_with_retry(
-            url,
-            params,
-            extra_headers={"Accept": accept},
-            stream=True,
-            request_type="streaming",
-            timeout=timeout,
-        )
+        bytes_yielded = 0
+        retry_attempt = 0
 
-        if response.status_code == 404:
-            # Entity exists but has no bulk data field
-            logger.info(f"No bulk data available for endpoint: {endpoint}")
-            return
-        elif response.status_code != 200:
-            error_msg = (
-                f"Binary API request failed: {response.status_code} - "
-                f"{response.reason} - {response.text}"
+        while True:
+            logger.info(f"Making streaming binary request to {url}")
+            response = self._make_request_with_retry(
+                url,
+                params,
+                extra_headers={"Accept": accept},
+                stream=True,
+                request_type="streaming",
+                timeout=timeout,
             )
-            logger.error(error_msg)
-            raise DSISAPIError(error_msg)
 
-        # Stream the content in chunks
-        for chunk in response.iter_content(chunk_size=chunk_size):
-            if chunk:  # filter out keep-alive new chunks
-                yield chunk
+            if response.status_code == 404:
+                logger.info(f"No bulk data available for endpoint: {endpoint}")
+                response.close()
+                return
+            if response.status_code != 200:
+                error_msg = (
+                    f"Binary API request failed: {response.status_code} - "
+                    f"{response.reason} - {response.text}"
+                )
+                logger.error(error_msg)
+                response.close()
+                raise DSISAPIError(error_msg)
+
+            try:
+                remaining = bytes_yielded
+                while remaining > 0:
+                    discarded = response.raw.read(min(chunk_size, remaining))
+                    if not discarded:
+                        raise requests.exceptions.ChunkedEncodingError(
+                            "Stream ended while resuming previously yielded content"
+                        )
+                    remaining -= len(discarded)
+
+                for chunk in response.iter_content(chunk_size=chunk_size):
+                    if chunk:  # filter out keep-alive new chunks
+                        bytes_yielded += len(chunk)
+                        yield chunk
+                return
+            except _STREAM_RETRY_EXCEPTIONS as exc:
+                if retry_attempt >= stream_retries:
+                    error_msg = (
+                        "Streaming binary request failed after "
+                        f"{retry_attempt} retries: {exc}"
+                    )
+                    logger.error(error_msg)
+                    raise DSISAPIError(error_msg) from exc
+
+                retry_attempt += 1
+                delay = 1 if retry_attempt == 1 else 5 * (retry_attempt - 1)
+                logger.warning(
+                    "Streaming binary request failed after %s bytes on attempt %s/%s: %s. "
+                    "Retrying in %s second(s)",
+                    bytes_yielded,
+                    retry_attempt,
+                    stream_retries,
+                    exc,
+                    delay,
+                )
+                time.sleep(delay)
+            finally:
+                response.close()

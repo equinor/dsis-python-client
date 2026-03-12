@@ -42,6 +42,7 @@ class DSISClient(
         ...     dsis_password="...",
         ...     subscription_key_dsauth="...",
         ...     subscription_key_dsdata="...",
+        ...     dsis_site="qa",
         ... )
         >>> client = DSISClient(config)
         >>> client.test_connection()

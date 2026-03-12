@@ -80,7 +80,8 @@ bulk_query = query.entity(seismic.native_uid)
 chunks = []
 for chunk in client.get_bulk_data_stream(
     bulk_query,
-    chunk_size=10*1024*1024  # 10MB chunks (DSIS recommended)
+    chunk_size=10*1024*1024,  # 10MB chunks (DSIS recommended)
+    stream_retries=2,
 ):
     chunks.append(chunk)
     print(f"Downloaded {len(chunk):,} bytes")
@@ -262,6 +263,26 @@ for chunk in client.get_bulk_data_stream(bulk_query, timeout=(5, 600)):
 - `timeout=600`: Both connect and read timeout set to 600 seconds
 - `timeout=(5, 600)`: Connect timeout of 5s, read timeout of 600s
 
+For `get_bulk_data_stream()`, the timeout is not a cap on the full download. It applies to opening the request and to waiting for the next bytes to arrive from the stream. A large transfer can still run longer overall if data keeps arriving before the read timeout expires.
+
+### Stream Retries
+
+`get_bulk_data_stream()` also accepts an optional `stream_retries` parameter for transient failures that happen while chunks are being read:
+
+```python
+for chunk in client.get_bulk_data_stream(
+    bulk_query,
+    timeout=(5, 600),
+    stream_retries=2,
+):
+    chunks.append(chunk)
+```
+
+- `stream_retries=0` (default): No retries after a stream read failure
+- `stream_retries=N`: Retry up to `N` times with incremental waits between attempts
+
+Retries reopen the stream and resume after the bytes already yielded, so this should only be used when the endpoint is expected to return the same bytes across reconnects.
+
 ### Memory Management
 
 - **Small data (< 100MB)**: Use `get_bulk_data()` - simpler, loads everything at once
@@ -279,6 +300,7 @@ Most endpoints use the default `Accept: application/json` header. SurfaceGrid/$v
 ### Null Values
 
 Missing or no-data values in arrays are often represented as:
+
 - `-99999.0` for float/double types
 - Check data documentation for specific sentinel values
 

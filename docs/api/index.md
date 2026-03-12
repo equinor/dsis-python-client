@@ -80,7 +80,8 @@ cfg = DSISConfig(
     dsis_username=os.getenv("DSIS_USERNAME"),
     dsis_password=os.getenv("DSIS_PASSWORD"),
     subscription_key_dsauth=os.getenv("DSIS_SUBSCRIPTION_KEY_DSAUTH"),
-    subscription_key_dsdata=os.getenv("DSIS_SUBSCRIPTION_KEY_DSDATA")
+    subscription_key_dsdata=os.getenv("DSIS_SUBSCRIPTION_KEY_DSDATA"),
+    dsis_site="qa",
 )
 client = DSISClient(cfg)
 data = client.get("OW5000", "<record-id>")
@@ -120,9 +121,10 @@ Headers assembled internally include both tokens + subscription key; pass only e
 Fetch binary bulk data (protobuf) for an entity. Loads entire response into memory.
 
 **Parameters:**
+
 - `query`: QueryBuilder instance configured with `.schema()` and `.entity()` calls
 - `accept`: Accept header value (default: `"application/json"`). Use `"application/octet-stream"` for raw binary endpoints (e.g., SurfaceGrid/$value)
-- `timeout`: Request timeout in seconds. `float` for both connect/read, `(float, float)` tuple for separate connect/read timeouts, or `None` for no timeout (default)
+- `timeout`: Request timeout in seconds. `float` for both connect/read, `(float, float)` tuple for separate connect/read timeouts, or `None` for no timeout (default). For streaming, this is not a total download deadline; it applies to connection setup and waiting for the next bytes to arrive.
 
 **Returns:** `Optional[bytes]` - Binary protobuf data or None if no data
 
@@ -144,15 +146,17 @@ bulk_query = query.entity(grids[0]["native_uid"], data_field="$value")
 binary_data = client.get_bulk_data(bulk_query, accept="application/octet-stream")
 ```
 
-### `get_bulk_data_stream(query, *, chunk_size=10*1024*1024, accept="application/json", timeout=None)` 
+### `get_bulk_data_stream(query, *, chunk_size=10*1024*1024, accept="application/json", timeout=None, stream_retries=0)`
 
 Stream binary bulk data in chunks for memory-efficient processing.
 
 **Parameters:**
+
 - `query`: QueryBuilder instance configured with `.schema()` and `.entity()` calls
 - `chunk_size`: Size of chunks to yield (default: 10MB, DSIS recommended)
 - `accept`: Accept header value (default: `"application/json"`)
 - `timeout`: Request timeout in seconds. `float` for both connect/read, `(float, float)` tuple for separate connect/read timeouts, or `None` for no timeout (default)
+- `stream_retries`: Number of retry attempts for failures while reading streamed chunks. Retries reopen the stream and assume the endpoint returns the same bytes across reconnects. Default: `0`
 
 **Yields:** Binary data chunks as bytes
 
@@ -168,7 +172,8 @@ bulk_query = query.entity(datasets[0].native_uid)
 chunks = []
 for chunk in client.get_bulk_data_stream(
     bulk_query,
-    chunk_size=10*1024*1024
+    chunk_size=10*1024*1024,
+    stream_retries=2,
 ):
     chunks.append(chunk)
 

@@ -22,7 +22,8 @@ Example:
     ...     dsis_username="...",
     ...     dsis_password="...",
     ...     subscription_key_dsauth="...",
-    ...     subscription_key_dsdata="..."
+    ...     subscription_key_dsdata="...",
+    ...     dsis_site="qa",
     ... )
     >>> client = DSISClient(config)
         >>> data = client.get("OW5000", "5000107")
