@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/equinor/dsis-python-client/compare/v1.5.0...v1.6.0) (2026-03-13)
+
+
+### Features
+
+* retry logic on chunks stream requests ([#83](https://github.com/equinor/dsis-python-client/issues/83)) ([c8f7e39](https://github.com/equinor/dsis-python-client/commit/c8f7e39e7df903584977db9f8807d0960a72e80d))
+
 ## [1.5.0](https://github.com/equinor/dsis-python-client/compare/v1.4.0...v1.5.0) (2026-03-03)
 
 
