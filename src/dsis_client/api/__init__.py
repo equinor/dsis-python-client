@@ -24,7 +24,8 @@ Usage:
         dsis_username="your-dsis-username",
         dsis_password="your-dsis-password",
         subscription_key_dsauth="your-dsauth-key",
-        subscription_key_dsdata="your-dsdata-key"
+        subscription_key_dsdata="your-dsdata-key",
+        dsis_site="qa",
     )
 
     client = DSISClient(config)

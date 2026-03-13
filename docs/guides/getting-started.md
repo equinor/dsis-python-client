@@ -65,7 +65,8 @@ config = DSISConfig(
     dsis_username=os.getenv("DSIS_USERNAME"),
     dsis_password=os.getenv("DSIS_PASSWORD"),
     subscription_key_dsauth=os.getenv("DSIS_SUBSCRIPTION_KEY_DSAUTH"),
-    subscription_key_dsdata=os.getenv("DSIS_SUBSCRIPTION_KEY_DSDATA")
+    subscription_key_dsdata=os.getenv("DSIS_SUBSCRIPTION_KEY_DSDATA"),
+    dsis_site="prod",
 )
 
 client = DSISClient(config)

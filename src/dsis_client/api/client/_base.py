@@ -62,4 +62,5 @@ class _BinaryRequestBase:
             chunk_size: int = 10 * 1024 * 1024,
             accept: str = "application/json",
             timeout: Optional[Union[float, tuple[float, float]]] = None,
+            stream_retries: int = 0,
         ) -> Generator[bytes, None, None]: ...

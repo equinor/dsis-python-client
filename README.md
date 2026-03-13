@@ -30,8 +30,7 @@ config = DSISConfig(
     dsis_password=os.getenv("DSIS_PASSWORD"),
     subscription_key_dsauth=os.getenv("DSIS_SUBSCRIPTION_KEY_DSAUTH"),
     subscription_key_dsdata=os.getenv("DSIS_SUBSCRIPTION_KEY_DSDATA"),
-    model_name="OpenWorksCommonModel", #or the native model OW5000
-    dsis_site="dev",
+    dsis_site="qa",
 )
 
 client = DSISClient(config)
@@ -127,9 +126,14 @@ for chunk in client.get_bulk_data_stream(
     native_uid=seismic,
     query=query,
     chunk_size=10 * 1024 * 1024,  # 10 MB
+    stream_retries=2,
 ):
     process(chunk)
 ```
+
+Set `stream_retries` to retry transient failures while reading streamed chunks.
+Retries reopen the stream and assume the endpoint returns the same bytes across reconnects.
+The `timeout` value on streamed downloads applies to connection setup and waiting for the next bytes, not to the full transfer duration.
 
 ## Error Handling
 
