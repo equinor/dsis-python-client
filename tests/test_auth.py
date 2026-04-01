@@ -10,29 +10,29 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "dsis_client" / "api"
 
 
-def load_auth_types():
-    """Load auth/config modules directly from source without package side effects."""
+def load_auth_types(monkeypatch):
+    """Load auth/config modules directly from source for isolated auth tests."""
     for name in list(sys.modules):
         if name == "dsis_client" or name.startswith("dsis_client."):
-            sys.modules.pop(name)
+            monkeypatch.delitem(sys.modules, name, raising=False)
 
     dsis_pkg = types.ModuleType("dsis_client")
     dsis_pkg.__path__ = [str(ROOT / "src" / "dsis_client")]
-    sys.modules["dsis_client"] = dsis_pkg
+    monkeypatch.setitem(sys.modules, "dsis_client", dsis_pkg)
 
     api_pkg = types.ModuleType("dsis_client.api")
     api_pkg.__path__ = [str(SRC)]
-    sys.modules["dsis_client.api"] = api_pkg
+    monkeypatch.setitem(sys.modules, "dsis_client.api", api_pkg)
     dsis_pkg.api = api_pkg
 
     config_pkg = types.ModuleType("dsis_client.api.config")
     config_pkg.__path__ = [str(SRC / "config")]
-    sys.modules["dsis_client.api.config"] = config_pkg
+    monkeypatch.setitem(sys.modules, "dsis_client.api.config", config_pkg)
     api_pkg.config = config_pkg
 
     auth_pkg = types.ModuleType("dsis_client.api.auth")
     auth_pkg.__path__ = [str(SRC / "auth")]
-    sys.modules["dsis_client.api.auth"] = auth_pkg
+    monkeypatch.setitem(sys.modules, "dsis_client.api.auth", auth_pkg)
     api_pkg.auth = auth_pkg
 
     def load_module(name: str, path: Path):
@@ -40,7 +40,7 @@ def load_auth_types():
         if spec is None or spec.loader is None:
             raise RuntimeError(f"Unable to load module {name} from {path}")
         module = module_from_spec(spec)
-        sys.modules[name] = module
+        monkeypatch.setitem(sys.modules, name, module)
         spec.loader.exec_module(module)
         return module
 
@@ -59,7 +59,13 @@ def load_auth_types():
     auth_module = load_module("dsis_client.api.auth.auth", SRC / "auth" / "auth.py")
     auth_pkg.auth = auth_module
     auth_pkg.DSISAuth = auth_module.DSISAuth
-    return auth_module.DSISAuth, config_module.DSISConfig, environment_module.Environment
+
+    return (
+        auth_module,
+        auth_module.DSISAuth,
+        config_module.DSISConfig,
+        environment_module.Environment,
+    )
 
 
 def make_config(
@@ -86,7 +92,7 @@ def make_config(
 
 def test_get_aad_token_uses_configured_auth_timeout(monkeypatch):
     """MSAL client creation forwards auth_timeout from DSISConfig."""
-    DSISAuth, DSISConfig, Environment = load_auth_types()
+    auth_module, DSISAuth, DSISConfig, Environment = load_auth_types(monkeypatch)
     captured: dict[str, object] = {}
 
     class FakeConfidentialClientApplication:
@@ -99,7 +105,8 @@ def test_get_aad_token_uses_configured_auth_timeout(monkeypatch):
             return {"access_token": "aad-token"}
 
     monkeypatch.setattr(
-        "dsis_client.api.auth.auth.msal.ConfidentialClientApplication",
+        auth_module.msal,
+        "ConfidentialClientApplication",
         FakeConfidentialClientApplication,
     )
 
@@ -117,7 +124,7 @@ def test_get_aad_token_uses_configured_auth_timeout(monkeypatch):
 
 def test_get_dsis_token_uses_configured_auth_timeout(monkeypatch):
     """DSIS token POST forwards auth_timeout from DSISConfig."""
-    DSISAuth, DSISConfig, Environment = load_auth_types()
+    _, DSISAuth, DSISConfig, Environment = load_auth_types(monkeypatch)
     captured: dict[str, object] = {}
 
     class FakeResponse:
