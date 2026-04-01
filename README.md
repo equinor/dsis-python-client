@@ -31,6 +31,7 @@ config = DSISConfig(
     subscription_key_dsauth=os.getenv("DSIS_SUBSCRIPTION_KEY_DSAUTH"),
     subscription_key_dsdata=os.getenv("DSIS_SUBSCRIPTION_KEY_DSDATA"),
     dsis_site="qa",
+    auth_timeout=(5, 30),  # Optional: bound Azure AD + DSIS token requests
 )
 
 client = DSISClient(config)
@@ -134,6 +135,15 @@ for chunk in client.get_bulk_data_stream(
 Set `stream_retries` to retry transient failures while reading streamed chunks.
 Retries reopen the stream and assume the endpoint returns the same bytes across reconnects.
 The `timeout` value on streamed downloads applies to connection setup and waiting for the next bytes, not to the full transfer duration.
+
+For authentication, set `auth_timeout` on `DSISConfig` to bound Azure AD token acquisition and DSIS token refresh requests:
+
+```python
+config = DSISConfig(
+    ...,
+    auth_timeout=(5, 30),  # (connect_timeout, read_timeout)
+)
+```
 
 ## Error Handling
 
