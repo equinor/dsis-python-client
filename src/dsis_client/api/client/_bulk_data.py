@@ -96,6 +96,7 @@ class BulkDataMixin(_BinaryRequestBase):
         accept: str = "application/json",
         timeout: Optional[Union[float, tuple[float, float]]] = None,
         stream_retries: int = 0,
+        total_timeout: Optional[float] = None,
     ) -> Generator[bytes, None, None]:
         """Stream binary bulk data (protobuf) in chunks for memory-efficient processing.
 
@@ -120,6 +121,10 @@ class BulkDataMixin(_BinaryRequestBase):
             stream_retries: Number of retry attempts for failures while reading
                 streamed chunks. Retries assume the endpoint returns the same
                 bytes when reopened. Default is 0 (no retries).
+            total_timeout: Maximum wall-clock seconds for the entire stream
+                (including retries). None means no total timeout (default).
+                Unlike ``timeout`` which only guards gaps between bytes, this
+                catches slow-trickle streams that never fully stall.
 
         Yields:
             Binary data chunks as bytes. Returns immediately if no bulk data (404).
@@ -159,4 +164,5 @@ class BulkDataMixin(_BinaryRequestBase):
             accept=accept,
             timeout=timeout,
             stream_retries=stream_retries,
+            total_timeout=total_timeout,
         )
