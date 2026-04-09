@@ -53,6 +53,7 @@ class DSISAuth:
             self.config.client_id,
             authority=self.config.authority,
             client_credential=self.config.client_secret,
+            timeout=self.config.auth_timeout,
         )
 
         result = app.acquire_token_for_client(scopes=self.config.scope)
@@ -103,7 +104,10 @@ class DSISAuth:
         }
 
         response = self._session.post(
-            self.config.token_endpoint, headers=headers, data=body
+            self.config.token_endpoint,
+            headers=headers,
+            data=body,
+            timeout=self.config.auth_timeout,
         )
 
         if response.status_code != 200:
