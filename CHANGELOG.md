@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/equinor/dsis-python-client/compare/v1.6.0...v1.6.1) (2026-04-09)
+
+
+### Bug Fixes
+
+* timeout to catch it if individual chunks fail on individual bytes ([#88](https://github.com/equinor/dsis-python-client/issues/88)) ([defe282](https://github.com/equinor/dsis-python-client/commit/defe282471c4746255af0234dafd3b3925b1ffe8))
+
 ## [1.6.0](https://github.com/equinor/dsis-python-client/compare/v1.5.0...v1.6.0) (2026-03-13)
 
 
