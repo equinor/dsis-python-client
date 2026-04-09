@@ -82,6 +82,7 @@ for chunk in client.get_bulk_data_stream(
     bulk_query,
     chunk_size=10*1024*1024,  # 10MB chunks (DSIS recommended)
     stream_retries=2,
+    total_timeout=120,        # fail if stream exceeds 2 minutes
 ):
     chunks.append(chunk)
     print(f"Downloaded {len(chunk):,} bytes")
@@ -264,6 +265,25 @@ for chunk in client.get_bulk_data_stream(bulk_query, timeout=(5, 600)):
 - `timeout=(5, 600)`: Connect timeout of 5s, read timeout of 600s
 
 For `get_bulk_data_stream()`, the timeout is not a cap on the full download. It applies to opening the request and to waiting for the next bytes to arrive from the stream. A large transfer can still run longer overall if data keeps arriving before the read timeout expires.
+
+### Total Timeout
+
+`get_bulk_data_stream()` accepts an optional `total_timeout` parameter that sets a wall-clock deadline for the entire stream, including any retries. Unlike `timeout` which only fires when the server stops sending bytes entirely, `total_timeout` catches slow-trickle streams that never fully stall but also never finish in a reasonable time:
+
+```python
+for chunk in client.get_bulk_data_stream(
+    bulk_query,
+    timeout=(10, 30),       # fail fast if server goes silent for 30s
+    total_timeout=120,       # fail if entire stream takes > 2 minutes
+    stream_retries=2,
+):
+    chunks.append(chunk)
+```
+
+- `total_timeout=None` (default): No total timeout — the stream can run indefinitely
+- `total_timeout=120`: Raise `DSISAPIError` if the stream (including retries) exceeds 120 seconds
+
+The deadline is shared across retry attempts — a stream that fails and retries still counts against the same wall-clock budget.
 
 ### Stream Retries
 

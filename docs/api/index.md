@@ -146,7 +146,7 @@ bulk_query = query.entity(grids[0]["native_uid"], data_field="$value")
 binary_data = client.get_bulk_data(bulk_query, accept="application/octet-stream")
 ```
 
-### `get_bulk_data_stream(query, *, chunk_size=10*1024*1024, accept="application/json", timeout=None, stream_retries=0)`
+### `get_bulk_data_stream(query, *, chunk_size=10*1024*1024, accept="application/json", timeout=None, stream_retries=0, total_timeout=None)`
 
 Stream binary bulk data in chunks for memory-efficient processing.
 
@@ -157,6 +157,7 @@ Stream binary bulk data in chunks for memory-efficient processing.
 - `accept`: Accept header value (default: `"application/json"`)
 - `timeout`: Request timeout in seconds. `float` for both connect/read, `(float, float)` tuple for separate connect/read timeouts, or `None` for no timeout (default)
 - `stream_retries`: Number of retry attempts for failures while reading streamed chunks. Retries reopen the stream and assume the endpoint returns the same bytes across reconnects. Default: `0`
+- `total_timeout`: Maximum wall-clock seconds for the entire stream (including retries). `None` means no total timeout (default). Unlike `timeout` which only guards gaps between bytes, this catches slow-trickle streams that never fully stall.
 
 **Yields:** Binary data chunks as bytes
 
@@ -173,7 +174,9 @@ chunks = []
 for chunk in client.get_bulk_data_stream(
     bulk_query,
     chunk_size=10*1024*1024,
+    timeout=(10, 30),
     stream_retries=2,
+    total_timeout=120,
 ):
     chunks.append(chunk)
 
