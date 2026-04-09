@@ -63,4 +63,5 @@ class _BinaryRequestBase:
             accept: str = "application/json",
             timeout: Optional[Union[float, tuple[float, float]]] = None,
             stream_retries: int = 0,
+            total_timeout: Optional[float] = None,
         ) -> Generator[bytes, None, None]: ...

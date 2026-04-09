@@ -289,6 +289,13 @@ binary = client.get_bulk_data(bulk_query, timeout=600)
 - `timeout=300`: Both connect and read timeout set to 300 seconds
 - `timeout=(5, 300)`: Connect timeout of 5 seconds, read timeout of 300 seconds
 
+For `get_bulk_data_stream()`, there is also a `total_timeout` parameter that sets a wall-clock deadline for the entire stream (including retries). Unlike `timeout` which guards against the server going completely silent, `total_timeout` catches slow-trickle streams that never fully stall:
+
+```python
+for chunk in client.get_bulk_data_stream(bulk_query, timeout=(10, 30), total_timeout=120):
+    process(chunk)
+```
+
 The timeout applies to **each individual HTTP request**, including pagination requests. If a query fetches multiple pages, each page request uses the same timeout.
 
 !!! tip

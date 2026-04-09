@@ -202,6 +202,7 @@ class HTTPTransportMixin:
         accept: str = "application/json",
         timeout: Optional[Union[float, tuple[float, float]]] = None,
         stream_retries: int = 0,
+        total_timeout: Optional[float] = None,
     ) -> Generator[bytes, None, None]:
         """Stream binary data in chunks to avoid loading large datasets into memory.
 
@@ -220,6 +221,10 @@ class HTTPTransportMixin:
                 Retries reopen the stream and resume from the last yielded byte.
                 This assumes the endpoint returns deterministic content across
                 reconnects. Default is 0 (no stream retries).
+            total_timeout: Maximum wall-clock seconds for the entire stream
+                (including retries). None means no total timeout (default).
+                Unlike ``timeout`` which only guards gaps between bytes, this
+                catches slow-trickle streams that never fully stall.
 
         Yields:
             Binary data chunks as bytes
@@ -231,6 +236,7 @@ class HTTPTransportMixin:
         url = urljoin(f"{self.config.data_endpoint}/", endpoint)
         bytes_yielded = 0
         retry_attempt = 0
+        deadline = (time.monotonic() + total_timeout) if total_timeout else None
 
         while True:
             logger.info(f"Making streaming binary request to {url}")
@@ -268,6 +274,11 @@ class HTTPTransportMixin:
 
                 for chunk in response.iter_content(chunk_size=chunk_size):
                     if chunk:  # filter out keep-alive new chunks
+                        if deadline and time.monotonic() > deadline:
+                            raise DSISAPIError(
+                                f"Total timeout ({total_timeout}s) exceeded after "
+                                f"{bytes_yielded / (1024 * 1024):.1f} MB"
+                            )
                         bytes_yielded += len(chunk)
                         yield chunk
                 return
