@@ -56,27 +56,19 @@ class BulkDataMixin(_BinaryRequestBase):
         if not media_link:
             raise ValueError("media_link must be a non-empty string")
 
-        data_endpoint = self.config.data_endpoint.rstrip("/")
-        if media_link.startswith(f"{data_endpoint}/"):
-            return media_link[len(data_endpoint) + 1 :]
-
         parsed_link = urlparse(media_link)
-        if parsed_link.scheme or parsed_link.netloc:
+        if parsed_link.scheme or parsed_link.netloc or media_link.startswith("/"):
             raise ValueError(
-                "media_link must be relative to the configured DSIS data endpoint "
-                "or use that exact endpoint as its base URL"
+                'media_link must be a relative OData media link such as "LogCurve(...)/data"'
             )
 
-        normalized_link = media_link.lstrip("/")
-        configured_path = urlparse(data_endpoint).path.strip("/")
-        if configured_path and normalized_link.startswith(f"{configured_path}/"):
-            return normalized_link[len(configured_path) + 1 :]
-
         query_root = self._build_bulk_query_root(query)
-        if normalized_link.startswith(f"{query_root}/"):
-            return normalized_link
+        if media_link.startswith(f"{query_root}/"):
+            raise ValueError(
+                'media_link must be a relative OData media link such as "LogCurve(...)/data"'
+            )
 
-        return f"{query_root}/{normalized_link}"
+        return f"{query_root}/{media_link}"
 
     def get_bulk_data(
         self,
@@ -112,10 +104,9 @@ class BulkDataMixin(_BinaryRequestBase):
                 applies to connection setup and waiting for the next bytes to
                 arrive, not to the total download duration.
             media_link: Optional OData media link path returned by DSIS
-                (for example ``LogCurve(...)/data``). Relative media links are
-                resolved against the query's model/version/district/project
-                context. Service-root-relative paths and full URLs pointing to
-                the configured data endpoint are also accepted.
+                (for example ``LogCurve(...)/data``). The link must be the
+                relative row-level media link returned by DSIS and is resolved
+                against the query's model/version/district/project context.
 
         Returns:
             Binary protobuf data as bytes, or None if the entity has no bulk data
@@ -194,10 +185,9 @@ class BulkDataMixin(_BinaryRequestBase):
                 Unlike ``timeout`` which only guards gaps between bytes, this
                 catches slow-trickle streams that never fully stall.
             media_link: Optional OData media link path returned by DSIS
-                (for example ``LogCurve(...)/data``). Relative media links are
-                resolved against the query's model/version/district/project
-                context. Service-root-relative paths and full URLs pointing to
-                the configured data endpoint are also accepted.
+                (for example ``LogCurve(...)/data``). The link must be the
+                relative row-level media link returned by DSIS and is resolved
+                against the query's model/version/district/project context.
 
         Yields:
             Binary data chunks as bytes. Returns immediately if no bulk data (404).

@@ -206,36 +206,31 @@ def test_get_bulk_data_stream_accepts_media_link(monkeypatch):
     ]
 
 
-def test_get_bulk_data_accepts_full_data_endpoint_url(monkeypatch):
-    """Full URLs under the configured data endpoint are normalized."""
+def test_get_bulk_data_rejects_absolute_media_link(monkeypatch):
+    """Absolute URLs are outside the supported media_link contract."""
     BulkDataMixin, QueryBuilder = load_bulk_data_types(monkeypatch)
     client = make_client(BulkDataMixin)
     query = make_query(QueryBuilder)
 
-    payload = client.get_bulk_data(
-        query,
-        media_link=(
-            "https://example.org/dsdata/v1/RecallCommonModel/500010/"
-            "RecallCommonModel_OFDB_RecallProd-RecallProd/NORWAY_WELLDB/"
-            "LogCurve('44367/6')/data"
-        ),
-    )
-
-    assert payload == b"payload"
-    assert client.binary_calls[0]["endpoint"] == (
-        "RecallCommonModel/500010/RecallCommonModel_OFDB_RecallProd-RecallProd/"
-        "NORWAY_WELLDB/LogCurve('44367/6')/data"
-    )
-
-
-def test_get_bulk_data_rejects_media_link_for_other_service(monkeypatch):
-    """Absolute URLs must point at the configured DSIS data endpoint."""
-    BulkDataMixin, QueryBuilder = load_bulk_data_types(monkeypatch)
-    client = make_client(BulkDataMixin)
-    query = make_query(QueryBuilder)
-
-    with pytest.raises(ValueError, match="configured DSIS data endpoint"):
+    with pytest.raises(ValueError, match="relative OData media link"):
         client.get_bulk_data(
             query,
-            media_link="https://other.example.org/dsdata/v1/LogCurve('44367/6')/data",
+            media_link=(
+                "https://example.org/dsdata/v1/RecallCommonModel/500010/"
+                "RecallCommonModel_OFDB_RecallProd-RecallProd/NORWAY_WELLDB/"
+                "LogCurve('44367/6')/data"
+            ),
+        )
+
+
+def test_get_bulk_data_rejects_service_root_relative_media_link(monkeypatch):
+    """Service-root-relative media links are outside the supported contract."""
+    BulkDataMixin, QueryBuilder = load_bulk_data_types(monkeypatch)
+    client = make_client(BulkDataMixin)
+    query = make_query(QueryBuilder)
+
+    with pytest.raises(ValueError, match="relative OData media link"):
+        client.get_bulk_data(
+            query,
+            media_link="/RecallCommonModel/500010/RecallCommonModel_OFDB_RecallProd-RecallProd/NORWAY_WELLDB/LogCurve('44367/6')/data",
         )

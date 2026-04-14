@@ -106,7 +106,7 @@ bulk_query = query.entity("46075", data_field="$value")
 binary_data = client.get_bulk_data(bulk_query, accept="application/octet-stream")
 ```
 
-If DSIS already returned an OData media link for the row, you can pass that link directly to the bulk-data methods instead of rebuilding an entity endpoint:
+If DSIS already returned a relative OData media link for the row, you can pass that link directly to the bulk-data methods instead of rebuilding an entity endpoint:
 
 ```python
 query = QueryBuilder(
@@ -337,7 +337,7 @@ Retries reopen the stream and resume after the bytes already yielded, so this sh
 
 - **Standard bulk data**: `query.entity(native_uid)` → `/{Schema}('{native_uid}')/data`
 - **Surface grids**: `query.entity(native_uid, data_field="$value")` → `/{Schema}('{native_uid}')/$value`
-- **Exact OData links**: `client.get_bulk_data(query, media_link=row["data@odata.mediaReadLink"])`
+- **Exact relative OData links**: `client.get_bulk_data(query, media_link=row["data@odata.mediaReadLink"])`
 
 ### Accept Header
 
