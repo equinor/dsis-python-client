@@ -47,7 +47,9 @@ def load_bulk_data_types(monkeypatch):
         spec.loader.exec_module(module)
         return module
 
-    odata_module = load_module("dsis_client.api.query.odata", SRC / "query" / "odata.py")
+    odata_module = load_module(
+        "dsis_client.api.query.odata", SRC / "query" / "odata.py"
+    )
     builder_module = load_module(
         "dsis_client.api.query.builder", SRC / "query" / "builder.py"
     )
@@ -55,7 +57,9 @@ def load_bulk_data_types(monkeypatch):
     query_pkg.builder = builder_module
     query_pkg.QueryBuilder = builder_module.QueryBuilder
 
-    base_module = load_module("dsis_client.api.client._base", SRC / "client" / "_base.py")
+    base_module = load_module(
+        "dsis_client.api.client._base", SRC / "client" / "_base.py"
+    )
     bulk_data_module = load_module(
         "dsis_client.api.client._bulk_data", SRC / "client" / "_bulk_data.py"
     )
