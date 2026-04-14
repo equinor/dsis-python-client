@@ -26,6 +26,9 @@ class DSISConfig:
         subscription_key_dsauth: APIM subscription key for dsauth endpoint
         subscription_key_dsdata: APIM subscription key for dsdata endpoint
         dsis_site: DSIS site header (default: "qa")
+        auth_timeout: Optional timeout for Azure AD and DSIS token requests.
+            Accepts the same forms as requests timeouts: None, a single float,
+            or a (connect, read) tuple.
     """
 
     # Environment settings
@@ -47,6 +50,9 @@ class DSISConfig:
 
     # DSIS site header (typically "qa" for DEV endpoint)
     dsis_site: str = "qa"
+
+    # Optional timeout for token acquisition/refresh requests
+    auth_timeout: float | tuple[float, float] | None = None
 
     def __post_init__(self) -> None:
         """Validate configuration after initialization."""

@@ -82,6 +82,7 @@ cfg = DSISConfig(
     subscription_key_dsauth=os.getenv("DSIS_SUBSCRIPTION_KEY_DSAUTH"),
     subscription_key_dsdata=os.getenv("DSIS_SUBSCRIPTION_KEY_DSDATA"),
     dsis_site="qa",
+    auth_timeout=(5, 30),
 )
 client = DSISClient(cfg)
 data = client.get("OW5000", "<record-id>")
@@ -105,6 +106,15 @@ data = client.get("OW5000", "5000107", schema="Well", timeout=60)
 - `None` (default): no timeout
 - `float`: both connect and read timeout
 - `(float, float)`: separate connect and read timeouts
+
+Authentication requests use `DSISConfig.auth_timeout`. Set it when you also want bounded Azure AD token acquisition and DSIS token refresh calls:
+
+```python
+cfg = DSISConfig(
+    ...,
+    auth_timeout=(5, 30),
+)
+```
 
 ## Error Handling Hint
 
