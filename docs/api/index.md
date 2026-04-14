@@ -126,15 +126,16 @@ Headers assembled internally include both tokens + subscription key; pass only e
 
 ## Binary Data Methods
 
-### `get_bulk_data(query, *, accept="application/json", timeout=None)`
+### `get_bulk_data(query, *, accept="application/json", timeout=None, media_link=None)`
 
 Fetch binary bulk data (protobuf) for an entity. Loads entire response into memory.
 
 **Parameters:**
 
-- `query`: QueryBuilder instance configured with `.schema()` and `.entity()` calls
+- `query`: QueryBuilder instance configured with `.schema()`. Call `.entity()` for the existing endpoint-building flow, or keep the collection query and pass `media_link=` with the exact OData link returned by DSIS.
 - `accept`: Accept header value (default: `"application/json"`). Use `"application/octet-stream"` for raw binary endpoints (e.g., SurfaceGrid/$value)
 - `timeout`: Request timeout in seconds. `float` for both connect/read, `(float, float)` tuple for separate connect/read timeouts, or `None` for no timeout (default). For streaming, this is not a total download deadline; it applies to connection setup and waiting for the next bytes to arrive.
+- `media_link`: Optional OData media link such as `LogCurve(...)/data`. Relative links are resolved against the query's model/version/district/project context. Service-root-relative paths and full URLs under the configured data endpoint also work.
 
 **Returns:** `Optional[bytes]` - Binary protobuf data or None if no data
 
@@ -154,20 +155,29 @@ query = QueryBuilder(district_id="123", project="SNORRE").schema("SurfaceGrid")
 grids = list(client.execute_query(query))
 bulk_query = query.entity(grids[0]["native_uid"], data_field="$value")
 binary_data = client.get_bulk_data(bulk_query, accept="application/octet-stream")
+
+# Option 3: Use the exact OData media link returned by DSIS
+query = QueryBuilder(district_id="123", project="SNORRE").schema("LogCurve")
+curves = list(client.execute_query(query))
+binary_data = client.get_bulk_data(
+    query,
+    media_link=curves[0]["data@odata.mediaReadLink"],
+)
 ```
 
-### `get_bulk_data_stream(query, *, chunk_size=10*1024*1024, accept="application/json", timeout=None, stream_retries=0, total_timeout=None)`
+### `get_bulk_data_stream(query, *, chunk_size=10*1024*1024, accept="application/json", timeout=None, stream_retries=0, total_timeout=None, media_link=None)`
 
 Stream binary bulk data in chunks for memory-efficient processing.
 
 **Parameters:**
 
-- `query`: QueryBuilder instance configured with `.schema()` and `.entity()` calls
+- `query`: QueryBuilder instance configured with `.schema()`. Call `.entity()` for the existing endpoint-building flow, or keep the collection query and pass `media_link=` with the exact OData link returned by DSIS.
 - `chunk_size`: Size of chunks to yield (default: 10MB, DSIS recommended)
 - `accept`: Accept header value (default: `"application/json"`)
 - `timeout`: Request timeout in seconds. `float` for both connect/read, `(float, float)` tuple for separate connect/read timeouts, or `None` for no timeout (default)
 - `stream_retries`: Number of retry attempts for failures while reading streamed chunks. Retries reopen the stream and assume the endpoint returns the same bytes across reconnects. Default: `0`
 - `total_timeout`: Maximum wall-clock seconds for the entire stream (including retries). `None` means no total timeout (default). Unlike `timeout` which only guards gaps between bytes, this catches slow-trickle streams that never fully stall.
+- `media_link`: Optional OData media link such as `LogCurve(...)/data`. Relative links are resolved against the query's model/version/district/project context. Service-root-relative paths and full URLs under the configured data endpoint also work.
 
 **Yields:** Binary data chunks as bytes
 
@@ -191,6 +201,14 @@ for chunk in client.get_bulk_data_stream(
     chunks.append(chunk)
 
 binary_data = b''.join(chunks)
+
+# Or stream directly from the OData media link
+for chunk in client.get_bulk_data_stream(
+    query,
+    media_link=datasets[0]["data@odata.mediaReadLink"],
+    chunk_size=10*1024*1024,
+):
+    chunks.append(chunk)
 ```
 
 ## Notes
