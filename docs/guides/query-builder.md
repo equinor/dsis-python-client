@@ -178,6 +178,8 @@ bulk_query = query.entity("46075", data_field="$value")
 # build_endpoint() → ".../SurfaceGrid('46075')/$value"
 ```
 
+If a DSIS response already includes a relative `odata.mediaReadLink` or `data@odata.mediaReadLink`, you can keep the collection query unchanged and pass that link directly to `client.get_bulk_data(..., media_link=...)` or `client.get_bulk_data_stream(..., media_link=...)`.
+
 ### build_endpoint()
 
 Build the full API endpoint path from the query's configuration.
