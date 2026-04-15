@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.7.0](https://github.com/equinor/dsis-python-client/compare/v1.6.1...v1.7.0) (2026-04-15)
+
+
+### Features
+
+* **auth:** expose timeout configuration for token requests ([#87](https://github.com/equinor/dsis-python-client/issues/87)) ([9370b00](https://github.com/equinor/dsis-python-client/commit/9370b00b6ed8279711326bee3e1312c84453be28))
+* **bulk-data:** accept OData media links for bulk downloads ([#92](https://github.com/equinor/dsis-python-client/issues/92)) ([6dec88b](https://github.com/equinor/dsis-python-client/commit/6dec88bc836b0e1852a11a4ba27b9fb08c42d278))
+
+
+### Documentation
+
+* fix dependency name for DSIS models library ([#81](https://github.com/equinor/dsis-python-client/issues/81)) ([ccf6e8f](https://github.com/equinor/dsis-python-client/commit/ccf6e8fe61ae4039460c82d3754996e2fd55d6ae))
+
 ## [1.6.1](https://github.com/equinor/dsis-python-client/compare/v1.6.0...v1.6.1) (2026-04-09)
 
 
