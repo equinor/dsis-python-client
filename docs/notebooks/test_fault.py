@@ -1,11 +1,13 @@
-from dotenv import load_dotenv
-import os
+from collections import defaultdict
+import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
-from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 — registers 3d projection
+from dotenv import load_dotenv
+import os
+import matplotlib.patches as mpatches
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-import numpy as np
 from collections import defaultdict
 from typing import Iterable
 import inspect
@@ -100,90 +102,6 @@ def plot_fault_trimesh_map(fault_planes: Iterable[dict]) -> None:
     plt.show()
 
 
-FAULT_SEGMENT_COLOR = (1.0, 0.0, 0.0)      # strong red
-TRIMESH_EDGE_COLOR  = (0.0, 0.2, 0.9)      # strong blue
-TRIMESH_FACE_COLOR  = (0.7, 0.85, 1.0)     # very light blue
-
-
-
-def plot_fault_combined(fault_planes: Iterable[dict]) -> None:
-    """Overlay FaultTrimesh (scatter cloud) and FaultSegment (polylines) in one plan-view map.
-
-    Each FaultPlane gets a distinct colour shared between both geometry types so
-    the two representations can be compared side-by-side:
-    - FaultTrimesh vertices → translucent scatter points
-    - FaultSegment polylines → solid lines (one per horizon cross-section)
-    """
-    by_plane_tm: dict = defaultdict(list)
-    by_plane_seg: dict = defaultdict(list)
-    x_unit = "m"
-    y_unit = "m"
-
-    for plane in fault_planes:
-        pid = plane.get("native_uid") or plane.get("fault_plane_id")
-        for tm in plane.get("FaultTrimesh", []):
-            by_plane_tm[pid].append(tm)
-            x_unit = tm.get("min_wrk_prj_x_dsdsunit") or x_unit
-            y_unit = tm.get("min_wrk_prj_y_dsdsunit") or y_unit
-        for seg in plane.get("FaultSegment", []):
-            by_plane_seg[pid].append(seg)
-            x_unit = seg.get("bounding_pt1_x_dsdsunit") or x_unit
-            y_unit = seg.get("bounding_pt1_y_dsdsunit") or y_unit
-
-    all_pids = sorted(set(list(by_plane_tm) + list(by_plane_seg)))
-    if not all_pids:
-        print("No geometry to plot.")
-        return
-
-    cmap = plt.colormaps["tab10"]
-    colours = {pid: cmap(i % 10) for i, pid in enumerate(all_pids)}
-
-    fig, ax = plt.subplots(figsize=(12, 10))
-    has_trimesh = False
-    has_segment = False
-
-    for pid in all_pids:
-        colour = colours[pid]
-
-        # FaultTrimesh — scatter cloud of mesh vertices
-        for tm in by_plane_tm.get(pid, []):
-            verts = tm.get("vertices")
-            if not verts:
-                continue
-            xs = [float(v) for v in verts["x"]]
-            ys = [float(v) for v in verts["y"]]
-            if any(y < 6600000 for y in ys):  # crude UTM-zone outlier filter
-                continue
-            ax.scatter(xs, ys, color=colour, s=2.0, alpha=0.35, linewidths=0)
-            has_trimesh = True
-
-        # FaultSegment — one polyline per horizon cross-section
-        for seg in by_plane_seg.get(pid, []):
-            vals = seg.get("values")
-            if not vals:
-                continue
-            xs = [float(v) for v in vals["x"]]
-            ys = [float(v) for v in vals["y"]]
-            ax.plot(xs, ys, color=colour, linewidth=1.5)
-            has_segment = True
-
-    legend_handles = []
-    if has_trimesh:
-        legend_handles.append(mpatches.Patch(color="grey", alpha=0.5, label="FaultTrimesh (vertices)"))
-    if has_segment:
-        legend_handles.append(mlines.Line2D([], [], color="grey", linewidth=1.5, label="FaultSegment (polylines)"))
-    if legend_handles:
-        ax.legend(handles=legend_handles, loc="best")
-
-    n = len(all_pids)
-    ax.set_title(f"{PROJECT} — {n} fault plane{'s' if n != 1 else ''}: trimesh + segments")
-    ax.set_aspect("equal")
-    ax.grid(True, linewidth=0.4)
-    ax.set_xlabel(f"Easting ({x_unit})")
-    ax.set_ylabel(f"Northing ({y_unit})")
-    plt.xticks(rotation=-70)
-    plt.tight_layout()
-    plt.show()
 
 
 def plot_fault_combined_3d_safe(fault_planes):
@@ -199,13 +117,9 @@ def plot_fault_combined_3d_safe(fault_planes):
       - Poly3DCollection visibility pitfalls
     """
 
-    from collections import defaultdict
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-    import matplotlib.lines as mlines
-    import matplotlib.patches as mpatches
-
+    FAULT_SEGMENT_COLOR = (1.0, 0.0, 0.0)      # strong red
+    TRIMESH_EDGE_COLOR  = (0.0, 0.2, 0.9)      # strong blue
+    TRIMESH_FACE_COLOR  = (0.7, 0.85, 1.0)     # very light blue
     by_plane_tm = defaultdict(list)
     by_plane_seg = defaultdict(list)
 
@@ -393,10 +307,11 @@ if __name__ == "__main__":
         qkw["model_name"] = MODEL_NAME
     dsis_client = DSISClient(config)
     from IPython import embed
-    FAULT_PLANE_ID = 6820
-    list_fault = list(dsis_client.execute_query(QueryBuilder(**qkw)
+    print(f"FaultPlanes available: {[fault['fault_plane_id'] for fault in list(dsis_client.execute_query(QueryBuilder(**qkw).schema('FaultPlane')))]}")
+    embed()
+    FAULT_PLANE_ID = 14608
+    fault = list(dsis_client.execute_query(QueryBuilder(**qkw)
                                                  .schema("FaultPlane")
                                                  .filter(f"fault_plane_id eq {FAULT_PLANE_ID}")
                                                  .expand("FaultTrimesh,FaultSegment"), max_pages=1, timeout=250))
-    embed()
-    plot_fault_combined_3d_safe(list_fault)
+    plot_fault_combined_3d_safe(fault)
