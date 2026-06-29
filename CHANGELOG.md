@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/equinor/dsis-python-client/compare/v1.7.0...v1.8.0) (2026-06-29)
+
+
+### Features
+
+* enhance error handling for API requests and improve logging messages ([#100](https://github.com/equinor/dsis-python-client/issues/100)) ([21b581f](https://github.com/equinor/dsis-python-client/commit/21b581f1f17544f9fc1b8d7d4706ae3b21fbb19e))
+
 ## [1.7.0](https://github.com/equinor/dsis-python-client/compare/v1.6.1...v1.7.0) (2026-04-15)
 
 
