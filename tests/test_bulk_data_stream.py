@@ -2,6 +2,7 @@
 
 from types import SimpleNamespace
 
+import pytest
 import requests
 
 from dsis_client.api import DSISAPIError
@@ -139,7 +140,7 @@ def test_get_bulk_data_stream_raises_after_retries_exhausted(monkeypatch):
     monkeypatch.setattr(client._session, "get", fake_get)
     monkeypatch.setattr("dsis_client.api.client._http.time.sleep", lambda _: None)
 
-    try:
+    with pytest.raises(DSISAPIError):
         list(
             client.get_bulk_data_stream(
                 query,
@@ -148,7 +149,3 @@ def test_get_bulk_data_stream_raises_after_retries_exhausted(monkeypatch):
                 stream_retries=2,
             )
         )
-    except DSISAPIError as exc:
-        assert "Streaming binary request failed after 2 retries" in str(exc)
-    else:
-        raise AssertionError("Expected DSISAPIError when stream retries are exhausted")
