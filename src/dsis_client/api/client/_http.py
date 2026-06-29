@@ -66,9 +66,19 @@ class HTTPTransportMixin:
         if extra_headers:
             headers.update(extra_headers)
 
-        response = self._session.get(
-            url, headers=headers, params=params, stream=stream, timeout=timeout
-        )
+        try:
+            response = self._session.get(
+                url, headers=headers, params=params, stream=stream, timeout=timeout
+            )
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
+            error_msg = (
+                f"{request_type.capitalize()} request to '{url}' received no "
+                f"response from the DSIS API (timeout={timeout}): {exc}. "
+                "No HTTP status was returned, so this is a client-side/network "
+                "failure rather than a DSIS API error."
+            )
+            logger.error(error_msg)
+            raise DSISAPIError(error_msg) from exc
 
         if response.status_code in _RETRY_STATUS_CODES:
             logger.warning(
@@ -118,7 +128,7 @@ class HTTPTransportMixin:
 
         if response.status_code != 200:
             error_msg = (
-                f"API request failed: {response.status_code} - "
+                f"DSIS API request to '{endpoint}' failed: {response.status_code} "
                 f"{response.reason} - {response.text}"
             )
             logger.error(error_msg)
@@ -186,8 +196,8 @@ class HTTPTransportMixin:
             return None
         elif response.status_code != 200:
             error_msg = (
-                f"Binary API request failed: {response.status_code} - "
-                f"{response.reason} - {response.text}"
+                f"DSIS binary API request to '{endpoint}' failed: "
+                f"{response.status_code} {response.reason} - {response.text}"
             )
             logger.error(error_msg)
             raise DSISAPIError(error_msg)
@@ -255,8 +265,8 @@ class HTTPTransportMixin:
                 return
             if response.status_code != 200:
                 error_msg = (
-                    f"Binary API request failed: {response.status_code} - "
-                    f"{response.reason} - {response.text}"
+                    f"DSIS binary API request to '{endpoint}' failed: "
+                    f"{response.status_code} {response.reason} - {response.text}"
                 )
                 logger.error(error_msg)
                 response.close()
@@ -285,8 +295,11 @@ class HTTPTransportMixin:
             except _STREAM_RETRY_EXCEPTIONS as exc:
                 if retry_attempt >= stream_retries:
                     error_msg = (
-                        "Streaming binary request failed after "
-                        f"{retry_attempt} retries: {exc}"
+                        f"DSIS stream from '{endpoint}' dropped after "
+                        f"{bytes_yielded} bytes and {retry_attempt} retries with "
+                        f"no further response: {exc}. No HTTP status was returned, "
+                        "so this is a client-side/network failure rather than a "
+                        "DSIS API error."
                     )
                     logger.error(error_msg)
                     raise DSISAPIError(error_msg) from exc

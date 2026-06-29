@@ -179,7 +179,7 @@ def test_get_bulk_data_stream_accepts_media_link(monkeypatch):
 
     chunks = list(
         client.get_bulk_data_stream(
-            query,
+            query,  
             media_link="LogCurve('44367/6')/data",
             chunk_size=4,
             accept="application/octet-stream",
