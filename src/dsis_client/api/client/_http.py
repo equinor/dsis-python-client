@@ -70,7 +70,10 @@ class HTTPTransportMixin:
             response = self._session.get(
                 url, headers=headers, params=params, stream=stream, timeout=timeout
             )
-        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
+        except (
+            requests.exceptions.Timeout,
+            requests.exceptions.ConnectionError,
+        ) as exc:
             error_msg = (
                 f"{request_type.capitalize()} request to '{url}' received no "
                 f"response from the DSIS API (timeout={timeout}): {exc}. "
