@@ -9,7 +9,7 @@ permissions: {}
 jobs:
   release:
     name: Release
-    uses: equinor/ops-actions/.github/workflows/release-please.yml@v9.38.4
+    uses: equinor/ops-actions/.github/workflows/release-please.yml@v9.39.2
     with:
       release_type: python
     permissions:
@@ -21,7 +21,7 @@ jobs:
     name: Build
     needs: release
     if: needs.release.outputs.release_created == 'true'
-    uses: equinor/ops-actions/.github/workflows/python-package.yml@v9.38.4
+    uses: equinor/ops-actions/.github/workflows/python-package.yml@v9.39.2
     permissions:
       contents: read
 
@@ -42,4 +42,4 @@ jobs:
           path: dist
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b
+        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247
