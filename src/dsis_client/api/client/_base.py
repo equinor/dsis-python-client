@@ -1,8 +1,8 @@
 """Base classes for DSIS client mixins.
 
 Provides TYPE_CHECKING stubs for attributes/methods that mixins require from
-the host class. Mixins inherit from these bases so mypy can verify attribute
-access without runtime overhead.
+the host class. Mixins inherit from these bases so the type checker can verify
+attribute access without runtime overhead.
 """
 
 from typing import TYPE_CHECKING, Any, Dict, Generator, Optional, Union

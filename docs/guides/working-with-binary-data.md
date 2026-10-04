@@ -25,9 +25,99 @@ pip install dsis-schemas[protobuf]
 |------|--------|-------------|---------|
 | Horizon 3D | `HorizonData3D` | Interpreted surface z-values | `decode_horizon_data()` |
 | Log Curves | `LogCurve` | Well log measurements | `decode_log_curves()` |
-| Seismic 3D | `SeismicDataSet3D` | 3D seismic amplitude volume | `decode_seismic_float_data()` |
-| Seismic 2D | `SeismicDataSet2D` | 2D seismic trace data | `decode_seismic_float_data()` |
+| Seismic 3D | `SeismicDataSet3D` | 3D seismic amplitude volume | `decode_seismic_data()` |
+| Seismic 2D | `SeismicDataSet2D` | 2D seismic trace data | `decode_seismic_data()` |
 | Surface Grid | `SurfaceGrid` | Gridded surface data | `decode_lgc_structure()` |
+
+## Not binary: complex-type fields (inline JSON)
+
+Some fields are stored as BLOBs in the data model but are **not** served as binary. DSIS decodes them server-side and returns them **inline as JSON objects** on the normal OData query. In `dsis-schemas` (>= 0.0.11) these fields are typed as `Dict[str, Any]`, so they deserialize straight into Python `dict`s and cast cleanly with `cast=True`. The `data` field is **required** on the struct-of-arrays entities below (e.g. `DirectionalSurvey`, `FaultSegment`, `MappingPolygon`, `PositionLog`, `TimeDepthTable`, `WellCoreAnalysis`, `WellCoreDescription`); other complex-type fields such as `spatial` remain optional.
+
+Do **not** use `get_bulk_data()` for these — the binary endpoint returns **HTTP 406** for them. Just read the field off the row (or cast to the model).
+
+Affected fields (common model):
+
+| Entity | Field(s) | Shape |
+|--------|----------|-------|
+| `MappingPolygon` | `data`, `spatial` | `{x_coord, y_coord, z_value, throw_direction}` / `{geo_type, x, y, z, ...}` |
+| `FaultSegment` | `data` | `{x, y, z}` |
+| `FaultPlaneTrimesh` / `FaultTrimesh` | `vertices`, `triangles` | `{x, y, z}` / `{vertex_1, vertex_2, vertex_3}` |
+| `DirectionalSurvey` | `data` | `{md, tvd, azimuth, inclination, ...}` |
+| `PositionLog` | `data` | `{md, tvd, x_offset, y_offset}` |
+| `TimeDepthTable` | `data` | `{md, time, depth, ...}` |
+| `WellCoreAnalysis` / `WellCoreDescription` | `data` | object / array-of-objects |
+| `Project` / `Well` / `Wellbore` | `spatial` / `surface_location_point` / `bh_location_point` | geometry object |
+| `BinsetGrid3DGrid` / `Seis2DLine` | `spatial`, `shotpoints`, `orig_shotpoints`, `mappings` | geometry / point arrays |
+
+```python
+from dsis_client import DSISClient, QueryBuilder
+from dsis_model_sdk.models.common import MappingPolygon
+
+query = QueryBuilder(
+    model_name="OpenWorksCommonModel",
+    district_id="OpenWorksCommonModel_OW_<DB>-OW_<DB>",
+    project="<PROJECT>",
+).schema(MappingPolygon)
+
+# `data`/`spatial` come back as dicts — no get_bulk_data(), no decode step
+for poly in client.execute_query(query, cast=True, max_pages=1):
+    coords = poly.data           # dict: {"x_coord": [...], "y_coord": [...], ...}
+    geom = poly.spatial          # dict: {"geo_type": "LINESTRING", "x": [...], ...}
+```
+
+### More examples
+
+**FaultSegment** — `data` is a `ThreeSpaceCoordinate` (parallel x/y/z arrays):
+
+```python
+from dsis_model_sdk.models.common import FaultSegment
+
+query = QueryBuilder(
+    model_name="OpenWorksCommonModel",
+    district_id="OpenWorksCommonModel_OW_<DB>-OW_<DB>",
+    project="<PROJECT>",
+).schema(FaultSegment)
+
+seg = next(iter(client.execute_query(query, cast=True, max_pages=1)))
+pts = seg.data                               # {"x": [...], "y": [...], "z": [...]}
+first_xyz = (pts["x"][0], pts["y"][0], pts["z"][0])
+```
+
+**Well** — `surface_location_point` is a single geometry object:
+
+```python
+from dsis_model_sdk.models.common import Well
+
+query = QueryBuilder(
+    model_name="OpenWorksCommonModel",
+    district_id="OpenWorksCommonModel_OW_<DB>-OW_<DB>",
+    project="<PROJECT>",
+).schema(Well)
+
+for well in client.execute_query(query, cast=True, max_pages=1):
+    loc = well.surface_location_point        # {"geo_type": "POINT", "x": [...], "y": [...], ...}
+```
+
+**DirectionalSurvey** — `data` is a struct-of-arrays well path:
+
+```python
+from dsis_model_sdk.models.common import DirectionalSurvey
+
+query = QueryBuilder(
+    model_name="OpenWorksCommonModel",
+    district_id="OpenWorksCommonModel_OW_<DB>-OW_<DB>",
+    project="<PROJECT>",
+).schema(DirectionalSurvey)
+
+survey = next(iter(client.execute_query(query, cast=True, max_pages=1)))
+md = survey.data["md"]                       # list of measured depths
+tvd = survey.data["tvd"]                     # list of true vertical depths
+```
+
+> **Important:** these are *struct-of-arrays* objects (parallel arrays keyed by field name), **not** arrays of point objects — e.g. `DirectionalSurvey.data["md"][i]` pairs with `data["tvd"][i]`. This holds even for fields the DDL marks `isComplexTypeArray=true`.
+
+
+The **"Supported Binary Data Types"** table above lists the fields that **are** true binary and must use the protobuf flow.
 
 ## Two Methods for Fetching Binary Data
 
@@ -64,7 +154,7 @@ Use for large datasets (> 100MB) to avoid memory issues:
 
 ```python
 from dsis_model_sdk.models.common import SeismicDataSet3D
-from dsis_model_sdk.protobuf import decode_seismic_float_data
+from dsis_model_sdk.protobuf import decode_seismic_data
 
 # Query for entity
 query = QueryBuilder(
@@ -89,7 +179,7 @@ for chunk in client.get_bulk_data_stream(
 
 # Combine and decode
 binary_data = b''.join(chunks)
-decoded = decode_seismic_float_data(binary_data)
+decoded = decode_seismic_data(binary_data)
 ```
 
 ## Using `entity()` to Target Bulk Data
