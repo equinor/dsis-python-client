@@ -65,6 +65,58 @@ for poly in client.execute_query(query, cast=True, max_pages=1):
     geom = poly.spatial          # dict: {"geo_type": "LINESTRING", "x": [...], ...}
 ```
 
+### More examples
+
+**FaultSegment** — `data` is a `ThreeSpaceCoordinate` (parallel x/y/z arrays):
+
+```python
+from dsis_model_sdk.models.common import FaultSegment
+
+query = QueryBuilder(
+    model_name="OpenWorksCommonModel",
+    district_id="OpenWorksCommonModel_OW_<DB>-OW_<DB>",
+    project="<PROJECT>",
+).schema(FaultSegment)
+
+seg = next(iter(client.execute_query(query, cast=True, max_pages=1)))
+pts = seg.data                               # {"x": [...], "y": [...], "z": [...]}
+first_xyz = (pts["x"][0], pts["y"][0], pts["z"][0])
+```
+
+**Well** — `surface_location_point` is a single geometry object:
+
+```python
+from dsis_model_sdk.models.common import Well
+
+query = QueryBuilder(
+    model_name="OpenWorksCommonModel",
+    district_id="OpenWorksCommonModel_OW_<DB>-OW_<DB>",
+    project="<PROJECT>",
+).schema(Well)
+
+for well in client.execute_query(query, cast=True, max_pages=1):
+    loc = well.surface_location_point        # {"geo_type": "POINT", "x": [...], "y": [...], ...}
+```
+
+**DirectionalSurvey** — `data` is a struct-of-arrays well path:
+
+```python
+from dsis_model_sdk.models.common import DirectionalSurvey
+
+query = QueryBuilder(
+    model_name="OpenWorksCommonModel",
+    district_id="OpenWorksCommonModel_OW_<DB>-OW_<DB>",
+    project="<PROJECT>",
+).schema(DirectionalSurvey)
+
+survey = next(iter(client.execute_query(query, cast=True, max_pages=1)))
+md = survey.data["md"]                       # list of measured depths
+tvd = survey.data["tvd"]                     # list of true vertical depths
+```
+
+> **Important:** these are *struct-of-arrays* objects (parallel arrays keyed by field name), **not** arrays of point objects — e.g. `DirectionalSurvey.data["md"][i]` pairs with `data["tvd"][i]`. This holds even for fields the DDL marks `isComplexTypeArray=true`.
+
+
 The **"Supported Binary Data Types"** table above lists the fields that **are** true binary and must use the protobuf flow.
 
 ## Two Methods for Fetching Binary Data
