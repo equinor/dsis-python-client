@@ -25,13 +25,13 @@ pip install dsis-schemas[protobuf]
 |------|--------|-------------|---------|
 | Horizon 3D | `HorizonData3D` | Interpreted surface z-values | `decode_horizon_data()` |
 | Log Curves | `LogCurve` | Well log measurements | `decode_log_curves()` |
-| Seismic 3D | `SeismicDataSet3D` | 3D seismic amplitude volume | `decode_seismic_float_data()` |
-| Seismic 2D | `SeismicDataSet2D` | 2D seismic trace data | `decode_seismic_float_data()` |
+| Seismic 3D | `SeismicDataSet3D` | 3D seismic amplitude volume | `decode_seismic_data()` |
+| Seismic 2D | `SeismicDataSet2D` | 2D seismic trace data | `decode_seismic_data()` |
 | Surface Grid | `SurfaceGrid` | Gridded surface data | `decode_lgc_structure()` |
 
 ## Not binary: complex-type fields (inline JSON)
 
-Some fields are stored as BLOBs in the data model but are **not** served as binary. DSIS decodes them server-side and returns them **inline as JSON objects** on the normal OData query. In `dsis-schemas` (>= 0.0.10) these fields are typed as `Optional[Dict[str, Any]]`, so they deserialize straight into Python `dict`s and cast cleanly with `cast=True`.
+Some fields are stored as BLOBs in the data model but are **not** served as binary. DSIS decodes them server-side and returns them **inline as JSON objects** on the normal OData query. In `dsis-schemas` (>= 0.0.11) these fields are typed as `Dict[str, Any]`, so they deserialize straight into Python `dict`s and cast cleanly with `cast=True`. The `data` field is **required** on the struct-of-arrays entities below (e.g. `DirectionalSurvey`, `FaultSegment`, `MappingPolygon`, `PositionLog`, `TimeDepthTable`, `WellCoreAnalysis`, `WellCoreDescription`); other complex-type fields such as `spatial` remain optional.
 
 Do **not** use `get_bulk_data()` for these — the binary endpoint returns **HTTP 406** for them. Just read the field off the row (or cast to the model).
 
@@ -154,7 +154,7 @@ Use for large datasets (> 100MB) to avoid memory issues:
 
 ```python
 from dsis_model_sdk.models.common import SeismicDataSet3D
-from dsis_model_sdk.protobuf import decode_seismic_float_data
+from dsis_model_sdk.protobuf import decode_seismic_data
 
 # Query for entity
 query = QueryBuilder(
@@ -179,7 +179,7 @@ for chunk in client.get_bulk_data_stream(
 
 # Combine and decode
 binary_data = b''.join(chunks)
-decoded = decode_seismic_float_data(binary_data)
+decoded = decode_seismic_data(binary_data)
 ```
 
 ## Using `entity()` to Target Bulk Data
