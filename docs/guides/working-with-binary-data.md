@@ -29,6 +29,44 @@ pip install dsis-schemas[protobuf]
 | Seismic 2D | `SeismicDataSet2D` | 2D seismic trace data | `decode_seismic_float_data()` |
 | Surface Grid | `SurfaceGrid` | Gridded surface data | `decode_lgc_structure()` |
 
+## Not binary: complex-type fields (inline JSON)
+
+Some fields are stored as BLOBs in the data model but are **not** served as binary. DSIS decodes them server-side and returns them **inline as JSON objects** on the normal OData query. In `dsis-schemas` (>= 0.0.10) these fields are typed as `Optional[Dict[str, Any]]`, so they deserialize straight into Python `dict`s and cast cleanly with `cast=True`.
+
+Do **not** use `get_bulk_data()` for these — the binary endpoint returns **HTTP 406** for them. Just read the field off the row (or cast to the model).
+
+Affected fields (common model):
+
+| Entity | Field(s) | Shape |
+|--------|----------|-------|
+| `MappingPolygon` | `data`, `spatial` | `{x_coord, y_coord, z_value, throw_direction}` / `{geo_type, x, y, z, ...}` |
+| `FaultSegment` | `data` | `{x, y, z}` |
+| `FaultPlaneTrimesh` / `FaultTrimesh` | `vertices`, `triangles` | `{x, y, z}` / `{vertex_1, vertex_2, vertex_3}` |
+| `DirectionalSurvey` | `data` | `{md, tvd, azimuth, inclination, ...}` |
+| `PositionLog` | `data` | `{md, tvd, x_offset, y_offset}` |
+| `TimeDepthTable` | `data` | `{md, time, depth, ...}` |
+| `WellCoreAnalysis` / `WellCoreDescription` | `data` | object / array-of-objects |
+| `Project` / `Well` / `Wellbore` | `spatial` / `surface_location_point` / `bh_location_point` | geometry object |
+| `BinsetGrid3DGrid` / `Seis2DLine` | `spatial`, `shotpoints`, `orig_shotpoints`, `mappings` | geometry / point arrays |
+
+```python
+from dsis_client import DSISClient, QueryBuilder
+from dsis_model_sdk.models.common import MappingPolygon
+
+query = QueryBuilder(
+    model_name="OpenWorksCommonModel",
+    district_id="OpenWorksCommonModel_OW_<DB>-OW_<DB>",
+    project="<PROJECT>",
+).schema(MappingPolygon)
+
+# `data`/`spatial` come back as dicts — no get_bulk_data(), no decode step
+for poly in client.execute_query(query, cast=True, max_pages=1):
+    coords = poly.data           # dict: {"x_coord": [...], "y_coord": [...], ...}
+    geom = poly.spatial          # dict: {"geo_type": "LINESTRING", "x": [...], ...}
+```
+
+The **"Supported Binary Data Types"** table above lists the fields that **are** true binary and must use the protobuf flow.
+
 ## Two Methods for Fetching Binary Data
 
 ### Method 1: `get_bulk_data()` - Load All at Once
