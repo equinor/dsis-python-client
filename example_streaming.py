@@ -18,7 +18,7 @@ from dsis_model_sdk.models.common import HorizonData3D, LogCurve, SeismicDataSet
 from dsis_model_sdk.protobuf import (
     decode_horizon_data,
     decode_log_curves,
-    decode_seismic_float_data,
+    decode_seismic_data,
 )
 
 from dsis_client import DSISClient, DSISConfig, Environment, QueryBuilder
@@ -98,7 +98,7 @@ if seismic_datasets:
         print("Decoding protobuf data...")
         binary_data = b"".join(chunks)
 
-        decoded = decode_seismic_float_data(binary_data)
+        decoded = decode_seismic_data(binary_data)
         print(
             f"✓ Decoded successfully: {decoded.length.i} x {decoded.length.j} x {decoded.length.k}"
         )
