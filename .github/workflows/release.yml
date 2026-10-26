@@ -9,7 +9,7 @@ permissions: {}
 jobs:
   release:
     name: Release
-    uses: equinor/ops-actions/.github/workflows/release-please.yml@v9.38.4
+    uses: equinor/ops-actions/.github/workflows/release-please.yml@v9.43.2
     with:
       release_type: python
     permissions:
@@ -21,7 +21,7 @@ jobs:
     name: Build
     needs: release
     if: needs.release.outputs.release_created == 'true'
-    uses: equinor/ops-actions/.github/workflows/python-package.yml@v9.38.4
+    uses: equinor/ops-actions/.github/workflows/python-package.yml@v9.43.2
     permissions:
       contents: read
 
@@ -36,10 +36,10 @@ jobs:
       id-token: write # Required for PyPI Trusted Publishing.
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: ${{ needs.build.outputs.artifact_name }}
           path: dist
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086
