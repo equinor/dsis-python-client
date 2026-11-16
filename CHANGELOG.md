@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.1](https://github.com/equinor/dsis-python-client/compare/v1.8.0...v1.8.1) (2026-10-12)
+
+
+### Bug Fixes
+
+* require dsis-schemas&gt;=0.0.11, fix complex-type field handling, and switch to Pyrefly ([#107](https://github.com/equinor/dsis-python-client/issues/107)) ([bed5fb6](https://github.com/equinor/dsis-python-client/commit/bed5fb6ce77b2dcc599475f48b54a49792e15fc7))
+
 ## [1.8.0](https://github.com/equinor/dsis-python-client/compare/v1.7.0...v1.8.0) (2026-06-29)
 
 
