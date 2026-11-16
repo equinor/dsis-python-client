@@ -43,14 +43,14 @@ from .api import (
 )
 
 __all__ = [
-    "DSISClient",
-    "DSISAuth",
-    "DSISConfig",
-    "Environment",
-    "DSISException",
-    "DSISAuthenticationError",
     "DSISAPIError",
+    "DSISAuth",
+    "DSISAuthenticationError",
+    "DSISClient",
+    "DSISConfig",
     "DSISConfigurationError",
+    "DSISException",
     "DSISJSONParseError",
+    "Environment",
     "QueryBuilder",
 ]

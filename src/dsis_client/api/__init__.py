@@ -50,17 +50,16 @@ from .models import (
 from .query import QueryBuilder
 
 __all__ = [
-    "DSISClient",
-    "DSISAuth",
-    "DSISConfig",
-    "Environment",
-    "DSISException",
-    "DSISAuthenticationError",
     "DSISAPIError",
+    "DSISAuth",
+    "DSISAuthenticationError",
+    "DSISClient",
+    "DSISConfig",
     "DSISConfigurationError",
+    "DSISException",
     "DSISJSONParseError",
+    "Environment",
     "QueryBuilder",
-    # Model utilities - for advanced users
     "cast_results",
     "get_schema_by_name",
     "is_valid_schema",

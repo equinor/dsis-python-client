@@ -9,19 +9,13 @@ in the DSIS authentication and API interaction flow.
 class DSISException(Exception):
     """Base exception for all DSIS client errors."""
 
-    pass
-
 
 class DSISAuthenticationError(DSISException):
     """Raised when authentication fails (Azure AD or DSIS token acquisition)."""
 
-    pass
-
 
 class DSISAPIError(DSISException):
     """Raised when an API request fails."""
-
-    pass
 
 
 class DSISJSONParseError(DSISException):
@@ -40,5 +34,3 @@ class DSISJSONParseError(DSISException):
 
 class DSISConfigurationError(DSISException):
     """Raised when configuration is invalid or incomplete."""
-
-    pass

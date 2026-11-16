@@ -90,6 +90,7 @@ query = QueryBuilder(
 
 # Model class (enables type-safe casting)
 from dsis_model_sdk.models.native import Well
+
 query = QueryBuilder(
     model_name="OW5000",
     district_id=dist,
@@ -149,11 +150,15 @@ Set the response format parameter.
 
 ```python
 # Default: json format (included by default)
-query = QueryBuilder(
-    model_name="OW5000",
-    district_id=dist,
-    project=prj,
-).schema("Well").select("well_name")
+query = (
+    QueryBuilder(
+        model_name="OW5000",
+        district_id=dist,
+        project=prj,
+    )
+    .schema("Well")
+    .select("well_name")
+)
 # Result: Well?$format=json&$select=well_name
 
 # Explicitly set to json
@@ -294,7 +299,9 @@ binary = client.get_bulk_data(bulk_query, timeout=600)
 For `get_bulk_data_stream()`, there is also a `total_timeout` parameter that sets a wall-clock deadline for the entire stream (including retries). Unlike `timeout` which guards against the server going completely silent, `total_timeout` catches slow-trickle streams that never fully stall:
 
 ```python
-for chunk in client.get_bulk_data_stream(bulk_query, timeout=(10, 30), total_timeout=120):
+for chunk in client.get_bulk_data_stream(
+    bulk_query, timeout=(10, 30), total_timeout=120
+):
     process(chunk)
 ```
 
@@ -312,6 +319,7 @@ The timeout applies to **each individual HTTP request**, including pagination re
 ```python
 # ✅ Correct: Pass model class for casting
 from dsis_model_sdk.models.common import Basin
+
 query = QueryBuilder(
     model_name="OW5000",
     district_id=dist,
@@ -365,11 +373,15 @@ print(f"Retrieved {len(first_page_items)} items from first page")
 ```python
 from dsis_model_sdk.models.common import Basin
 
-query = QueryBuilder(
-    model_name="OW5000",
-    district_id=dist,
-    project=prj,
-).schema(Basin).select("basin_name,basin_id")
+query = (
+    QueryBuilder(
+        model_name="OW5000",
+        district_id=dist,
+        project=prj,
+    )
+    .schema(Basin)
+    .select("basin_name,basin_id")
+)
 
 # Option 1: Stream and cast each item as it arrives (memory efficient)
 for basin in client.execute_query(query, cast=True):
@@ -389,6 +401,7 @@ To use `cast=True`, you **MUST** build your query using a model class imported f
 ```python
 # ✅ CORRECT: Using model class from dsis_model_sdk
 from dsis_model_sdk.models.common import Basin  # or native
+
 query = QueryBuilder(
     model_name="OW5000",
     district_id=dist,

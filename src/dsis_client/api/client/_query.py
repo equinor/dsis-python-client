@@ -5,7 +5,7 @@ Provides mixin class for executing QueryBuilder queries and casting results.
 
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 from ..exceptions import DSISJSONParseError
 from ..models import cast_results as _cast_results
@@ -26,7 +26,7 @@ class QueryExecutionMixin(_PaginationBase):
 
     def _extract_objects_from_value_array(
         self, response_text: str
-    ) -> list[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Extract individual JSON objects from the value array in response text.
 
         Args:
@@ -35,7 +35,7 @@ class QueryExecutionMixin(_PaginationBase):
         Returns:
             List of parsed objects from the value array.
         """
-        items: list[Dict[str, Any]] = []
+        items: list[dict[str, Any]] = []
 
         # Find the "value": [ ... ] section
         value_start = response_text.find('"value"')
@@ -66,7 +66,7 @@ class QueryExecutionMixin(_PaginationBase):
                     try:
                         obj = json.loads(obj_text, strict=False)
                         items.append(obj)
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001
                         logger.debug(f"Failed to parse object at {obj_start}: {e}")
                     obj_start = None
             elif char == "]" and brace_count == 0:
@@ -76,7 +76,7 @@ class QueryExecutionMixin(_PaginationBase):
 
     def _extract_value_array_from_text(
         self, response_text: str
-    ) -> tuple[list[Dict[str, Any]], Optional[str]]:
+    ) -> tuple[list[dict[str, Any]], str | None]:
         """Extract value array and nextLink from raw response text.
 
         Last-resort fallback for when both standard and strict=False JSON parsing fail.
@@ -97,7 +97,7 @@ class QueryExecutionMixin(_PaginationBase):
                 )
 
             return items, next_link
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"Failed to extract data from raw text: {e}")
             return [], None
 
@@ -106,7 +106,7 @@ class QueryExecutionMixin(_PaginationBase):
         query: "QueryBuilder",
         cast: bool = False,
         max_pages: int = -1,
-        timeout: Optional[Union[float, tuple[float, float]]] = None,
+        timeout: float | tuple[float, float] | None = None,
     ):
         """Execute a DSIS query.
 
@@ -197,7 +197,7 @@ class QueryExecutionMixin(_PaginationBase):
             ):
                 yield item
 
-    def cast_results(self, results: List[Dict[str, Any]], schema_class) -> List[Any]:
+    def cast_results(self, results: list[dict[str, Any]], schema_class) -> list[Any]:
         """Cast API response items to model instances.
 
         Args:

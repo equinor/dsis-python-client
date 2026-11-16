@@ -113,9 +113,11 @@ def test_schema_required():
             "SurfaceGrid",
             "46075",
             "$value",
-            "OpenWorksCommonModel/5000107/"
-            "OWCM_OW_BG4FROST-OW_BG4FROST/FD_GRANE/"
-            "SurfaceGrid('46075')/$value",
+            (
+                "OpenWorksCommonModel/5000107/"
+                "OWCM_OW_BG4FROST-OW_BG4FROST/FD_GRANE/"
+                "SurfaceGrid('46075')/$value"
+            ),
         ),
         (
             "OW5000",

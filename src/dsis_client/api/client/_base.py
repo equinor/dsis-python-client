@@ -5,7 +5,8 @@ the host class. Mixins inherit from these bases so the type checker can verify
 attribute access without runtime overhead.
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Generator, Optional, Union
+from collections.abc import Generator
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..config import DSISConfig
@@ -20,9 +21,9 @@ class _RequestBase:
         def _request(
             self,
             endpoint: str,
-            params: Optional[Dict[str, Any]] = None,
-            timeout: Optional[Union[float, tuple[float, float]]] = None,
-        ) -> Dict[str, Any]: ...
+            params: dict[str, Any] | None = None,
+            timeout: float | tuple[float, float] | None = None,
+        ) -> dict[str, Any]: ...
 
 
 class _PaginationBase(_RequestBase):
@@ -32,13 +33,13 @@ class _PaginationBase(_RequestBase):
 
         def _yield_nextlink_pages(
             self,
-            response: Dict[str, Any],
+            response: dict[str, Any],
             endpoint: str,
             max_pages: int = -1,
-            timeout: Optional[Union[float, tuple[float, float]]] = None,
-        ) -> Generator[Dict[str, Any], None, None]: ...
+            timeout: float | tuple[float, float] | None = None,
+        ) -> Generator[dict[str, Any], None, None]: ...
 
-        def _extract_nextlink_from_text(self, response_text: str) -> Optional[str]: ...
+        def _extract_nextlink_from_text(self, response_text: str) -> str | None: ...
 
 
 class _BinaryRequestBase:
@@ -50,18 +51,18 @@ class _BinaryRequestBase:
         def _request_binary(
             self,
             endpoint: str,
-            params: Optional[Dict[str, Any]] = None,
+            params: dict[str, Any] | None = None,
             accept: str = "application/json",
-            timeout: Optional[Union[float, tuple[float, float]]] = None,
-        ) -> Optional[bytes]: ...
+            timeout: float | tuple[float, float] | None = None,
+        ) -> bytes | None: ...
 
         def _request_binary_stream(
             self,
             endpoint: str,
-            params: Optional[Dict[str, Any]] = None,
+            params: dict[str, Any] | None = None,
             chunk_size: int = 10 * 1024 * 1024,
             accept: str = "application/json",
-            timeout: Optional[Union[float, tuple[float, float]]] = None,
+            timeout: float | tuple[float, float] | None = None,
             stream_retries: int = 0,
-            total_timeout: Optional[float] = None,
+            total_timeout: float | None = None,
         ) -> Generator[bytes, None, None]: ...

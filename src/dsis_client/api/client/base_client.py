@@ -4,7 +4,7 @@ Handles HTTP requests, session management, and connection testing.
 """
 
 import logging
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import requests
 
@@ -77,7 +77,7 @@ class BaseClient(HTTPTransportMixin):
                     f"Connection test failed with status {response.status_code}"
                 )
             return success
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Connection test failed: {e}")
             return False
 
@@ -85,17 +85,17 @@ class BaseClient(HTTPTransportMixin):
         self,
         model_name: str,
         model_version: str,
-        district_id: Optional[Union[str, int]] = None,
-        project: Optional[str] = None,
-        schema: Optional[str] = None,
+        district_id: str | int | None = None,
+        project: str | None = None,
+        schema: str | None = None,
         format_type: str = "json",
-        select: Optional[str] = None,
-        expand: Optional[str] = None,
-        filter: Optional[str] = None,
+        select: str | None = None,
+        expand: str | None = None,
+        filter: str | None = None,
         validate_schema: bool = True,
-        timeout: Optional[Union[float, tuple[float, float]]] = None,
+        timeout: float | tuple[float, float] | None = None,
         **extra_query: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make a GET request to the DSIS OData API.
 
         Constructs the OData endpoint URL following the pattern:
@@ -138,12 +138,11 @@ class BaseClient(HTTPTransportMixin):
         from ..models import is_valid_schema
 
         # Validate schema if provided and validation is enabled
-        if validate_schema and schema is not None:
-            if not is_valid_schema(schema):
-                raise ValueError(
-                    f"Unknown schema: '{schema}'. Use "
-                    "get_schema_by_name() to discover available schemas."
-                )
+        if validate_schema and schema is not None and not is_valid_schema(schema):
+            raise ValueError(
+                f"Unknown schema: '{schema}'. Use "
+                "get_schema_by_name() to discover available schemas."
+            )
 
         # Build endpoint path segments
         segments = [model_name, model_version]
@@ -157,7 +156,7 @@ class BaseClient(HTTPTransportMixin):
         endpoint = "/".join(segments)
 
         # Build query parameters
-        query: Dict[str, Any] = {"$format": format_type}
+        query: dict[str, Any] = {"$format": format_type}
         if select:
             query["$select"] = select
         if expand:

@@ -5,7 +5,6 @@ Provides model validation and schema discovery using dsis_model_sdk.
 
 import logging
 import types
-from typing import Optional, Type
 
 from dsis_model_sdk import models
 
@@ -28,12 +27,12 @@ def is_valid_schema(schema_name: str, domain: str = "common") -> bool:
     try:
         schema = get_schema_by_name(schema_name, domain)
         return schema is not None
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.info(f"Error validating schema {schema_name}: {e}")
         return False
 
 
-def get_schema_by_name(schema_name: str, domain: str = "common") -> Optional[Type]:
+def get_schema_by_name(schema_name: str, domain: str = "common") -> type | None:
     """Get a dsis_schemas schema class by name.
 
     Args:
@@ -58,6 +57,6 @@ def get_schema_by_name(schema_name: str, domain: str = "common") -> Optional[Typ
             raise ValueError(f"Unknown domain: {domain}")
 
         return getattr(schema_module, schema_name, None)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Failed to get schema {schema_name}: {e}")
         return None

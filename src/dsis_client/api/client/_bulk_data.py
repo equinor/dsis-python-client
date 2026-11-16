@@ -4,7 +4,8 @@ Provides mixin class for fetching binary protobuf data.
 """
 
 import logging
-from typing import TYPE_CHECKING, Generator, Optional, Union
+from collections.abc import Generator
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from ._base import _BinaryRequestBase
@@ -41,7 +42,7 @@ class BulkDataMixin(_BinaryRequestBase):
     def _resolve_bulk_endpoint(
         self,
         query: "QueryBuilder",
-        media_link: Optional[str] = None,
+        media_link: str | None = None,
     ) -> str:
         """Resolve a bulk-data endpoint from entity targeting or an OData media link."""
         if media_link is None:
@@ -75,9 +76,9 @@ class BulkDataMixin(_BinaryRequestBase):
         query: "QueryBuilder",
         *,
         accept: str = "application/json",
-        timeout: Optional[Union[float, tuple[float, float]]] = None,
-        media_link: Optional[str] = None,
-    ) -> Optional[bytes]:
+        timeout: float | tuple[float, float] | None = None,
+        media_link: str | None = None,
+    ) -> bytes | None:
         """Fetch binary bulk data (protobuf) for a specific entity.
 
         By default, the query must have been configured with
@@ -148,10 +149,10 @@ class BulkDataMixin(_BinaryRequestBase):
         *,
         chunk_size: int = 10 * 1024 * 1024,
         accept: str = "application/json",
-        timeout: Optional[Union[float, tuple[float, float]]] = None,
+        timeout: float | tuple[float, float] | None = None,
         stream_retries: int = 0,
-        total_timeout: Optional[float] = None,
-        media_link: Optional[str] = None,
+        total_timeout: float | None = None,
+        media_link: str | None = None,
     ) -> Generator[bytes, None, None]:
         """Stream binary bulk data (protobuf) in chunks for memory-efficient processing.
 

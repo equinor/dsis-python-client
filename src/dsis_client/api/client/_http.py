@@ -6,7 +6,8 @@ Provides mixin class for making authenticated HTTP requests.
 import json
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Dict, Generator, Optional, Union
+from collections.abc import Generator
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
 import requests
@@ -38,11 +39,11 @@ class HTTPTransportMixin:
     def _make_request_with_retry(
         self,
         url: str,
-        params: Optional[Dict[str, Any]] = None,
-        extra_headers: Optional[Dict[str, str]] = None,
+        params: dict[str, Any] | None = None,
+        extra_headers: dict[str, str] | None = None,
         stream: bool = False,
         request_type: str = "standard",
-        timeout: Optional[Union[float, tuple[float, float]]] = None,
+        timeout: float | tuple[float, float] | None = None,
     ) -> "requests.Response":
         """Make an HTTP GET request with automatic token refresh retry.
 
@@ -103,9 +104,9 @@ class HTTPTransportMixin:
     def _request(
         self,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
-        timeout: Optional[Union[float, tuple[float, float]]] = None,
-    ) -> Dict[str, Any]:
+        params: dict[str, Any] | None = None,
+        timeout: float | tuple[float, float] | None = None,
+    ) -> dict[str, Any]:
         """Make an authenticated GET request to the DSIS API.
 
         Internal method that constructs the full URL, adds authentication
@@ -160,10 +161,10 @@ class HTTPTransportMixin:
     def _request_binary(
         self,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         accept: str = "application/json",
-        timeout: Optional[Union[float, tuple[float, float]]] = None,
-    ) -> Optional[bytes]:
+        timeout: float | tuple[float, float] | None = None,
+    ) -> bytes | None:
         """Make an authenticated GET request for binary data.
 
         Internal method for fetching binary protobuf data from the DSIS API.
@@ -210,12 +211,12 @@ class HTTPTransportMixin:
     def _request_binary_stream(
         self,
         endpoint: str,
-        params: Optional[Dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         chunk_size: int = 10 * 1024 * 1024,
         accept: str = "application/json",
-        timeout: Optional[Union[float, tuple[float, float]]] = None,
+        timeout: float | tuple[float, float] | None = None,
         stream_retries: int = 0,
-        total_timeout: Optional[float] = None,
+        total_timeout: float | None = None,
     ) -> Generator[bytes, None, None]:
         """Stream binary data in chunks to avoid loading large datasets into memory.
 
