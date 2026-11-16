@@ -10,7 +10,6 @@ Azure AD and DSIS authentication mechanisms.
 """
 
 import logging
-from typing import Dict, Optional
 
 import msal  # type: ignore[import-untyped]
 import requests
@@ -31,8 +30,8 @@ class DSISAuth:
             config: DSIS configuration object
         """
         self.config = config
-        self._aad_token: Optional[str] = None
-        self._dsis_token: Optional[str] = None
+        self._aad_token: str | None = None
+        self._dsis_token: str | None = None
         self._session = requests.Session()
 
     def get_aad_token(self) -> str:
@@ -69,7 +68,7 @@ class DSISAuth:
         logger.info("Azure AD token acquired successfully")
         return self._aad_token
 
-    def get_dsis_token(self, aad_token: Optional[str] = None) -> str:
+    def get_dsis_token(self, aad_token: str | None = None) -> str:
         """Get DSIS token using the acquired Azure AD token.
 
         Acquires a DSIS token using the password grant flow with the provided
@@ -127,7 +126,7 @@ class DSISAuth:
         logger.info("DSIS token acquired successfully")
         return self._dsis_token
 
-    def get_auth_headers(self) -> Dict[str, str]:
+    def get_auth_headers(self) -> dict[str, str]:
         """Get authenticated headers for API requests.
 
         Ensures both Azure AD and DSIS tokens are available, acquiring them

@@ -4,12 +4,12 @@ Provides utilities for casting API responses to model instances.
 """
 
 import logging
-from typing import Any, Dict, List, Type
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def cast_results(results: List[Dict[str, Any]], schema_class: Type) -> List[Any]:
+def cast_results(results: list[dict[str, Any]], schema_class: type) -> list[Any]:
     """Cast API response items to model instances.
 
     Args:

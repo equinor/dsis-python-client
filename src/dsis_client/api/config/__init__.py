@@ -9,6 +9,6 @@ from .config import DSISConfig
 from .environment import Environment
 
 __all__ = [
-    "Environment",
     "DSISConfig",
+    "Environment",
 ]

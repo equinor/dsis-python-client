@@ -4,7 +4,6 @@ Provides a fluent interface for building DSIS OData queries.
 """
 
 import logging
-from typing import List, Optional, Type, Union
 
 from . import odata
 
@@ -35,7 +34,7 @@ class QueryBuilder:
     def __init__(
         self,
         model_name: str,
-        district_id: Union[str, int],
+        district_id: str | int,
         project: str,
         model_version: str = "5000107",
     ):
@@ -51,16 +50,16 @@ class QueryBuilder:
         self.model_version = model_version
         self.district_id = district_id
         self.project = project
-        self._schema_name: Optional[str] = None
-        self._schema_class: Optional[Type] = None
-        self._select: List[str] = []
-        self._expand: List[str] = []
-        self._filter: Optional[str] = None
-        self._format: Optional[str] = "json"
-        self._native_uid: Optional[str] = None
-        self._data_field: Optional[str] = None
+        self._schema_name: str | None = None
+        self._schema_class: type | None = None
+        self._select: list[str] = []
+        self._expand: list[str] = []
+        self._filter: str | None = None
+        self._format: str | None = "json"
+        self._native_uid: str | None = None
+        self._data_field: str | None = None
 
-    def schema(self, schema: Union[str, Type]) -> "QueryBuilder":
+    def schema(self, schema: str | type) -> "QueryBuilder":
         """Set the schema (data table) using a name or model class.
 
         Args:
@@ -144,7 +143,7 @@ class QueryBuilder:
         logger.info(f"Set filter: {filter_expr}")
         return self
 
-    def format(self, format_type: Optional[str] = "json") -> "QueryBuilder":
+    def format(self, format_type: str | None = "json") -> "QueryBuilder":
         """Set the response format.
 
         Args:

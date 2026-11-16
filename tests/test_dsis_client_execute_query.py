@@ -85,7 +85,7 @@ def test_execute_query_max_pages_unlimited(monkeypatch):
         {"value": [{"id": 3}]},
     ]
 
-    client, qb, state = _make_client_and_patch(monkeypatch, "D", "F", pages)
+    client, qb, _state = _make_client_and_patch(monkeypatch, "D", "F", pages)
 
     # Act: fetch all pages (default max_pages=-1)
     results = list(client.execute_query(qb, cast=False, max_pages=-1))
@@ -98,7 +98,7 @@ def test_execute_query_max_pages_limited(monkeypatch):
     """Test that max_pages=1 returns only items from the first page."""
     # Arrange: single page response
     sample = {"value": [{"x": 9}], "odata.nextLink": None}
-    client, qb, state = _make_client_and_patch(monkeypatch, "D2", "F2", sample)
+    client, qb, _state = _make_client_and_patch(monkeypatch, "D2", "F2", sample)
 
     # Act: fetch only 1 page
     result = list(client.execute_query(qb, cast=False, max_pages=1))

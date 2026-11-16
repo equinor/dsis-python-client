@@ -166,6 +166,7 @@ except DSISAPIError as e:
 
 ```python
 import logging
+
 logging.basicConfig(level=logging.DEBUG)
 logging.getLogger("dsis_client").setLevel(logging.DEBUG)
 ```

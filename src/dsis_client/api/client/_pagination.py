@@ -5,7 +5,7 @@ Provides mixin class for handling OData nextLink pagination.
 
 import logging
 import re
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 from ..exceptions import DSISJSONParseError
 from ._base import _RequestBase
@@ -20,7 +20,7 @@ class PaginationMixin(_RequestBase):
     Requires subclasses to provide: _request method.
     """
 
-    def _extract_nextlink_from_text(self, response_text: str) -> Optional[str]:
+    def _extract_nextlink_from_text(self, response_text: str) -> str | None:
         """Extract nextLink from raw response text when JSON parsing fails.
 
         This is a fallback mechanism for responses that contain invalid control
@@ -91,7 +91,7 @@ class PaginationMixin(_RequestBase):
                 f"Could not extract nextLink value from response text. Raw text after pattern: {raw_nextlink[:100]}"
             )
             return None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"Failed to extract nextLink from raw text: {e}")
             return None
 
@@ -117,8 +117,8 @@ class PaginationMixin(_RequestBase):
         self,
         endpoint: str,
         next_key: str,
-        timeout: Optional[Union[float, tuple[float, float]]] = None,
-    ) -> tuple[list[Any], Optional[str]]:
+        timeout: float | tuple[float, float] | None = None,
+    ) -> tuple[list[Any], str | None]:
         """Fetch the next page of results with fallback handling.
 
         Makes a request to the endpoint and returns the items and next link.
@@ -169,10 +169,10 @@ class PaginationMixin(_RequestBase):
 
     def _yield_nextlink_pages(
         self,
-        response: Dict[str, Any],
+        response: dict[str, Any],
         endpoint: str,
         max_pages: int = -1,
-        timeout: Optional[Union[float, tuple[float, float]]] = None,
+        timeout: float | tuple[float, float] | None = None,
     ):
         """Generator that yields items from pages following OData nextLinks.
 

@@ -25,6 +25,7 @@ basins = [Basin(**item) for item in response["value"]]
 
 # Or use client's helper
 from dsis_client.api.models import cast_results
+
 basins = cast_results(response["value"], Basin)
 ```
 
@@ -46,6 +47,7 @@ from dsis_client.api.models import cast_results, get_schema_by_name
 
 # Option A: Import schema class directly
 from dsis_model_sdk.models.common import Well
+
 wells = cast_results(response["value"], Well)
 
 # Option B: Get schema dynamically

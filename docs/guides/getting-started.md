@@ -40,10 +40,16 @@ Load via your platform (shell export, CI variables, secret manager). Avoid commi
 
 ```python
 import os
+
 required = [
-    "DSIS_TENANT_ID", "DSIS_CLIENT_ID", "DSIS_CLIENT_SECRET",
-    "DSIS_ACCESS_APP_ID", "DSIS_USERNAME", "DSIS_PASSWORD",
-    "DSIS_SUBSCRIPTION_KEY_DSAUTH", "DSIS_SUBSCRIPTION_KEY_DSDATA"
+    "DSIS_TENANT_ID",
+    "DSIS_CLIENT_ID",
+    "DSIS_CLIENT_SECRET",
+    "DSIS_ACCESS_APP_ID",
+    "DSIS_USERNAME",
+    "DSIS_PASSWORD",
+    "DSIS_SUBSCRIPTION_KEY_DSAUTH",
+    "DSIS_SUBSCRIPTION_KEY_DSDATA",
 ]
 missing = [v for v in required if not os.getenv(v)]
 if missing:
@@ -72,7 +78,9 @@ config = DSISConfig(
 client = DSISClient(config)
 if client.test_connection():
     # Get data - schema refers to data schemas like "Well", "Basin", "Fault"
-    data = client.get(district_id="<district-id>", project="<project-name>", schema="Basin")
+    data = client.get(
+        district_id="<district-id>", project="<project-name>", schema="Basin"
+    )
 ```
 
 ## 5. Flow Summary

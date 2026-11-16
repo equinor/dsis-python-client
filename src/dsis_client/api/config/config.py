@@ -5,7 +5,6 @@ Handles configuration validation and endpoint management for different environme
 """
 
 from dataclasses import dataclass
-from typing import List
 
 from ..exceptions import DSISConfigurationError
 from .environment import BASE_URLS, Environment
@@ -103,7 +102,7 @@ class DSISConfig:
         return f"https://login.microsoftonline.com/{self.tenant_id}"
 
     @property
-    def scope(self) -> List[str]:
+    def scope(self) -> list[str]:
         """Get the OAuth2 scope for the access application.
 
         Returns:

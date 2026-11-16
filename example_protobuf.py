@@ -17,6 +17,7 @@ This example shows:
 """
 
 import os
+import sys
 
 import numpy as np
 from dotenv import load_dotenv
@@ -97,7 +98,7 @@ if horizons:
 
     if binary_data is None:
         print("⚠ No bulk data available for this horizon")
-        exit(0)
+        sys.exit(0)
 
     print(f"✓ Received {len(binary_data):,} bytes of binary data")
 

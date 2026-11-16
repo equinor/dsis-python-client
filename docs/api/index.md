@@ -31,8 +31,13 @@ data = client.get("123", "wells", "Well", expand="logs,completions")
 
 ```python
 required = [
-    'tenant_id','client_id','client_secret','access_app_id',
-    'dsis_username','dsis_password','subscription_key'
+    "tenant_id",
+    "client_id",
+    "client_secret",
+    "access_app_id",
+    "dsis_username",
+    "dsis_password",
+    "subscription_key",
 ]
 missing = [f for f in required if not getattr(cfg, f)]
 if missing:
@@ -43,11 +48,13 @@ Flexible path usage example:
 
 ```python
 data = client.get(
-    "OW5000", "5000107",
+    "OW5000",
+    "5000107",
     "OpenWorks_OW_BG4FROST_SingleSource-OW_BG4FROST",
-    "FD_GRANE", "Rgrid",
+    "FD_GRANE",
+    "Rgrid",
     format_type="json",
-    select="attribute,grid_id,no_cols,no_rows"
+    select="attribute,grid_id,no_cols,no_rows",
 )
 ```
 
@@ -193,20 +200,20 @@ bulk_query = query.entity(datasets[0].native_uid)
 chunks = []
 for chunk in client.get_bulk_data_stream(
     bulk_query,
-    chunk_size=10*1024*1024,
+    chunk_size=10 * 1024 * 1024,
     timeout=(10, 30),
     stream_retries=2,
     total_timeout=120,
 ):
     chunks.append(chunk)
 
-binary_data = b''.join(chunks)
+binary_data = b"".join(chunks)
 
 # Or stream directly from the OData media link
 for chunk in client.get_bulk_data_stream(
     query,
     media_link=datasets[0]["data@odata.mediaReadLink"],
-    chunk_size=10*1024*1024,
+    chunk_size=10 * 1024 * 1024,
 ):
     chunks.append(chunk)
 ```
@@ -223,9 +230,13 @@ For extended patterns refer to guides.
 from typing import Dict, Any, Optional, Union
 from dsis_client import DSISClient, DSISConfig, Environment
 
-def process_data(client: DSISClient, table: str, record_id: Optional[str] = None) -> Dict[str, Any]:
+
+def process_data(
+    client: DSISClient, table: str, record_id: Optional[str] = None
+) -> Dict[str, Any]:
     """Process data with proper type hints."""
     return client.get(table, record_id, format_type="json")
+
 
 # Usage with type checking
 config: DSISConfig = DSISConfig(...)

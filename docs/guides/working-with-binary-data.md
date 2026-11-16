@@ -80,15 +80,15 @@ bulk_query = query.entity(seismic.native_uid)
 chunks = []
 for chunk in client.get_bulk_data_stream(
     bulk_query,
-    chunk_size=10*1024*1024,  # 10MB chunks (DSIS recommended)
+    chunk_size=10 * 1024 * 1024,  # 10MB chunks (DSIS recommended)
     stream_retries=2,
-    total_timeout=120,        # fail if stream exceeds 2 minutes
+    total_timeout=120,  # fail if stream exceeds 2 minutes
 ):
     chunks.append(chunk)
     print(f"Downloaded {len(chunk):,} bytes")
 
 # Combine and decode
-binary_data = b''.join(chunks)
+binary_data = b"".join(chunks)
 decoded = decode_seismic_float_data(binary_data)
 ```
 
@@ -143,11 +143,15 @@ from dsis_model_sdk.protobuf import decode_horizon_data
 from dsis_model_sdk.utils.protobuf_decoders import horizon_to_numpy
 
 # Query for horizons (exclude binary data field for efficiency)
-query = QueryBuilder(
-    model_name="OW5000",
-    district_id="123",
-    project="SNORRE",
-).schema(HorizonData3D).select("horizon_name,native_uid")
+query = (
+    QueryBuilder(
+        model_name="OW5000",
+        district_id="123",
+        project="SNORRE",
+    )
+    .schema(HorizonData3D)
+    .select("horizon_name,native_uid")
+)
 horizons = list(client.execute_query(query, cast=True))
 
 # Fetch binary data for specific horizon
@@ -158,14 +162,14 @@ binary_data = client.get_bulk_data(bulk_query)
 if binary_data:
     # Decode protobuf
     decoded = decode_horizon_data(binary_data)
-    
+
     # Convert to NumPy array
     array, metadata = horizon_to_numpy(decoded)
-    
+
     print(f"Horizon: {horizon.horizon_name}")
     print(f"Grid shape: {array.shape}")
     print(f"Data coverage: {(~np.isnan(array)).sum() / array.size * 100:.1f}%")
-    
+
     # Analyze valid data
     valid_data = array[~np.isnan(array)]
     print(f"Depth range: {np.min(valid_data):.2f} - {np.max(valid_data):.2f}")
@@ -179,11 +183,15 @@ from dsis_model_sdk.protobuf import decode_log_curves
 from dsis_model_sdk.utils.protobuf_decoders import log_curve_to_dict
 
 # Query for log curves
-query = QueryBuilder(
-    model_name="OW5000",
-    district_id="123",
-    project="SNORRE",
-).schema(LogCurve).select("log_curve_name,native_uid")
+query = (
+    QueryBuilder(
+        model_name="OW5000",
+        district_id="123",
+        project="SNORRE",
+    )
+    .schema(LogCurve)
+    .select("log_curve_name,native_uid")
+)
 curves = list(client.execute_query(query, max_pages=1))
 
 # Fetch binary data
@@ -194,14 +202,16 @@ binary_data = client.get_bulk_data(bulk_query)
 if binary_data:
     # Decode
     decoded = decode_log_curves(binary_data)
-    
+
     print(f"Curve type: {'DEPTH' if decoded.curve_type == decoded.DEPTH else 'TIME'}")
-    print(f"Index range: {decoded.index.start_index} to {decoded.index.start_index + decoded.index.number_of_index * decoded.index.increment}")
-    
+    print(
+        f"Index range: {decoded.index.start_index} to {decoded.index.start_index + decoded.index.number_of_index * decoded.index.increment}"
+    )
+
     # Convert to dict for easier access
     data = log_curve_to_dict(decoded)
-    
-    for curve_name, curve_data in data['curves'].items():
+
+    for curve_name, curve_data in data["curves"].items():
         print(f"Curve: {curve_name}")
         print(f"  Unit: {curve_data['unit']}")
         print(f"  Values: {len(curve_data['values'])} samples")
@@ -216,11 +226,15 @@ from io import BytesIO
 from dsis_model_sdk.protobuf import decode_lgc_structure, LGCStructure_pb2
 
 # Query for grids
-query = QueryBuilder(
-    model_name="OpenWorksCommonModel",
-    district_id="123",
-    project="SNORRE",
-).schema("SurfaceGrid").select("native_uid,grid_name")
+query = (
+    QueryBuilder(
+        model_name="OpenWorksCommonModel",
+        district_id="123",
+        project="SNORRE",
+    )
+    .schema("SurfaceGrid")
+    .select("native_uid,grid_name")
+)
 grids = list(client.execute_query(query, cast=True, max_pages=1))
 
 # Fetch binary data (SurfaceGrid uses $value endpoint)
@@ -229,6 +243,7 @@ bulk_query = query.entity(grid.native_uid, data_field="$value")
 data = client.get_bulk_data(bulk_query, accept="application/octet-stream")
 
 print(f"Downloaded {len(data):,} bytes")
+
 
 # LGCStructure uses varint length prefix
 def read_varint(stream):
@@ -245,6 +260,7 @@ def read_varint(stream):
             return result
         shift += 7
 
+
 # Parse length-prefixed message
 stream = BytesIO(data)
 size = read_varint(stream)
@@ -259,15 +275,17 @@ print(f"Number of elements: {len(lgc.elements)}")
 # Process grid elements (columns/rows)
 for i, el in enumerate(lgc.elements[:5]):  # Show first 5
     data_type = LGCStructure_pb2.LGCStructure.LGCElement.DataType.Name(el.dataType)
-    
+
     if el.dataType == LGCStructure_pb2.LGCStructure.LGCElement.DataType.FLOAT:
         values = el.data_float
     elif el.dataType == LGCStructure_pb2.LGCStructure.LGCElement.DataType.DOUBLE:
         values = el.data_double
     else:
         values = []
-    
-    print(f"Element {i}: '{el.elementName}', Type: {data_type}, Values: {len(values):,}")
+
+    print(
+        f"Element {i}: '{el.elementName}', Type: {data_type}, Values: {len(values):,}"
+    )
 ```
 
 ## Important Notes
@@ -298,8 +316,8 @@ For `get_bulk_data_stream()`, the timeout is not a cap on the full download. It 
 ```python
 for chunk in client.get_bulk_data_stream(
     bulk_query,
-    timeout=(10, 30),       # fail fast if server goes silent for 30s
-    total_timeout=120,       # fail if entire stream takes > 2 minutes
+    timeout=(10, 30),  # fail fast if server goes silent for 30s
+    total_timeout=120,  # fail if entire stream takes > 2 minutes
     stream_retries=2,
 ):
     chunks.append(chunk)
@@ -359,7 +377,9 @@ Prior to version 0.5.0, there were separate `get_entity_data()` and `get_entity_
 binary_data = client.get_entity_data(horizon, schema=HorizonData3D, query=query)
 
 # v0.5.0 (deprecated):
-binary_data = client.get_bulk_data(schema=HorizonData3D, native_uid=horizon, query=query)
+binary_data = client.get_bulk_data(
+    schema=HorizonData3D, native_uid=horizon, query=query
+)
 
 # NEW (current):
 bulk_query = query.entity(horizon.native_uid)

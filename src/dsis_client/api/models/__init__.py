@@ -13,7 +13,7 @@ from .serialization import cast_results
 
 __all__ = [
     "HAS_DSIS_SCHEMAS",
-    "is_valid_schema",
-    "get_schema_by_name",
     "cast_results",
+    "get_schema_by_name",
+    "is_valid_schema",
 ]
