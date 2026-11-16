@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.2](https://github.com/equinor/dsis-python-client/compare/v1.8.1...v1.8.2) (2026-11-16)
+
+
+### Dependencies
+
+* bump databricks/setup-… ([424419b](https://github.com/equinor/dsis-python-client/commit/424419b4136f3d98c579ba46d2c039108ef6fc51))
+
 ## [1.8.1](https://github.com/equinor/dsis-python-client/compare/v1.8.0...v1.8.1) (2026-10-12)
 
 
